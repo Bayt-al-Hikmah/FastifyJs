@@ -43,7 +43,7 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('@fastify/view''), {
+  fastify.register(require('@fastify/view'), {
     engine: { handlebars: require('handlebars') },
     templates: path.join(__dirname, '../views'),
     includeViewExtension: true
@@ -345,7 +345,7 @@ const handlebars = require('handlebars')
 
 module.exports = fp(async (fastify, opts) => {
   handlebars.registerHelper('eq', (a, b) => a === b)
-  fastify.register(require('@fastify/view''), {
+  fastify.register(require('@fastify/view'), {
     engine: { handlebars },
     templates: path.join(__dirname, '../views'),
     includeViewExtension: true
