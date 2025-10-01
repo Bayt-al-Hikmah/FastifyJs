@@ -1,0 +1,1072 @@
+## Objectives
+
+- Implement user **registration, login, and logout** functionality using Fastify’s session management.
+- Build a simple wiki app where users can create and view pages.
+- Handle **rich text** input safely using Markdown, processed server-side.
+- Allow users to **upload files** (like avatars) and manage them securely.
+- Explore the evolution of CSS styling, from component classes to **utility-first frameworks** like Tailwind CSS.
+
+## User Authentication
+
+Authentication is the cornerstone of any multi-user application, enabling users to register, log in, and log out securely. In this workshop, we’ll simulate a user database with a JavaScript object and use Fastify’s session management to track logged-in users`.
+
+### Simulating Our Database
+
+We’ll use an in-memory object to store user and page data, simulating a database for simplicity. In a production environment, we’d replace this with a proper database like MongoDB or PostgreSQL.
+
+**`data.js`:**
+
+```javascript
+module.exports = {
+  users: {}, // e.g., { username: { password: 'password123', avatar: null } }
+  pages: {}  // e.g., { HomePage: { content: 'Welcome!', author: 'admin' } }
+}
+```
+
+### Fastify Session Management
+
+To track user sessions, we’ll use the `@fastify/cookie` and `@fastify/session` plugins, which provide secure session handling . Fastify signs session cookies with a secret key to prevent tampering, ensuring security.
+
+We’ll also use `fastify-flash` to display temporary messages (e.g., “Login successful!”).
+
+### Setting Up Authentication
+
+Let’s set up the environment, configure session management, and create routes for registration, login, and logout. We’ll organize our code using Fastify’s plugin system for modularity.
+
+**Install Dependencies**  
+We install Fastify and the necessary plugins:
+
+```bash
+npm install fastify @fastify/cookie @fastify/session fastify-flash fastify-static fastify-point-of-view handlebars fastify-formbody
+```
+
+**Configure Session and Flash Plugins**  
+We create a plugin to manage sessions and flash messages, ensuring secure cookie handling.
+
+**`plugins/session.js`:**
+
+```javascript
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('@fastify/cookie'))
+  fastify.register(require('@fastify/session'), {
+    secret: 'your-super-secret-key-that-no-one-knows',
+    cookie: { secure: false } // Set secure: true in production with HTTPS
+  })
+  fastify.register(require('fastify-flash'))
+})
+```
+
+**Configure Templating**  
+We use `fastify-point-of-view` with Handlebars to render HTML templates.  
+
+**`plugins/templates.js`:**
+
+```javascript
+const fp = require('fastify-plugin')
+const path = require('path')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('fastify-point-of-view'), {
+    engine: { handlebars: require('handlebars') },
+    templates: path.join(__dirname, '../views'),
+    includeViewExtension: true
+  })
+})
+```
+
+**Serve Static Files**  
+We serve CSS and avatar images using `fastify-static`.
+
+**`plugins/static.js`:**
+
+```javascript
+const fp = require('fastify-plugin')
+const path = require('path')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('fastify-static'), {
+    root: path.join(__dirname, '../public'),
+    prefix: '/static/'
+  })
+})
+```
+
+**Create Authentication Routes**  
+We define routes for registration, login, and logout in a plugin, using Handlebars templates for the front-end.
+
+**`routes/auth.js`:**
+
+```javascript
+const db = require('../data')
+
+module.exports = async (fastify, opts) => {
+  fastify.register(require('fastify-formbody'))
+
+  fastify.get('/register', async (request, reply) => {
+    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+  })
+
+  fastify.post('/register', async (request, reply) => {
+    const { username, password } = request.body
+
+    if (db.users[username]) {
+      request.flash('danger', 'Username already exists!')
+      return reply.redirect('/register')
+    }
+
+    db.users[username] = { password, avatar: null }
+    request.flash('success', 'Registration successful! Please log in.')
+    return reply.redirect('/login')
+  })
+
+  fastify.get('/login', async (request, reply) => {
+    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+  })
+
+  fastify.post('/login', async (request, reply) => {
+    const { username, password } = request.body
+    const user = db.users[username]
+
+    if (user && user.password === password) {
+      request.session.set('username', username)
+      request.flash('success', 'Login successful!')
+      return reply.redirect('/home')
+    } else {
+      request.flash('danger', 'Invalid username or password.')
+      return reply.redirect('/login')
+    }
+  })
+
+  fastify.get('/logout', async (request, reply) => {
+    await request.session.destroy()
+    request.flash('info', 'You have been logged out.')
+    return reply.redirect('/login')
+  })
+}
+```
+
+**Create Templates**  
+We create Handlebars templates for registration and login.
+
+**`views/partials/_layout.hbs`:**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyApp</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/home">MyApp</a>
+      <nav class="main-nav">
+        {{#if session.username}}
+          <span class="greet">Hello, {{session.username}}</span>
+          <a href="/logout" class="nav-link">Logout</a>
+        {{else}}
+          <a href="/login" class="nav-link">Login</a>
+          <a href="/register" class="nav-link">Register</a>
+        {{/if}}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {{#if messages}}
+      <div class="flash-wrapper">
+        {{#each messages}}
+          <div class="flash flash-{{this.category}}">
+            <span class="flash-message">{{this.message}}</span>
+            <button class="flash-dismiss" onclick="this.parentElement.style.display='none'">×</button>
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+
+    <section class="content">
+      {{{content}}}
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>&copy; 2025 MyApp</small>
+    </div>
+  </footer>
+</body>
+</html>
+```
+
+**`views/register.hbs`:**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Create an account</h1>
+<form method="POST" class="form-card">
+  <label for="username">Username</label>
+  <input id="username" name="username" type="text" required>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" required>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Register</button>
+    <a href="/login" class="btn btn-link">Already have an account?</a>
+  </div>
+</form>
+```
+
+**`views/login.hbs`:**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Log in</h1>
+<form method="POST" class="form-card">
+  <label for="username">Username</label>
+  <input id="username" name="username" type="text" required>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" required>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-success">Login</button>
+    <a href="/register" class="btn btn-link">Create account</a>
+  </div>
+</form>
+```
+
+**Add CSS**  
+We reuse the provided CSS, ensuring a consistent look.
+
+**`public/css/style.css`:**
+
+```css
+/* Basic reset */
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+
+:root {
+  --container-width: 900px;
+  --accent: #2b7cff;
+  --muted: #6b7280;
+  --bg: #f7f8fb;
+  --card: #ffffff;
+  --danger: #ef4444;
+  --success: #16a34a;
+  --info: #0ea5e9;
+}
+
+/* Layout */
+body {
+  background: var(--bg);
+  color: #111827;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: 92%;
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+/* Header */
+.site-header {
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.06);
+  border-bottom: 1px solid rgba(16,24,40,0.04);
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 1.1rem;
+}
+
+.main-nav { display: flex; gap: 12px; align-items: center; }
+.nav-link { text-decoration: none; color: var(--muted); font-size: 0.95rem; padding: 6px 8px; border-radius: 6px; }
+.nav-link:hover { background: rgba(43,124,255,0.06); color: var(--accent); }
+
+.greet { color: var(--muted); font-size: 0.95rem; margin-right: 8px; }
+
+/* Flash messages */
+.flash-wrapper { margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+.flash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  background: #fff;
+  border: 1px solid rgba(16,24,40,0.04);
+}
+.flash-message { flex: 1; margin-right: 8px; font-size: 0.95rem; }
+.flash-dismiss {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+/* Flash color variants */
+.flash-success { border-color: rgba(22,163,74,0.15); background: rgba(22,163,74,0.05); color: #064e2b; }
+.flash-danger { border-color: rgba(239,68,68,0.15); background: rgba(239,68,68,0.05); color: #4c0505; }
+.flash-info { border-color: rgba(14,165,233,0.15); background: rgba(14,165,233,0.05); color: #063045; }
+
+/* Content */
+.page-title { font-size: 1.4rem; margin-bottom: 12px; color: #111827; }
+.content { margin-top: 6px; }
+
+/* Form card */
+.form-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid rgba(16,24,40,0.04);
+  max-width: 520px;
+}
+.form-card label { font-size: 0.9rem; color: var(--muted); }
+.form-card input[type="text"],
+.form-card input[type="password"],
+.form-card input[type="email"],
+.form-card textarea {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(16,24,40,0.08);
+  font-size: 1rem;
+  width: 100%;
+  background: #fff;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 9px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn-primary { background: var(--accent); color: white; border-color: rgba(43,124,255,0.1); }
+.btn-success { background: var(--success); color: white; border-color: rgba(22,163,74,0.08); }
+.btn-link { background: transparent; color: var(--muted); text-decoration: none; padding-left: 8px; }
+.form-actions { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+
+/* Card */
+.card {
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid rgba(16,24,40,0.04);
+}
+
+/* Footer */
+.site-footer {
+  margin-top: auto;
+  padding: 18px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+```
+
+**Bootstrap the Application**  
+We tie everything together in `app.js`.
+
+**`app.js`:**
+
+```javascript
+const fastify = require('fastify')({ logger: true })
+const path = require('path')
+
+fastify.register(require('./plugins/templates'))
+fastify.register(require('./plugins/static'))
+fastify.register(require('./plugins/session'))
+fastify.register(require('./routes/auth'), { prefix: '/' })
+
+fastify.get('/home', async (request, reply) => {
+  return reply.view('home')
+})
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 })
+    console.log('Server running at http://127.0.0.1:3000')
+  } catch (err) {
+    fastify.log.error(err)
+    process.exit(1)
+  }
+}
+start()
+```
+
+**`views/home.hbs`:**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Welcome to MyApp</h1>
+<p>Create and view wiki pages!</p>
+```
+
+We run `node app.js`, visit `http://127.0.0.1:3000/register`, create a user, log in at `/login`, and log out at `/logout`. Flash messages provide feedback, and the session persists the username across requests.
+
+**Explanation**: Fastify’s session management (`@fastify/session`) , using signed cookies for security. The `fastify-flash` plugin , storing messages in the session for one-time display. Handlebars templates replace Jinja2, maintaining a similar structure but using Fastify’s plugin-based routing for modularity.
+
+## Rich Text and Pages
+
+Our wiki application needs to support rich text for formatted content, such as headings, bold text, and lists. To handle this securely, we’ll use Markdown, processed server-side into HTML.
+
+### Using Markdown
+
+We use the `markdown-it` library to convert Markdown to HTML, ensuring safe rendering without allowing raw HTML input, which could introduce security risks like XSS (cross-site scripting).
+
+**Install `markdown-it`**
+
+```bash
+npm install markdown-it
+```
+
+**Create Wiki Routes**  
+We create a plugin for wiki page routes, handling page viewing and creation.
+
+**`routes/wiki.js`:**
+
+```javascript
+const db = require('../data')
+const MarkdownIt = require('markdown-it')
+const md = new MarkdownIt({ html: false, breaks: true })
+
+module.exports = async (fastify, opts) => {
+  fastify.register(require('fastify-formbody'))
+
+  fastify.get('/wiki/:page_name', async (request, reply) => {
+    const { page_name } = request.params
+    const page = db.pages[page_name]
+    if (!page) {
+      return reply.view('404', { messages: request.flash('danger') })
+    }
+    page.html_content = md.render(page.content)
+    return reply.view('wiki_page', { page, page_name })
+  })
+
+  fastify.get('/create', async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to create a page.')
+      return reply.redirect('/login')
+    }
+    return reply.view('create_page', { messages: request.flash('danger') })
+  })
+
+  fastify.post('/create', async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to create a page.')
+      return reply.redirect('/login')
+    }
+    const { title, content } = request.body
+    db.pages[title] = { content, author: request.session.get('username') }
+    return reply.redirect(`/wiki/${title}`)
+  })
+}
+```
+
+**Create Wiki Templates**  
+We create templates for viewing and creating wiki pages, using Handlebars’ `{{{content}}}` to safely render HTML from Markdown.
+
+**`views/wiki_page.hbs`:**
+
+```html
+{{> _layout}}
+<h1>{{page_name}}</h1>
+<p><em>By: {{page.author}}</em></p>
+<hr>
+<div>
+  {{{page.html_content}}}
+</div>
+```
+
+**`views/create_page.hbs`:**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Create a Wiki Page</h1>
+<form method="POST" class="form-card">
+  <label for="title">Page Title</label>
+  <input id="title" name="title" type="text" required>
+  <label for="content">Content (Markdown supported)</label>
+  <textarea id="content" name="content" rows="12" placeholder="# Heading
+Write your text here...
+- bullet list
+**bold text**
+*italic text*"></textarea>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Page</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px;">
+  <h3>Markdown Quick Reference</h3>
+  <ul>
+    <li><code># Heading</code> → Heading</li>
+    <li><code>**bold**</code> → <strong>bold</strong></li>
+    <li><code>*italic*</code> → <em>italic</em></li>
+    <li><code>- Item</code> → bullet list</li>
+    <li><code>[Link](https://example.com)</code> → link</li>
+  </ul>
+</div>
+```
+
+**Create 404 Template**  
+**`views/404.hbs`:**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Page Not Found</h1>
+<p>The requested page does not exist.</p>
+```
+
+**Register the Wiki Plugin**  
+We update `app.js` to include the wiki routes.
+
+**`app.js` (updated snippet):**
+
+```javascript
+fastify.register(require('./routes/wiki'), { prefix: '/' })
+```
+
+We visit `http://127.0.0.1:3000/create` (after logging in), create a page with Markdown content, and view it at `/wiki/PageName`. If the page doesn’t exist, we see a 404 page.
+
+**Explanation**: The `markdown-it` library  render Markdown to HTML securely. Fastify’s template rendering with Handlebars (`{{{page.html_content}}}`), ensuring safe HTML output. The routes are encapsulated in a plugin, maintaining Fastify’s modular structure.
+
+### Using Quill.js with Fastify
+
+To provide an intuitive way for users to create rich text content for our wiki pages, we’ll integrate Quill.js, a lightweight and customizable WYSIWYG editor. Quill.js allows users to format text with headings, bold, italic, lists, and more directly in the browser, offering a modern and user-friendly editing experience. We’ll implement Quill.js as a Fastify plugin, encapsulating its configuration and assets for modularity and seamless integration with our application. The editor will generate HTML content, which we’ll store and render securely, ensuring a smooth experience for users without requiring them to learn any syntax.
+
+**Install Quill.js**  
+We install Quill.js via npm to serve its assets locally, ensuring control over the editor’s resources and enabling offline development.
+
+```bash
+npm install quill
+```
+
+**Create a Quill.js Plugin**  
+We create a Fastify plugin to serve Quill.js’s static assets (CSS and JavaScript) and provide a reusable configuration for the editor’s toolbar and features. This approach aligns with Fastify’s plugin-based architecture, keeping our setup modular and maintainable.
+
+**`plugins/quill.js`:**
+
+```javascript
+const fp = require('fastify-plugin')
+const path = require('path')
+
+module.exports = fp(async (fastify, opts) => {
+  // Serve Quill.js static assets
+  fastify.register(require('fastify-static'), {
+    root: path.join(__dirname, '../../node_modules/quill/dist'),
+    prefix: '/quill/',
+    decorateReply: false // Avoid conflicts with other static routes
+  })
+
+  // Decorate Fastify with Quill configuration
+  fastify.decorate('quillConfig', {
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        ['link', 'blockquote'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        ['clean']
+      ]
+    },
+    theme: 'snow'
+  })
+})
+```
+
+This plugin serves Quill.js’s assets (e.g., `quill.snow.css` and `quill.js`) under the `/quill/` prefix and decorates Fastify with a `quillConfig` object. The configuration defines a toolbar with essential formatting options like headings, bold, italic, links, lists, and indent controls, using the ‘snow’ theme for a clean, modern look.
+
+**Update Wiki Routes with Validation**  
+We update our wiki routes to include JSON Schema validation for the page creation form, ensuring that the title and content meet our requirements. The `create` route passes the Quill.js configuration to the template for editor initialization.
+
+**`routes/wiki.js` (updated):**
+
+```javascript
+const db = require('../data')
+
+module.exports = async (fastify, opts) => {
+  fastify.register(require('fastify-formbody'))
+
+  const createSchema = {
+    body: {
+      type: 'object',
+      required: ['title', 'content'],
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 50 },
+        content: { type: 'string', minLength: 1 }
+      }
+    }
+  }
+
+  fastify.get('/wiki/:page_name', async (request, reply) => {
+    const { page_name } = request.params
+    const page = db.pages[page_name]
+    if (!page) {
+      return reply.view('404', { messages: request.flash('danger') })
+    }
+    return reply.view('wiki_page', { page, page_name })
+  })
+
+  fastify.get('/create', async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to create a page.')
+      return reply.redirect('/login')
+    }
+    return reply.view('create_page', { 
+      messages: request.flash('danger'), 
+      quillConfig: fastify.quillConfig 
+    })
+  })
+
+  fastify.post('/create', { schema: createSchema }, async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to create a page.')
+      return reply.redirect('/login')
+    }
+    const { title, content } = request.body
+    db.pages[title] = { content, author: request.session.get('username') }
+    return reply.redirect(`/wiki/${title}`)
+  })
+}
+```
+
+The `create` route checks for a logged-in user and passes the `quillConfig` to the template, while the JSON Schema ensures valid form submissions.
+
+**Update Create Page Template with Quill.js**  
+We modify the `create_page.hbs` template to load Quill.js from our plugin’s static route and initialize it with the provided configuration. We also add a hidden input to capture the editor’s HTML content, as Quill.js stores content in a div, not a textarea.
+
+**`views/create_page.hbs` (updated):**
+
+```html
+{{> _layout}}
+<h1 class="page-title">Create a Wiki Page</h1>
+<form method="POST" class="form-card" id="create-page-form">
+  <label for="title">Page Title</label>
+  <input id="title" name="title" type="text" required>
+  <label for="content">Content</label>
+  <div id="editor" style="min-height: 200px;"></div>
+  <input type="hidden" name="content" id="content">
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Page</button>
+  </div>
+</form>
+
+<!-- Load Quill.js styles and script -->
+<link href="/quill/quill.snow.css" rel="stylesheet">
+<script src="/quill/quill.js"></script>
+<script>
+  const quill = new Quill('#editor', {{json quillConfig}});
+  const form = document.querySelector('#create-page-form');
+  form.onsubmit = function() {
+    const content = document.querySelector('#content');
+    content.value = quill.root.innerHTML; // Capture editor content
+  };
+</script>
+```
+
+The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{json quillConfig}}` helper serializes the configuration to JSON for initialization.
+
+**Update CSS for Quill.js Editor**  
+We add minimal CSS to ensure the Quill editor integrates smoothly with our app’s styling.
+
+**`public/css/style.css` (updated snippet):**
+
+```css
+#editor {
+  background: #fff;
+  border: 1px solid rgba(16,24,40,0.08);
+  border-radius: 8px;
+  font-size: 1rem;
+}
+#editor .ql-container {
+  min-height: 200px;
+}
+```
+
+This ensures the editor matches our app’s aesthetic, with a consistent border and font size.
+
+**Register the Quill.js Plugin**  
+We ensure the Quill.js plugin is registered in our main application file to make its assets and configuration available.
+
+**`app.js` (updated snippet):**
+
+```javascript
+fastify.register(require('./plugins/quill'))
+```
+
+We visit `/create` after logging in, and Quill.js appears as a rich text editor in the form. We format content with headings, bold text, lists, or links, then submit the form. The generated HTML is stored in our in-memory database and displayed at `/wiki/PageName`. If we submit an invalid form (e.g., empty title), a flash message appears, and we’re redirected back to the form.
+
+**Explanation**: Quill.js, served through our Fastify plugin, provides a lightweight and customizable WYSIWYG editor that generates HTML content directly, making it intuitive for users to create formatted wiki pages. The plugin encapsulates Quill’s assets and configuration, ensuring modularity and reusability across routes. JSON Schema validation on the server side ensures that submitted content meets our requirements, while the error handler provides clear feedback via flash messages. The hidden input captures the editor’s HTML, seamlessly integrating with our form submission process. This setup leverages Fastify’s plugin system for a clean, scalable integration of the rich text editor, optimized for performance and ease of use.
+## File Uploads
+
+Allowing users to upload avatars enhances personalization but requires secure handling. We’ll configure Fastify to accept image uploads, validate file types, and store them safely.
+
+### Setting Up File Uploads
+
+We configure a directory for avatars and define allowed file extensions.
+
+**Install `fastify-multipart`**
+
+```bash
+npm install fastify-multipart
+```
+
+**Create File Upload Plugin**  
+We create a plugin to handle file uploads.
+
+**`plugins/multipart.js`:**
+
+```javascript
+const fp = require('fastify-plugin')
+const path = require('path')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('fastify-multipart'), {
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  })
+})
+```
+
+**Configure Upload Settings**  
+We define constants in `app.js` and ensure the `public/avatars` directory exists.
+
+**`app.js` (updated snippet):**
+
+```javascript
+const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
+const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
+
+if (!fs.existsSync(UPLOAD_FOLDER)) {
+  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
+}
+
+fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
+fastify.decorate('allowedFile', filename => {
+  if (!filename.includes('.')) return false
+  const ext = filename.split('.').pop().toLowerCase()
+  return ALLOWED_EXTENSIONS.has(ext)
+})
+```
+
+**Create Profile Route**  
+We add a profile route to handle avatar uploads.
+
+**`routes/profile.js`:**
+
+```javascript
+const db = require('../data')
+const path = require('path')
+
+module.exports = async (fastify, opts) => {
+  fastify.get('/profile', async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to view your profile.')
+      return reply.redirect('/login')
+    }
+    const user = db.users[request.session.get('username')]
+    return reply.view('profile', { user, messages: request.flash('danger') || request.flash('success') })
+  })
+
+  fastify.post('/profile', async (request, reply) => {
+    if (!request.session.get('username')) {
+      request.flash('danger', 'You must be logged in to upload an avatar.')
+      return reply.redirect('/login')
+    }
+
+    const data = await request.file()
+    if (!data) {
+      request.flash('danger', 'No file selected.')
+      return reply.redirect('/profile')
+    }
+
+    if (!fastify.allowedFile(data.filename)) {
+      request.flash('danger', 'Invalid file type. Allowed: png, jpg, jpeg, gif.')
+      return reply.redirect('/profile')
+    }
+
+    const filename = `${Date.now()}_${data.filename}`
+    const filepath = path.join(fastify.UPLOAD_FOLDER, filename)
+    await data.toFile(filepath)
+    db.users[request.session.get('username')].avatar = filename
+    request.flash('success', 'Avatar updated!')
+    return reply.redirect('/profile')
+  })
+}
+```
+
+**Create Profile Template**  
+**`views/profile.hbs`:**
+
+```html
+{{> _layout}}
+<div class="container">
+  <h1 class="page-title">Welcome, {{user.username}}</h1>
+  <div class="avatar-section">
+    {{#if user.avatar}}
+      <img src="/static/avatars/{{user.avatar}}" alt="User Avatar" class="avatar">
+    {{else}}
+      <p>No avatar uploaded yet.</p>
+    {{/if}}
+  </div>
+  <form action="/profile" method="POST" enctype="multipart/form-data" class="form-card">
+    <label for="avatar">Upload new avatar:</label>
+    <input type="file" id="avatar" name="avatar" accept="image/*" required>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </form>
+</div>
+```
+
+**Update CSS for Avatars**  
+**`public/css/style.css` (updated snippet):**
+
+```css
+.avatar-section { margin: 20px 0; }
+.avatar { max-width: 150px; border-radius: 10px; }
+```
+
+**Register Profile Plugin and Ensure Directory**  
+We update `app.js` and create the `public/avatars` directory.
+
+**`app.js` (updated):**
+
+```javascript
+const fastify = require('fastify')({ logger: true })
+const path = require('path')
+const fs = require('fs')
+
+const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
+const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
+
+if (!fs.existsSync(UPLOAD_FOLDER)) {
+  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
+}
+
+fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
+fastify.decorate('allowedFile', filename => {
+  if (!filename.includes('.')) return false
+  const ext = filename.split('.').pop().toLowerCase()
+  return ALLOWED_EXTENSIONS.has(ext)
+})
+
+fastify.setErrorHandler((error, request, reply) => {
+  if (error.validation) {
+    request.flash('danger', error.validation.map(e => e.message).join(', '))
+    return reply.redirect('/create')
+  }
+  reply.send(error)
+})
+
+fastify.register(require('./plugins/templates'))
+fastify.register(require('./plugins/static'))
+fastify.register(require('./plugins/session'))
+fastify.register(require('./plugins/multipart'))
+fastify.register(require('./routes/auth'), { prefix: '/' })
+fastify.register(require('./routes/wiki'), { prefix: '/' })
+fastify.register(require('./routes/profile'), { prefix: '/' })
+
+fastify.get('/home', async (request, reply) => {
+  return reply.view('home')
+})
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 })
+    console.log('Server running at http://127.0.0.1:3000')
+  } catch (err) {
+    fastify.log.error(err)
+    process.exit(1)
+  }
+}
+start()
+```
+
+We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
+
+**Explanation**: Fastify’s `fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.
+
+## A Journey Through CSS Styling
+
+Styling is crucial for an appealing user interface. Let’s explore the evolution of CSS, from component classes to utility-first frameworks.
+
+### Act I: The Specific Approach (Class-per-Element)
+
+Initially, we might style each element with a specific class, like `.login-page-button`. This approach is intuitive but leads to duplication.
+
+**Example CSS (not used in our app):**
+
+```css
+.login-page-button {
+  background-color: blue;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+}
+```
+
+**HTML:**
+
+```html
+<button class="login-page-button">Login</button>
+```
+
+**Problem**: Reusing styles for a register button requires duplicating the CSS, violating the DRY principle.
+
+**Explanation**: This approach is rigid and hard to maintain, as changes require updating multiple classes. Our app avoids this by using reusable styles in `style.css`.
+
+### Act II: The Reusable Component (Shared Classes)
+
+To improve, we create reusable component classes, like `.btn` and `.btn-primary`, similar to Bootstrap’s approach.
+
+**Our `style.css` (already implemented):**
+
+```css
+.btn {
+  padding: 9px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: rgba(43,124,255,0.1);
+}
+```
+
+**HTML in Templates:**
+
+```html
+<button class="btn btn-primary">Register</button>
+```
+
+**Explanation**: Our app uses this approach, defining `.btn` for shared button styles and `.btn-primary` for specific colors. This reduces duplication and simplifies updates, aligning with Fastify’s modular philosophy.
+
+### Act III: The Utility-First Revolution
+
+Utility-first frameworks like Tailwind CSS take reusability further by providing single-purpose classes (e.g., `bg-blue-500`, `p-4`). While our app uses component classes for simplicity, we can demonstrate Tailwind’s approach.
+
+**Example with Tailwind (hypothetical):**
+
+```html
+<button class="bg-blue-500 text-white p-4 rounded-md">Register</button>
+```
+
+**Explanation**: Tailwind’s utility classes build styles directly in HTML, reducing CSS boilerplate. Our app’s component-based CSS is sufficient for now, but Tailwind could be integrated by including its CDN or build process, offering flexibility for larger projects.
+
+## Putting It All Together
+
+Our project now reflects Fastify’s modular structure, with plugins for sessions, templating, static files, file uploads, and routes.
+
+**Final Structure:**
+
+```
+my_fastify_project/
+├── data.js
+├── plugins/
+│   ├── session.js
+│   ├── templates.js
+│   ├── static.js
+│   ├── multipart.js
+├── routes/
+│   ├── auth.js
+│   ├── wiki.js
+│   ├── profile.js
+├── public/
+│   ├── css/
+│   │   └── style.css
+│   ├── avatars/
+├── views/
+│   ├── partials/
+│   │   ├── _layout.hbs
+│   ├── home.hbs
+│   ├── register.hbs
+│   ├── login.hbs
+│   ├── wiki_page.hbs
+│   ├── create_page.hbs
+│   ├── profile.hbs
+│   ├── 404.hbs
+├── node_modules/
+├── package.json
+└── app.js
+```
+
+**Complete `app.js`:**
+
+```javascript
+const fastify = require('fastify')({ logger: true })
+const path = require('path')
+const fs = require('fs')
+
+const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
+const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
+
+if (!fs.existsSync(UPLOAD_FOLDER)) {
+  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
+}
+
+fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
+fastify.decorate('allowedFile', filename => {
+  if (!filename.includes('.')) return false
+  const ext = filename.split('.').pop().toLowerCase()
+  return ALLOWED_EXTENSIONS.has(ext)
+})
+
+fastify.setErrorHandler((error, request, reply) => {
+  if (error.validation) {
+    request.flash('danger', error.validation.map(e => e.message).join(', '))
+    return reply.redirect('/create')
+  }
+  reply.send(error)
+})
+
+fastify.register(require('./plugins/templates'))
+fastify.register(require('./plugins/static'))
+fastify.register(require('./plugins/session'))
+fastify.register(require('./plugins/multipart'))
+fastify.register(require('./routes/auth'), { prefix: '/' })
+fastify.register(require('./routes/wiki'), { prefix: '/' })
+fastify.register(require('./routes/profile'), { prefix: '/' })
+
+fastify.get('/home', async (request, reply) => {
+  return reply.view('home')
+})
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 })
+    console.log('Server running at http://127.0.0.1:3000')
+  } catch (err) {
+    fastify.log.error(err)
+    process.exit(1)
+  }
+}
+start()
+```
+
