@@ -406,8 +406,8 @@ views/
 
 ```html
 <nav>
-    <a href="/">Home</a> |
-    <a href="/profile/alice">Profile</a> |
+    <a href="/">Home</a> 
+    <a href="/profile/alice">Profile</a> 
     <a href="/contact">Contact</a>
 </nav>
 ```
