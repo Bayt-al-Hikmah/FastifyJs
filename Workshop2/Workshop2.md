@@ -24,13 +24,13 @@ my_fastify_project/
 
 ### Using Handlebars with Fastify
 
-We’ll use the `fastify-point-of-view` plugin to integrate Handlebars, a lightweight templating engine, with Fastify. This plugin allows us to render `.hbs` files as HTML responses. Let’s set it up and create a homepage.
+We’ll use the `@fastify/view` plugin to integrate Handlebars, a lightweight templating engine, with Fastify. This plugin allows us to render `.hbs` files as HTML responses. Let’s set it up and create a homepage.
 
 **Install Dependencies**  
 We start by installing the necessary packages:
 
 ```bash
-npm install fastify fastify-point-of-view handlebars
+npm install fastify @fastify/view handlebars
 ```
 
 **Configure Handlebars**  
@@ -43,7 +43,7 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-point-of-view'), {
+  fastify.register(require('@fastify/view''), {
     engine: { handlebars: require('handlebars') },
     templates: path.join(__dirname, '../views'),
     includeViewExtension: true
@@ -108,7 +108,7 @@ start()
 
 We run `node app.js` and visit `http://127.0.0.1:3000` in our browser. The page displays a heading and paragraph, rendered as HTML from the `index.hbs` template.
 
-**Explanation**: By encapsulating the templating logic in a plugin, we keep `app.js` lean and focused. The `fastify-point-of-view` plugin processes the template into HTML, delivering a clean user experience while maintaining Fastify’s modular structure.
+**Explanation**: By encapsulating the templating logic in a plugin, we keep `app.js` lean and focused. The `@fastify/view` plugin processes the template into HTML, delivering a clean user experience while maintaining Fastify’s modular structure.
 
 ## Working with Static Files
 
@@ -230,7 +230,7 @@ We run the app and refresh `http://127.0.0.1:3000`. Assuming `logo.png` exists i
 
 ## Introduction to Handlebars Templating
 
-Handlebars, integrated via `fastify-point-of-view`, enables dynamic content in our templates. We use:
+Handlebars, integrated via `@fastify/view`, enables dynamic content in our templates. We use:
 
 - **Expressions** (`{{variable}}`): To display variables or computed values.
 - **Block Helpers** (`{{#if}}`, `{{#each}}`): For conditionals and loops.
@@ -345,7 +345,7 @@ const handlebars = require('handlebars')
 
 module.exports = fp(async (fastify, opts) => {
   handlebars.registerHelper('eq', (a, b) => a === b)
-  fastify.register(require('fastify-point-of-view'), {
+  fastify.register(require('@fastify/view''), {
     engine: { handlebars },
     templates: path.join(__dirname, '../views'),
     includeViewExtension: true
