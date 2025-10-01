@@ -451,7 +451,19 @@ module.exports = fp(async (fastify, opts) => {
   fastify.register(require('fastify-formbody'))
 })
 ```
+When an HTML form is submitted with the default encoding (application/x-www-form-urlencoded), the browser sends data like:
+```
+name=Alice&message=Hello
+```
 
+Without fastify-formbody, Fastify does not parse this format.  
+This plugin automatically parses the URL-encoded body and makes it available as a JavaScript object on request.body.  
+So after enabling it, you can safely do:
+```
+const { name, message } = request.body
+```
+
+and get ``{ name: 'Alice', message: 'Hello' }``.  
 **Create a Contact Route**  
 **`routes/contact.js`:**
 
