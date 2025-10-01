@@ -25,6 +25,30 @@ my_fastify_project/
 ### Using Handlebars with Fastify
 
 We’ll use the `@fastify/view` plugin to integrate Handlebars, a lightweight templating engine, with Fastify. This plugin allows us to render `.hbs` files as HTML responses. Let’s set it up and create a homepage.
+#### What is Handlebars?
+Handlebars is a popular templating engine for JavaScript.  
+It lets you write HTML with embedded placeholders ({{ }}) that get replaced with real data when the page is rendered.  
+For example, in a template:
+
+``<h1>Hello, {{name}}!</h1>``
+
+
+If you render it with { name: "Alice" }, the output will be:
+
+``<h1>Hello, Alice!</h1>``
+
+
+Handlebars also supports:
+
+- Conditionals ({{#if}} ... {{/if}})
+
+- Loops ({{#each}} ... {{/each}})
+
+- Partials (reusable templates like headers/footers)
+
+- Layout structures (shared design for multiple pages)
+
+This makes it great for building dynamic HTML views while keeping code clean and maintainable.  
 
 **Install Dependencies**  
 We start by installing the necessary packages:
