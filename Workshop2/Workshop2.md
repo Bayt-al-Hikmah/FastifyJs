@@ -513,7 +513,7 @@ For robust form handling, we use Fastify’s JSON Schema for validation and `fas
 **Install Additional Plugins**
 
 ```bash
-npm install fastify-csrf-protection @fastify/cookie
+npm install @fastify/csrf-protection @fastify/cookie
 ```
 
 **Create a CSRF Plugin**  
@@ -524,7 +524,7 @@ const fp = require('fastify-plugin')
 
 module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/cookie'))
-  fastify.register(require('fastify-csrf-protection'))
+  fastify.register(require('@fastify/csrf-protection'))
 })
 ```
 
