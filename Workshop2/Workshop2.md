@@ -294,7 +294,7 @@ module.exports = async (fastify, opts) => {
 fastify.register(require('./routes/profile'), { prefix: '/' })
 ```
 
-**Try It Out**: We visit `http://127.0.0.1:3000/profile/alice`. The page shows Alice’s name, bio, and a list of shopping items, or a message if the list is empty.
+We visit `http://127.0.0.1:3000/profile/alice`. The page shows Alice’s name, bio, and a list of shopping items, or a message if the list is empty.
 
 **Explanation**: The route passes a user object to the template, where `{{user.username}}` displays the name, and `{{#if}}` and `{{#each}}` handle conditional logic and iteration, Handlebars relies on helpers or JavaScript properties (e.g., `length`). We keep logic in the route, ensuring the template remains simple and focused on presentation.
 
@@ -698,14 +698,3 @@ const start = async () => {
 start()
 ```
 
-## Wrapping Up
-
-We’ve successfully built a dynamic web application with Fastify, leveraging its plugin-based architecture for modularity and performance. We’ve learned to:
-
-- Render HTML templates with Handlebars, to deliver rich user interfaces.
-- Serve static files using `fastify-static`, ensuring portability.
-- Create dynamic content with Handlebars’ expressions, conditionals, and loops.
-- Use partials for reusable layouts.
-- Handle forms securely with manual processing and JSON Schema validation with Fastify’s native tools and CSRF protection.
-
-This modular setup, with plugins and organized routes, makes our application easy to maintain and extend. We can now add more features, such as user authentication or additional routes, while keeping our codebase clean and performant. Fastify’s lightweight, high-performance design makes it an excellent choice for modern web applications. Let’s continue exploring its ecosystem to build even more robust solutions!
