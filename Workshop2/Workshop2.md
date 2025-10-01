@@ -30,19 +30,23 @@ Handlebars is a popular templating engine for JavaScript.
 It lets you write HTML with embedded placeholders ({{ }}) that get replaced with real data when the page is rendered.  
 For example, in a template:
 
-``<h1>Hello, {{name}}!</h1>``
+```
+<h1>Hello, {{name}}!</h1>
+```
 
 
-If you render it with { name: "Alice" }, the output will be:
+If you render it with ``{ name: "Alice" }``, the output will be:
 
-``<h1>Hello, Alice!</h1>``
+```
+<h1>Hello, Alice!</h1>
+```
 
 
 Handlebars also supports:
 
-- Conditionals ({{#if}} ... {{/if}})
+- Conditionals (``{{#if}} ... {{/if}}``)
 
-- Loops ({{#each}} ... {{/each}})
+- Loops (``{{#each}} ... {{/each}}``)
 
 - Partials (reusable templates like headers/footers)
 
