@@ -553,6 +553,8 @@ module.exports = fp(async (fastify, opts) => {
 })
 
 ```
+**Wiki route**  
+Now we defines the routes for viewing and creating wiki pages.
 **`routes/wiki.js`:**
 
 ```javascript
