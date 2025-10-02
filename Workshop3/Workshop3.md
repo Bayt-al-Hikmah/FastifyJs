@@ -12,17 +12,31 @@ Authentication is the cornerstone of any multi-user application, enabling users 
 
 ### Simulating Our Database
 
-We’ll use an in-memory object to store user and page data, simulating a database for simplicity. In a production environment, we’d replace this with a proper database like MongoDB or PostgreSQL.
+For simplicity, we'll start by simulating a database using an in-memory JavaScript object to hold user and page data. (In a production application, this would be replaced by a robust solution like MongoDB or PostgreSQL.) We'll initialize this object within a Fastify plugin and make it accessible across all routes and plugins by decorating the Fastify instance with fastify.decorate().
 
-**`data.js`:**
+**`./plugins/db-plugin.js`:**
 
 ```javascript
-module.exports = {
-  users: {}, // e.g., { username: { password: 'password123', avatar: null } }
-  pages: {}  // e.g., { HomePage: { content: 'Welcome!', author: 'admin' } }
-}
-```
+const fp = require('fastify-plugin');
 
+const inMemoryDatabase = {
+  users: {},
+  pages: {}
+};
+
+async function dbConnector (fastify, options) {
+  fastify.decorate('dataStore', inMemoryDatabase);
+}
+
+module.exports = fp(dbConnector, {
+    name: 'data-connector' 
+});
+```
+After creating the plugin, we need to register it inside app.js by adding: 
+```
+fastify.register(require('./plugins/db-plugin')); 
+```
+Once registered, we can access the in-memory database object anywhere in our application through fastify.dataStore. This allows us to read from and modify the data just like we would with a real database
 ### Fastify Session Management
 
 To track user sessions, we’ll use the `@fastify/cookie` and `@fastify/session` plugins, which provide secure session handling . Fastify signs session cookies with a secret key to prevent tampering, ensuring security.
