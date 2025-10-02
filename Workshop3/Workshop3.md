@@ -554,7 +554,7 @@ module.exports = fp(async (fastify, opts) => {
 
 ```
 **Wiki route**  
-Now we defines the routes for viewing and creating wiki pages.
+Now we defines the routes for viewing and creating wiki pages.  
 **`routes/wiki.js`:**
 
 ```javascript
@@ -634,7 +634,7 @@ Template for the page that displays a wiki page.
 </div>
 {{/ _layout}}
 ```
-Template with a form to create and add a new wiki page
+Template with a form to create and add a new wiki page.  
 **`views/create_page.hbs`:**
 
 ```html
@@ -667,7 +667,7 @@ Write your text here...
 ```
 
 **Create 404 Template**  
-Template for the page that is displayed when a user searches for a non-existing wiki page
+Template for the page that is displayed when a user searches for a non-existing wiki page.  
 **`views/404.hbs`:**  
 ```html
 {{#> _layout}}
