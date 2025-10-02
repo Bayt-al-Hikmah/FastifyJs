@@ -403,6 +403,7 @@ views/
 ├── partials/
 │   ├── _layout.hbs
 │   ├── _navbar.hbs
+|   ├── _footer.hbs
 ├── index.hbs
 ├── dashboard.hbs
 ├── profile.hbs
@@ -424,11 +425,9 @@ views/
         {{> _navbar}}
     </header>
     <main>
-        {{{content}}}
+        {{> @partial-block}}
     </main>
-    <footer>
-        <p>&copy; 2025 Our Company</p>
-    </footer>
+    {{> _footer}}
 </body>
 </html>
 ```
@@ -442,8 +441,17 @@ views/
     <a href="/contact">Contact</a>
 </nav>
 ```
-To make Handlebars partials work in a Fastify application, you need to properly configure template.js to register them. This is done by passing an options object when setting up the view engine. Inside this options object, you include a partials property that defines the name of the partial and the path to the partials folder.
-**`plugins/templates.js`**
+**`views/partials/_footer.hbs`:**
+
+```html
+<footer>
+    Created by Bayt Al Hikmah &copy; 2025
+</footer>
+```
+
+To make Handlebars partials work in a Fastify application, you need to properly configure ``templates.js``. This is done by passing an options object when setting up the view engine, including a partials property that defines the name of each partial and its path.
+
+**``plugins/templates.js:``**
 ```
 const fp = require('fastify-plugin')
 const path = require('path')
@@ -460,7 +468,7 @@ module.exports = fp(async (fastify, opts) => {
     partials: {
       _layout: 'partials/_layout.hbs',
       _navbar: 'partials/_navbar.hbs',
-      _footer: 'partials/_footer.hbs'
+      _footer: 'partials/_footer.hbs',
     }
   }
   })
@@ -472,15 +480,15 @@ We modify `index.hbs` to use the layout partial.
 **`views/index.hbs`:**
 
 ```html
-{{> _layout}}
+{{/> _layout}}
 <h1>Welcome to Our Website!</h1>
 <p>This page uses a shared layout.</p>
+{{# _layout}}
 ```
 
 We refresh `http://127.0.0.1:3000`. The page now includes a navigation bar and footer, consistent across all pages using the `_layout` partial.
 
-**Explanation**: The `_layout.hbs` partial defines a reusable structure with a `{{{content}}}` placeholder. The `_navbar.hbs` partial ensures consistent navigation, reducing duplication and simplifying updates.
-
+**Explanation** The ``{{#> _layout}}...{{/ _layout}}`` syntax defines a block of content to be inserted into the layout’s ``{{> @partial-block}}`` placeholder.
 ## Handling HTML Forms
 
 Forms allow users to submit data, such as contact messages. Fastify supports form handling manually with `@fastify/formbody` or with JSON Schema for validation. We’ll also add CSRF protection for security.
