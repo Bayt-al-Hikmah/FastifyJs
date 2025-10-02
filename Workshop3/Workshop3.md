@@ -1043,7 +1043,7 @@ start()
 
 We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
 
-**Explanation**: Fastify’s `fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.
+Fastify’s `fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.
 
 ## A Journey Through CSS Styling
 
@@ -1072,7 +1072,7 @@ Initially, we might style each element with a specific class, like `.login-page-
 
 **Problem**: Reusing styles for a register button requires duplicating the CSS, violating the DRY principle.
 
-**Explanation**: This approach is rigid and hard to maintain, as changes require updating multiple classes. Our app avoids this by using reusable styles in `style.css`.
+This approach is rigid and hard to maintain, as changes require updating multiple classes. Our app avoids this by using reusable styles in `style.css`.
 
 ### Act II: The Reusable Component (Shared Classes)
 
@@ -1102,7 +1102,7 @@ To improve, we create reusable component classes, like `.btn` and `.btn-primary`
 <button class="btn btn-primary">Register</button>
 ```
 
-**Explanation**: Our app uses this approach, defining `.btn` for shared button styles and `.btn-primary` for specific colors. This reduces duplication and simplifies updates, aligning with Fastify’s modular philosophy.
+Our app uses this approach, defining `.btn` for shared button styles and `.btn-primary` for specific colors. This reduces duplication and simplifies updates, aligning with Fastify’s modular philosophy.
 
 ### Act III: The Utility-First Revolution
 
@@ -1114,95 +1114,7 @@ Utility-first frameworks like Tailwind CSS take reusability further by providing
 <button class="bg-blue-500 text-white p-4 rounded-md">Register</button>
 ```
 
-**Explanation**: Tailwind’s utility classes build styles directly in HTML, reducing CSS boilerplate. Our app’s component-based CSS is sufficient for now, but Tailwind could be integrated by including its CDN or build process, offering flexibility for larger projects.
+Tailwind’s utility classes build styles directly in HTML, reducing CSS boilerplate. Our app’s component-based CSS is sufficient for now, but Tailwind could be integrated by including its CDN or build process, offering flexibility for larger projects.
 
-## Putting It All Together
 
-Our project now reflects Fastify’s modular structure, with plugins for sessions, templating, static files, file uploads, and routes.
-
-**Final Structure:**
-
-```
-my_fastify_project/
-├── data.js
-├── plugins/
-│   ├── session.js
-│   ├── templates.js
-│   ├── static.js
-│   ├── multipart.js
-├── routes/
-│   ├── auth.js
-│   ├── wiki.js
-│   ├── profile.js
-├── public/
-│   ├── css/
-│   │   └── style.css
-│   ├── avatars/
-├── views/
-│   ├── partials/
-│   │   ├── _layout.hbs
-│   ├── home.hbs
-│   ├── register.hbs
-│   ├── login.hbs
-│   ├── wiki_page.hbs
-│   ├── create_page.hbs
-│   ├── profile.hbs
-│   ├── 404.hbs
-├── node_modules/
-├── package.json
-└── app.js
-```
-
-**Complete `app.js`:**
-
-```javascript
-const fastify = require('fastify')({ logger: true })
-const path = require('path')
-const fs = require('fs')
-
-const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
-
-if (!fs.existsSync(UPLOAD_FOLDER)) {
-  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
-}
-
-fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
-fastify.decorate('allowedFile', filename => {
-  if (!filename.includes('.')) return false
-  const ext = filename.split('.').pop().toLowerCase()
-  return ALLOWED_EXTENSIONS.has(ext)
-})
-
-fastify.setErrorHandler((error, request, reply) => {
-  if (error.validation) {
-    request.flash('danger', error.validation.map(e => e.message).join(', '))
-    return reply.redirect('/create')
-  }
-  reply.send(error)
-})
-
-fastify.register(require('./plugins/templates'))
-fastify.register(require('./plugins/static'))
-fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/multipart'))
-fastify.register(require('./routes/auth'), { prefix: '/' })
-fastify.register(require('./routes/wiki'), { prefix: '/' })
-fastify.register(require('./routes/profile'), { prefix: '/' })
-
-fastify.get('/home', async (request, reply) => {
-  return reply.view('home')
-})
-
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000 })
-    console.log('Server running at http://127.0.0.1:3000')
-  } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
-}
-start()
-```
 
