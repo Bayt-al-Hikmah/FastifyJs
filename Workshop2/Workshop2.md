@@ -136,7 +136,7 @@ start()
 
 We run `node app.js` and visit `http://127.0.0.1:3000` in our browser. The page displays a heading and paragraph, rendered as HTML from the `index.hbs` template.
 
-**Explanation**: By encapsulating the templating logic in a plugin, we keep `app.js` lean and focused. The `@fastify/view` plugin processes the template into HTML, delivering a clean user experience while maintaining Fastify’s modular structure.
+By encapsulating the templating logic in a plugin, we keep `app.js` lean and focused. The `@fastify/view` plugin processes the template into HTML, delivering a clean user experience while maintaining Fastify’s modular structure.
 
 ## Working with Static Files
 
@@ -254,7 +254,7 @@ start()
 
 We run the app and refresh `http://127.0.0.1:3000`. Assuming `logo.png` exists in `public/images/`, the page now displays styled text and an image.
 
-**Explanation**: The `@fastify/static` plugin ensures reliable file serving by using a configurable prefix.Fastify’s prefix-based approach is simpler and adapts to different deployment contexts, maintaining portability and aligning with Fastify’s focus on performance.
+The `@fastify/static` plugin ensures reliable file serving by using a configurable prefix.Fastify’s prefix-based approach is simpler and adapts to different deployment contexts, maintaining portability and aligning with Fastify’s focus on performance.
 
 ## Introduction to Handlebars Templating
 
@@ -324,7 +324,7 @@ fastify.register(require('./routes/profile'), { prefix: '/' })
 
 We visit `http://127.0.0.1:3000/profile/alice`. The page shows Alice’s name, bio, and a list of shopping items, or a message if the list is empty.
 
-**Explanation**: The route passes a user object to the template, where `{{user.username}}` displays the name, and `{{#if}}` and `{{#each}}` handle conditional logic and iteration, Handlebars relies on helpers or JavaScript properties (e.g., `length`). We keep logic in the route, ensuring the template remains simple and focused on presentation.
+The route passes a user object to the template, where `{{user.username}}` displays the name, and `{{#if}}` and `{{#each}}` handle conditional logic and iteration, Handlebars relies on helpers or JavaScript properties (e.g., `length`). We keep logic in the route, ensuring the template remains simple and focused on presentation.
 
 ### Conditionals and Loops
 
@@ -386,7 +386,7 @@ module.exports = fp(async (fastify, opts) => {
 
 We visit `http://127.0.0.1:3000/dashboard/admin`, `/dashboard/member`, or `/dashboard/guest`. Each URL displays a tailored message based on the status.
 
-**Explanation**: The `eq` helper enables conditional logic. The route prepares the data, and the template handles presentation, keeping the logic minimal. Handlebars’ block helpers provide  control structures, ensuring dynamic content rendering.
+The `eq` helper enables conditional logic. The route prepares the data, and the template handles presentation, keeping the logic minimal. Handlebars’ block helpers provide  control structures, ensuring dynamic content rendering.
 
 ## Template Partials
 
@@ -488,7 +488,7 @@ We modify `index.hbs` to use the layout partial.
 
 We refresh `http://127.0.0.1:3000`. The page now includes a navigation bar and footer, consistent across all pages using the `_layout` partial.
 
-**Explanation** The ``{{#> _layout}}...{{/ _layout}}`` syntax defines a block of content to be inserted into the layout’s ``{{> @partial-block}}`` placeholder.
+The ``{{#> _layout}}...{{/ _layout}}`` syntax defines a block of content to be inserted into the layout’s ``{{> @partial-block}}`` placeholder.
 ## Handling HTML Forms
 
 Forms allow users to submit data, such as contact messages. Fastify supports form handling manually with `@fastify/formbody` or with JSON Schema for validation. We’ll also add CSRF protection for security.
@@ -578,7 +578,7 @@ fastify.register(require('./routes/contact'), { prefix: '/' })
 
 We visit `http://127.0.0.1:3000/contact`, fill out the form, and submit it. A valid submission shows a thank-you message; missing fields trigger an error message.
 
-**Explanation**: The `GET` route renders the form, and the `POST` route processes the submission using `request.body`. The template displays feedback adapted to Fastify’s lightweight approach.
+The `GET` route renders the form, and the `POST` route processes the submission using `request.body`. The template displays feedback adapted to Fastify’s lightweight approach.
 
 ### Form Handling with Validation and CSRF
 
