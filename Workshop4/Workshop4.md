@@ -34,12 +34,19 @@ const fp = require('fastify-plugin')
 module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/cookie'))
   fastify.register(require('@fastify/session'), {
-    secret: 'your-super-secret-key-that-no-one-knows',
-    cookie: { secure: false } // Set secure: true in production with HTTPS
+    secret: 'your-super-secret-key-that-no-one-knows', // change in production
+    cookie: {
+      secure: false,       // true in production with HTTPS
+      httpOnly: true,      // prevents access via client-side JS
+      sameSite: 'lax',     // helps prevent CSRF
+      maxAge: 15 * 60 * 1000 // 15 minutes in milliseconds
+    },
+    saveUninitialized: false
   })
   fastify.register(require('@fastify/flash'))
 })
 ```
+For more security, we updated the previous session plugin to fix issues with storing sensitive data. Instead of relying on localStorage for JWTs which OWASP and Auth0 strongly advise against due to XSS risks we now store session tokens in HttpOnly cookies with a short expiry of 15 minutes. In the code, ``fastify.register(require('@fastify/session'), {...})`` sets up the session with a secret key for signing, and the cookie options enforce secure handling: ``httpOnly: true`` prevents access from client-side scripts, ``sameSite: 'lax'`` mitigates CSRF risks, and ``maxAge: 15 * 60 * 1000`` ensures the session expires after 15 minutes. The saveUninitialized: false option avoids creating empty sessions, keeping session storage efficient while maintaining secure server-side session management.
 
 **plugins/templates.js:**
 
