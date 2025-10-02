@@ -362,7 +362,10 @@ module.exports = async (fastify, opts) => {
 ```
 
 **Add a Custom Helper**  
-Handlebars requires a custom helper for equality checks.
+We can create custom helpers in Handlebars to extend template functionality. For example, we can create a helper to check equality between two values. 
+First, we include Handlebars in our project by requiring it, then we register the helper using handlebars.registerHelper(name, function). 
+Inside the helper function, we can define the logic, such as comparing two values and returning different blocks for true or false. Once registered, this helper can be used in any template by referencing its name, allowing us to simplify templates and reduce duplication. 
+For instance, an ifEqual helper can check if two values are equal and render different content depending on the result, keeping templates cleaner and more maintainable.
 
 **`plugins/templates.js` (updated):**
 
@@ -439,7 +442,30 @@ views/
     <a href="/contact">Contact</a>
 </nav>
 ```
+To make Handlebars partials work in a Fastify application, you need to properly configure template.js to register them. This is done by passing an options object when setting up the view engine. Inside this options object, you include a partials property that defines the name of the partial and the path to the partials folder.
+**`plugins/templates.js`**
+```
+const fp = require('fastify-plugin')
+const path = require('path')
+const handlebars = require('handlebars')
 
+module.exports = fp(async (fastify, opts) => {
+  handlebars.registerHelper('eq', (a, b) => a === b),
+  fastify.register(require('@fastify/view'), {
+    
+    engine: { handlebars: require('handlebars') },
+    templates: path.join(__dirname, '../views'),
+    includeViewExtension: true,
+     options: {
+    partials: {
+      _layout: 'partials/_layout.hbs',
+      _navbar: 'partials/_navbar.hbs',
+      _footer: 'partials/_footer.hbs'
+    }
+  }
+  })
+})
+```
 **Update a Template**  
 We modify `index.hbs` to use the layout partial.
 
@@ -457,16 +483,16 @@ We refresh `http://127.0.0.1:3000`. The page now includes a navigation bar and f
 
 ## Handling HTML Forms
 
-Forms allow users to submit data, such as contact messages. Fastify supports form handling manually with `fastify-formbody` or with JSON Schema for validation. We’ll also add CSRF protection for security.
+Forms allow users to submit data, such as contact messages. Fastify supports form handling manually with `@fastify/formbody` or with JSON Schema for validation. We’ll also add CSRF protection for security.
 
 ### Manual Form Handling
 
 We create a contact form that users can submit, with a route handling both display and submission.
 
-**Install `fastify-formbody`**
+**Install `@fastify/formbody`**
 
 ```bash
-npm install fastify-formbody
+npm install @fastify/formbody
 ```
 
 **Create a Form Plugin**  
@@ -476,7 +502,7 @@ npm install fastify-formbody
 const fp = require('fastify-plugin')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+  fastify.register(require('@fastify/formbody'))
 })
 ```
 When an HTML form is submitted with the default encoding (application/x-www-form-urlencoded), the browser sends data like:
@@ -484,7 +510,7 @@ When an HTML form is submitted with the default encoding (application/x-www-form
 name=Alice&message=Hello
 ```
 
-Without fastify-formbody, Fastify does not parse this format.  
+Without @fastify/formbody, Fastify does not parse this format.  
 This plugin automatically parses the URL-encoded body and makes it available as a JavaScript object on request.body.  
 So after enabling it, you can safely do:
 ```
@@ -655,9 +681,9 @@ We add a global error handler to display validation errors in the template.
 `app.js` (updated snippet):
 
 ```javascript
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler(async (error, request, reply) => {
   if (error.validation) {
-    const token = reply.generateCsrfSync()
+    const token = await reply.generateCsrf();
     return reply.view('contact-wt', { errors: error.validation, csrfToken: token })
   }
   reply.send(error)
@@ -713,9 +739,9 @@ my_fastify_project/
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler(async (error, request, reply) => {
   if (error.validation) {
-    const token = reply.generateCsrfSync()
+    const token = await reply.generateCsrf();
     return reply.view('contact-wt', { errors: error.validation, csrfToken: token })
   }
   reply.send(error)
