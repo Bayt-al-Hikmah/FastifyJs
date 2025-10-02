@@ -86,6 +86,20 @@ module.exports = fp(async (fastify, opts) => {
   fastify.decorate('argon2', argon2)
 })
 ```
+**Handle Form Data**  
+We use @fastify/formbody to parse URL-encoded form submissions, such as login and registration forms.
+
+**`plugins/formbody.js:`**
+```
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('@fastify/formbody'))
+})
+````
+
+This ensures that data submitted via HTML forms (e.g., username and password) is automatically parsed and made available in request.body.   
+
 **Configure Templating**  
 We use `@fastify/view` with Handlebars to render HTML templates.  
 
@@ -108,7 +122,7 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-
+ 
 **Serve Static Files**  
 We serve CSS and avatar images using `@fastify/static`.
 
@@ -134,8 +148,6 @@ We define routes for registration, login, and logout in a plugin, using Handleba
 ```javascript
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('@fastify/formbody'))
-
   fastify.get('/register', async (request, reply) => {
     return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
   })
@@ -475,6 +487,7 @@ fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
 fastify.register(require('./plugins/argon2'))
 fastify.register(require('./plugins/db-plugin')); 
+fastify.register(require('./plugins/formbody'))
 
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
