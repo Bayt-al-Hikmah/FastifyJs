@@ -1098,7 +1098,7 @@ When we first begin styling our web pages, the natural instinct is to give each 
 ```html
 <button class="login-page-button">Login</button>
 ```
-At first, this feels simple and organized—every element gets its own “label,” and we know exactly where its style lives.
+At first, this feels simple and organized every element gets its own “label,” and we know exactly where its style lives.
 
 But very quickly, a problem appears:
 
@@ -1118,8 +1118,8 @@ This shift in thinking is what leads us toward the reusable component approach i
 ### Act II: The Reusable Component (Shared Classes)
 
 To fix the duplication problem from Act I, we need to change how we see our elements. Instead of thinking about each button or input as a one-off element, we treat them as components.  
-A component is simply a reusable piece of UI—like a button, an input box, or a card. Each component has a base style that defines its common features. For example, all buttons might share padding, border-radius, and font weight.  
-On top of that, we can add variations (or modifiers) that adjust the base style—like giving one button a blue background (.btn-primary) and another a gray background (.btn-secondary).  
+A component is simply a reusable piece of UI like a button, an input box, or a card. Each component has a base style that defines its common features. For example, all buttons might share padding, border-radius, and font weight.  
+On top of that, we can add variations (or modifiers) that adjust the base style like giving one button a blue background (.btn-primary) and another a gray background (.btn-secondary).  
 This way, our CSS is not about styling individual elements, but about describing what type of component the element is. When we create new elements in our HTML, we don’t invent a new class each time we simply apply the right combination of existing component classes.  
 Here’s what that looks like in practice:  
 
