@@ -534,25 +534,37 @@ npm install markdown-it
 ```
 
 **Create Wiki Routes**  
-We create a plugin for wiki page routes, handling page viewing and creation.
+We create a plugin for wiki page routes, handling page viewing and creation.  
+**Markdown Plugin**  
+We use markdown-it as a plugin to render Markdown content into HTML inside our Fastify app. This plugin decorates Fastify with a reusable fastify.markdown  
+**``plugins/markdown-highlight.js``**
+```
+const fp = require('fastify-plugin')
+const MarkdownIt = require('markdown-it')
 
+module.exports = fp(async (fastify, opts) => {
+  const md = new MarkdownIt({
+    html: false,
+    breaks: true
+  })
+
+  // Expose markdown-it instance on fastify
+  fastify.decorate('markdown', md)
+})
+
+```
 **`routes/wiki.js`:**
 
 ```javascript
-const db = require('../data')
-const MarkdownIt = require('markdown-it')
-const md = new MarkdownIt({ html: false, breaks: true })
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('@fastify/formbody'))
-
   fastify.get('/wiki/:page_name', async (request, reply) => {
     const { page_name } = request.params
-    const page = db.pages[page_name]
+    const page = fastify.dataStore.pages[page_name]
     if (!page) {
       return reply.view('404', { messages: request.flash('danger') })
     }
-    page.html_content = md.render(page.content)
+    page.html_content = fastify.markdown.render(page.content)
     return reply.view('wiki_page', { page, page_name })
   })
 
@@ -570,31 +582,61 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/login')
     }
     const { title, content } = request.body
-    db.pages[title] = { content, author: request.session.get('username') }
+    fastify.dataStore.pages[title] = { content, author: request.session.get('username') }
     return reply.redirect(`/wiki/${title}`)
   })
 }
 ```
+**GET /wiki/:page_name**
 
+When a user visits /wiki/:page_name, the server looks up the requested page name in `fastify.dataStore.pages`.
+
+- If the page exists, its Markdown content is rendered into HTML using fastify.markdown.render().
+
+- The rendered content is then passed to the wiki_page view template, along with the page name.
+
+- If the page does not exist, the server returns a 404 template with any danger flash messages.
+
+**GET /create**
+
+When a user visits `/create`, the server checks if the user is logged in by verifying if their username exists in the session.
+
+- If the user is not logged in, a danger flash message is set ("You must be logged in to create a page.") and the user is redirected to the login page.
+
+- If the user is logged in, the server renders the create_page template, including any flash messages to display feedback.
+
+**POST /create**
+
+When the form on the create page is submitted, the server handles creating a new wiki entry.
+
+- First, it checks if the user is logged in. If not, a danger message is set and the user is redirected to ``/login``.
+
+- If the user is logged in, the submitted title and content are extracted from the request body.
+
+- A new page is saved in fastify.dataStore.pages under the given title, with the page’s content and the current user’s username as the author.
+
+- Finally, the user is redirected to the new wiki page they just created at ``/wiki/:title``.
 **Create Wiki Templates**  
-We create templates for viewing and creating wiki pages, using Handlebars’ `{{{content}}}` to safely render HTML from Markdown.
+We create templates for viewing and creating wiki pages.
+Template for the page that displays a wiki page. 
 
 **`views/wiki_page.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1>{{page_name}}</h1>
 <p><em>By: {{page.author}}</em></p>
 <hr>
 <div>
   {{{page.html_content}}}
 </div>
+{{/ _layout}}
 ```
-
+Template with a form to create and add a new wiki page
 **`views/create_page.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Create a Wiki Page</h1>
 <form method="POST" class="form-card">
   <label for="title">Page Title</label>
@@ -619,15 +661,17 @@ Write your text here...
     <li><code>[Link](https://example.com)</code> → link</li>
   </ul>
 </div>
+{{/ _layout}}
 ```
 
 **Create 404 Template**  
-**`views/404.hbs`:**
-
+Template for the page that is displayed when a user searches for a non-existing wiki page
+**`views/404.hbs`:**  
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Page Not Found</h1>
 <p>The requested page does not exist.</p>
+{{/ _layout}}
 ```
 
 **Register the Wiki Plugin**  
@@ -636,19 +680,19 @@ We update `app.js` to include the wiki routes.
 **`app.js` (updated snippet):**
 
 ```javascript
+// in plugin sections
+fastify.register(require('./plugins/markdown')) 
+// in routes section
 fastify.register(require('./routes/wiki'), { prefix: '/' })
 ```
 
 We visit `http://127.0.0.1:3000/create` (after logging in), create a page with Markdown content, and view it at `/wiki/PageName`. If the page doesn’t exist, we see a 404 page.
-
-**Explanation**: The `markdown-it` library  render Markdown to HTML securely. Fastify’s template rendering with Handlebars (`{{{page.html_content}}}`), ensuring safe HTML output. The routes are encapsulated in a plugin, maintaining Fastify’s modular structure.
 
 ### Using Quill.js with Fastify
 
 To provide an intuitive way for users to create rich text content for our wiki pages, we’ll integrate Quill.js, a lightweight and customizable WYSIWYG editor. Quill.js allows users to format text with headings, bold, italic, lists, and more directly in the browser, offering a modern and user-friendly editing experience. We’ll implement Quill.js as a Fastify plugin, encapsulating its configuration and assets for modularity and seamless integration with our application. The editor will generate HTML content, which we’ll store and render securely, ensuring a smooth experience for users without requiring them to learn any syntax.
 
 **Install Quill.js**  
-We install Quill.js via npm to serve its assets locally, ensuring control over the editor’s resources and enabling offline development.
 
 ```bash
 npm install quill
@@ -696,10 +740,7 @@ We update our wiki routes to include JSON Schema validation for the page creatio
 **`routes/wiki.js` (updated):**
 
 ```javascript
-const db = require('../data')
-
 module.exports = async (fastify, opts) => {
-  fastify.register(require('@fastify/formbody'))
 
   const createSchema = {
     body: {
@@ -714,7 +755,7 @@ module.exports = async (fastify, opts) => {
 
   fastify.get('/wiki/:page_name', async (request, reply) => {
     const { page_name } = request.params
-    const page = db.pages[page_name]
+    const page = fastify.dataStore.pages[page_name]
     if (!page) {
       return reply.view('404', { messages: request.flash('danger') })
     }
@@ -738,7 +779,7 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/login')
     }
     const { title, content } = request.body
-    db.pages[title] = { content, author: request.session.get('username') }
+    fastify.dataStore.pages[title] = { content, author: request.session.get('username') }
     return reply.redirect(`/wiki/${title}`)
   })
 }
@@ -752,7 +793,7 @@ We modify the `create_page.hbs` template to load Quill.js from our plugin’s st
 **`views/create_page.hbs` (updated):**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Create a Wiki Page</h1>
 <form method="POST" class="form-card" id="create-page-form">
   <label for="title">Page Title</label>
@@ -776,6 +817,7 @@ We modify the `create_page.hbs` template to load Quill.js from our plugin’s st
     content.value = quill.root.innerHTML; // Capture editor content
   };
 </script>
+{/ _layout}}
 ```
 
 The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{json quillConfig}}` helper serializes the configuration to JSON for initialization.
