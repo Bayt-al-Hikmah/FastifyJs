@@ -119,7 +119,6 @@ We define routes for registration, login, and logout in a plugin, using Handleba
 **`routes/auth.js`:**
 
 ```javascript
-const db = require('../data')
 
 module.exports = async (fastify, opts) => {
   fastify.register(require('@fastify/formbody'))
@@ -131,12 +130,12 @@ module.exports = async (fastify, opts) => {
   fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
 
-    if (db.users[username]) {
+    if (fastify.dataStore.users[username]) {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
 
-    db.users[username] = { password, avatar: null }
+    fastify.dataStore.users[username] = { password, avatar: null }
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
@@ -147,7 +146,7 @@ module.exports = async (fastify, opts) => {
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
-    const user = db.users[username]
+    const user = fastify.dataStore.users[username]
 
     if (user && user.password === password) {
       request.session.set('username', username)
