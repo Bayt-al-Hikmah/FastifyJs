@@ -916,7 +916,6 @@ We add a profile route to handle avatar uploads.
 **`routes/profile.js`:**
 
 ```javascript
-const db = require('../data')
 const path = require('path')
 
 module.exports = async (fastify, opts) => {
@@ -1043,11 +1042,16 @@ fastify.setErrorHandler((error, request, reply) => {
   }
   reply.send(error)
 })
-
+// Plugin
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
 fastify.register(require('./plugins/multipart'))
+fastify.register(require('./plugins/argon2'))
+fastify.register(require('./plugins/db-plugin')); 
+fastify.register(require('./plugins/formbody'))
+fastify.register(require('./plugins/quill'))
+// Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 fastify.register(require('./routes/wiki'), { prefix: '/' })
 fastify.register(require('./routes/profile'), { prefix: '/' })
