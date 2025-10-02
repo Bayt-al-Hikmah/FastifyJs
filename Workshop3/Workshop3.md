@@ -518,7 +518,6 @@ start()
 
 We run `node app.js`, visit `http://127.0.0.1:3000/register`, create a user, log in at `/login`, and log out at `/logout`. Flash messages provide feedback, and the session persists the username across requests.
 
-**Explanation**: Fastify’s session management (`@fastify/session`) , using signed cookies for security. The `@fastify/flash` plugin , storing messages in the session for one-time display. Handlebars templates replace Jinja2, maintaining a similar structure but using Fastify’s plugin-based routing for modularity.
 
 ## Rich Text and Pages
 
