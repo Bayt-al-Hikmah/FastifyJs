@@ -126,7 +126,7 @@ node app.js
 
 We then open `http://127.0.0.1:3000` in our browser and see "Hello, World!" displayed. This confirms our Fastify server is running and responding to requests.
 
-**Explanation**: This minimal setup showcases Fastify’s simplicity and speed. The async/await syntax aligns with modern JavaScript practices, and the logger provides visibility into server activity, making it easier to debug during development.
+This minimal setup showcases Fastify’s simplicity and speed. The async/await syntax aligns with modern JavaScript practices, and the logger provides visibility into server activity, making it easier to debug during development.
 
 ## Working with Routes, Parameters, and URL Arguments
 
@@ -150,7 +150,7 @@ fastify.get('/user/:username', async (request, reply) => {
 
 We restart the app (`node app.js`) and visit `http://127.0.0.1:3000/user/Alice`. The response is "Hello, Alice!".
 
-**Explanation**: The `:username` in the route path acts as a placeholder, capturing the value from the URL (e.g., `Alice` in `/user/Alice`). This value is available in `request.params.username`, allowing us to create personalized responses. Fastify’s parameter handling is intuitive and efficient, similar to other frameworks but optimized for performance.
+The `:username` in the route path acts as a placeholder, capturing the value from the URL (e.g., `Alice` in `/user/Alice`). This value is available in `request.params.username`, allowing us to create personalized responses. Fastify’s parameter handling is intuitive and efficient, similar to other frameworks but optimized for performance.
 
 ### URL Query Arguments
 
@@ -176,7 +176,7 @@ We restart the app and visit:
 - `http://127.0.0.1:3000/search?query=nodejs+tutorials` to see "You are searching for: nodejs tutorials".
 - `http://127.0.0.1:3000/search` to see "Please provide a search query."
 
-**Explanation**: The `request.query` object contains query parameters, with `query` being the key in this case. We check if `query` exists to provide a meaningful response, demonstrating Fastify’s straightforward approach to handling query strings.
+The `request.query` object contains query parameters, with `query` being the key in this case. We check if `query` exists to provide a meaningful response, demonstrating Fastify’s straightforward approach to handling query strings.
 
 ### Organizing Routes with Plugins
 
@@ -248,7 +248,7 @@ We restart the app and visit:
 - `http://127.0.0.1:3000/api/user/Alice` to see "Hello, Alice!".
 - `http://127.0.0.1:3000/api/search?query=nodejs` to see "You are searching for: nodejs".
 
-**Explanation**: By moving routes to a plugin, we keep `app.js` focused on server setup and improve modularity. The `prefix: '/api'` option scopes the routes under `/api`, organizing our endpoints cleanly. This approach aligns with Fastify’s plugin system, offering better scalability.
+By moving routes to a plugin, we keep `app.js` focused on server setup and improve modularity. The `prefix: '/api'` option scopes the routes under `/api`, organizing our endpoints cleanly. This approach aligns with Fastify’s plugin system, offering better scalability.
 
 ## Building a Simple JSON API
 
@@ -327,7 +327,7 @@ We restart the app and test the following URLs:
 - `http://127.0.0.1:3000/api/products/101?currency=EUR` to see `{ "id": "101", "name": "Mouse", "price": 25, "currency": "EUR" }`.
 - `http://127.0.0.1:3000/api/products/999` to see `{ "error": "Product not found" }`.
 
-**Explanation**: We simulate a database with a `productsDb` object and handle dynamic routes with `request.params` and `request.query`. Fastify’s `reply.code(404)` sets the HTTP status for errors, and the JSON response is automatically serialized for efficiency. By organizing the endpoint in a plugin, we maintain modularity, aligning with Fastify’s architecture and ensuring scalability.
+We simulate a database with a `productsDb` object and handle dynamic routes with `request.params` and `request.query`. Fastify’s `reply.code(404)` sets the HTTP status for errors, and the JSON response is automatically serialized for efficiency. By organizing the endpoint in a plugin, we maintain modularity, aligning with Fastify’s architecture and ensuring scalability.
 
 ## Putting It All Together
 
