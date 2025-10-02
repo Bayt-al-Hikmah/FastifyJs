@@ -37,7 +37,7 @@ Let’s set up the environment, configure session management, and create routes 
 We install Fastify and the necessary plugins:
 
 ```bash
-npm install fastify @fastify/cookie @fastify/session fastify-flash fastify-static fastify-point-of-view handlebars fastify-formbody
+npm install fastify @fastify/cookie @fastify/session fastify-flash @fastify/static @fastify/view handlebars @fastify/formbody
 ```
 
 **Configure Session and Flash Plugins**  
@@ -59,7 +59,7 @@ module.exports = fp(async (fastify, opts) => {
 ```
 
 **Configure Templating**  
-We use `fastify-point-of-view` with Handlebars to render HTML templates.  
+We use `@fastify/view` with Handlebars to render HTML templates.  
 
 **`plugins/templates.js`:**
 
@@ -68,7 +68,7 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-point-of-view'), {
+  fastify.register(require('@fastify/view'), {
     engine: { handlebars: require('handlebars') },
     templates: path.join(__dirname, '../views'),
     includeViewExtension: true
@@ -77,7 +77,7 @@ module.exports = fp(async (fastify, opts) => {
 ```
 
 **Serve Static Files**  
-We serve CSS and avatar images using `fastify-static`.
+We serve CSS and avatar images using `@fastify/static`.
 
 **`plugins/static.js`:**
 
@@ -86,7 +86,7 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-static'), {
+  fastify.register(require('@fastify/static'), {
     root: path.join(__dirname, '../public'),
     prefix: '/static/'
   })
@@ -102,7 +102,7 @@ We define routes for registration, login, and logout in a plugin, using Handleba
 const db = require('../data')
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+  fastify.register(require('@fastify/formbody'))
 
   fastify.get('/register', async (request, reply) => {
     return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
@@ -453,7 +453,7 @@ const MarkdownIt = require('markdown-it')
 const md = new MarkdownIt({ html: false, breaks: true })
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+  fastify.register(require('@fastify/formbody'))
 
   fastify.get('/wiki/:page_name', async (request, reply) => {
     const { page_name } = request.params
@@ -574,7 +574,7 @@ const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
   // Serve Quill.js static assets
-  fastify.register(require('fastify-static'), {
+  fastify.register(require('@fastify/static'), {
     root: path.join(__dirname, '../../node_modules/quill/dist'),
     prefix: '/quill/',
     decorateReply: false // Avoid conflicts with other static routes
@@ -608,7 +608,7 @@ We update our wiki routes to include JSON Schema validation for the page creatio
 const db = require('../data')
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+  fastify.register(require('@fastify/formbody'))
 
   const createSchema = {
     body: {
