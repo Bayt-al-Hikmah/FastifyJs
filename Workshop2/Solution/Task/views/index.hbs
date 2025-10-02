@@ -1,0 +1,15 @@
+{{#> _layout}}
+{{#if Quotes.length}}
+<div class="quotes-container">
+    {{#each Quotes}}
+        <div class="quote">
+            <div class="quote-text"><p>"{{this.quote}}"</p></div>
+            <div class="author">- {{this.author}}</div>
+        </div>
+
+    {{/each}}
+    </div>
+{{else}}
+    <div class="result">No quotes available. Be the first to <a href="/share">share a quote</a>!</div>
+{{/if}}
+{{/ _layout}}

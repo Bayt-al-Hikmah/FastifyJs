@@ -775,4 +775,40 @@ const start = async () => {
 }
 start()
 ```
+## Task
+In this project, you will build a Quote Sharing Web Application using Fastify and Handlebars.  
+The application will allow users to:
+- Submit quotes anonymously by providing the author’s name and the quote text.
+- Browse all submitted quotes in a styled interface.
+- Search for quotes by a specific author.
+- Use reusable layouts, partials, and static assets for a consistent design.
+### Functional Requirements
+
+#### Homepage (`/`)
+- Displays a welcome message.
+- Shows a list of recent quotes dynamically from the server.
+- Uses a Handlebars loop (`{{#each}}`) to render multiple quotes.
+####  Quote Submission (`/share`)
+- Provides a form with two fields:
+    - Author name (text input).
+    - Quote text (textarea).
+- Validates input:
+    - Author name must be at least 3 characters.
+    - Quote must not exceed 300 characters.
+- Displays error messages for invalid input.
+- On valid submission, the quote is stored and a confirmation message is shown.    
+- Includes CSRF protection.
+
+####  Search Quotes (`/search`)
+- Provides a form to enter an author’s name.
+- Displays all quotes from that author if found.
+- If no quotes are found, shows a message: “No quotes found for author.”
+####  Partials and Layouts
+- Create `_layout.hbs` for consistent page structure (header, navigation bar, footer).
+- Create `_navbar.hbs` with links to Home, Share, Search, and Dashboard.
+- Ensure all pages extend the base layout.
+####  Static Assets
+- Create `style.css` for consistent styling across all pages.
+- Add an image (e.g., `logo.png`) in the header.
+- Serve CSS and image files through Fastify’s static file plugin.
 

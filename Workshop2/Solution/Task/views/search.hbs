@@ -1,0 +1,29 @@
+{{#> _layout}}
+
+<form class="search_form" method="POST" action="/search">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+    
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="author" required>
+    {{#each errors}}
+        {{#if (eq this.param 'body.author')}}
+            <span style="color:red;">{{this.message}}</span>
+        {{/if}}
+    {{/each}}
+    <button type="submit">Search</button>
+</form>
+
+{{#if Quotes.length}}
+<div class="quotes-container">
+    {{#each Quotes}}
+        <div class="quote">
+            <div class="quote-text">"{{this.quote}}"</div>
+            <div class="author">- {{this.author}}</div>
+        </div>
+    {{/each}}
+    </div>
+{{else}}
+    <div class="result">No Quotes Found <a href="/share">share a quote</a>!</div>
+{{/if}}
+
+{{/ _layout}}

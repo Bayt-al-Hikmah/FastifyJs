@@ -371,3 +371,37 @@ const start = async () => {
 start()
 ```
 
+## Tasks:
+### Task 1: Build a Basic User Profile API
+- Create a new plugin file `routes/profile.js`.
+- Define a route `/profile/:username` that:
+    - Returns a JSON object with a fake user profile (hardcoded data, no database).
+    - Accepts an optional query parameter `details`:
+        - If `details=true`, return extended info.
+        - Otherwise, return only basic info.
+
+**Example Output:**
+- `/api/profile/Alice` 
+```
+    { "username": "Alice" }
+```
+- `/api/profile/Alice?details=true` →
+```
+{ "username": "Alice", "email": "alice@example.com", "role": "admin" }
+```
+### Task 2: Book Information API
+Create a route `/books/:bookId` that:
+- Returns book details based on the `bookId` parameter.
+- Accepts an optional query parameter `summary`:
+    - If `summary=true`, return only the book’s title and author.
+    - Otherwise, return full details including title, author, and price.
+
+**Example:**
+- `/api/books/201`
+```
+{ "id": "201", "title": "Clean Code", "author": "Robert C. Martin", "price": 35 }
+```
+- `/api/books/201?summary=true`
+```
+{ "title": "Clean Code", "author": "Robert C. Martin" }
+```
