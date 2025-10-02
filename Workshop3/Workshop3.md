@@ -27,7 +27,7 @@ module.exports = {
 
 To track user sessions, we’ll use the `@fastify/cookie` and `@fastify/session` plugins, which provide secure session handling . Fastify signs session cookies with a secret key to prevent tampering, ensuring security.
 
-We’ll also use `fastify-flash` to display temporary messages (e.g., “Login successful!”).
+We’ll also use `@fastify/flash` to display temporary messages (e.g., “Login successful!”).
 
 ### Setting Up Authentication
 
@@ -37,7 +37,7 @@ Let’s set up the environment, configure session management, and create routes 
 We install Fastify and the necessary plugins:
 
 ```bash
-npm install fastify @fastify/cookie @fastify/session fastify-flash @fastify/static @fastify/view handlebars @fastify/formbody
+npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody
 ```
 
 **Configure Session and Flash Plugins**  
@@ -54,7 +54,7 @@ module.exports = fp(async (fastify, opts) => {
     secret: 'your-super-secret-key-that-no-one-knows',
     cookie: { secure: false } // Set secure: true in production with HTTPS
   })
-  fastify.register(require('fastify-flash'))
+  fastify.register(require('@fastify/flash'))
 })
 ```
 
@@ -426,7 +426,7 @@ start()
 
 We run `node app.js`, visit `http://127.0.0.1:3000/register`, create a user, log in at `/login`, and log out at `/logout`. Flash messages provide feedback, and the session persists the username across requests.
 
-**Explanation**: Fastify’s session management (`@fastify/session`) , using signed cookies for security. The `fastify-flash` plugin , storing messages in the session for one-time display. Handlebars templates replace Jinja2, maintaining a similar structure but using Fastify’s plugin-based routing for modularity.
+**Explanation**: Fastify’s session management (`@fastify/session`) , using signed cookies for security. The `@fastify/flash` plugin , storing messages in the session for one-time display. Handlebars templates replace Jinja2, maintaining a similar structure but using Fastify’s plugin-based routing for modularity.
 
 ## Rich Text and Pages
 
