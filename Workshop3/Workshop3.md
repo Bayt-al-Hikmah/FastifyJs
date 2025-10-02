@@ -864,10 +864,10 @@ Allowing users to upload avatars enhances personalization but requires secure ha
 
 We configure a directory for avatars and define allowed file extensions.
 
-**Install `fastify-multipart`**
+**Install `@aegisx/fastify-multipart`**
 
 ```bash
-npm install fastify-multipart
+npm install @aegisx/fastify-multipart
 ```
 
 **Create File Upload Plugin**  
@@ -879,16 +879,19 @@ We create a plugin to handle file uploads.
 const fp = require('fastify-plugin')
 const path = require('path')
 
+// Use @aegisx/fastify-multipart instead of @fastify/multipart
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-multipart'), {
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  fastify.register(require('@aegisx/fastify-multipart'), {
+    limits: {
+      fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    attachFieldsToBody: true // optional: auto attach text fields/files to request.body
   })
 })
 ```
 
 **Configure Upload Settings**  
-We define constants in `app.js` and ensure the `public/avatars` directory exists.
-
+We define constants in app.js and ensure the public/avatars directory exists. We then create a set of allowed file extensions `ALLOWED_EXTENSIONS` and a helper function to check whether a file is allowed. Finally, we add this function as a decorator so it can be accessed in other routes  (`fastify.allowedFile`).  
 **`app.js` (updated snippet):**
 
 ```javascript
@@ -922,7 +925,7 @@ module.exports = async (fastify, opts) => {
       request.flash('danger', 'You must be logged in to view your profile.')
       return reply.redirect('/login')
     }
-    const user = db.users[request.session.get('username')]
+    const user = fastify.dataStore.users[request.session.get('username')]
     return reply.view('profile', { user, messages: request.flash('danger') || request.flash('success') })
   })
 
@@ -932,32 +935,55 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/login')
     }
 
-    const data = await request.file()
-    if (!data) {
+    const file = request.body.avatar
+    if (!file) {
       request.flash('danger', 'No file selected.')
       return reply.redirect('/profile')
     }
 
-    if (!fastify.allowedFile(data.filename)) {
+    if (!fastify.allowedFile(file.filename)) {
       request.flash('danger', 'Invalid file type. Allowed: png, jpg, jpeg, gif.')
       return reply.redirect('/profile')
     }
 
-    const filename = `${Date.now()}_${data.filename}`
+    const filename = `${Date.now()}_${file.filename}`
     const filepath = path.join(fastify.UPLOAD_FOLDER, filename)
-    await data.toFile(filepath)
-    db.users[request.session.get('username')].avatar = filename
+    await fs.promises.rename(file.filepath, filepath)
+    fastify.dataStore.users[request.session.get('username')].avatar = filename
     request.flash('success', 'Avatar updated!')
     return reply.redirect('/profile')
   })
 }
 ```
+**GET /profile**  
+When a user visits /profile, the server checks if they are logged in by verifying the username in the session.  
+
+ If the user is not logged in, a danger flash message is set ("You must be logged in to view your profile.") and the user is redirected to the login page.
+
+- If the user is logged in, their profile data is loaded from fastify.dataStore.users and rendered with the profile template, including any flash messages.
+
+**POST /profile**
+When the user submits the avatar upload form, the server processes the uploaded file.
+
+- First, it checks if the user is logged in. If not, a danger flash message is set and the user is redirected to ``/login``.
+
+- If a file was not provided, a danger message is set and the user is redirected back to ``/profile``.
+
+- If a file was provided but its extension is not allowed, a danger message is set and the user is redirected back to ``/profile``.
+
+- If the file is valid, a new filename is generated with a timestamp prefix, and the file is moved from its temporary path to ``fastify.UPLOAD_FOLDER``.
+
+- The user’s avatar in ``fastify.dataStore.users`` is updated with the new filename, and a success flash message is set.
+
+- Finally, the user is redirected back to ``/profile``.
+
 
 **Create Profile Template**  
+We create a template to display the user profile and add a form that allows updating the profile avatar.  
 **`views/profile.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <div class="container">
   <h1 class="page-title">Welcome, {{user.username}}</h1>
   <div class="avatar-section">
@@ -975,6 +1001,7 @@ module.exports = async (fastify, opts) => {
     </div>
   </form>
 </div>
+{{/ _layout}}
 ```
 
 **Update CSS for Avatars**  
