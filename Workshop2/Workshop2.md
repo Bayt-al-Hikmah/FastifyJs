@@ -550,28 +550,42 @@ We visit `http://127.0.0.1:3000/contact`, fill out the form, and submit it. A va
 
 For robust form handling, we use Fastify’s JSON Schema for validation and `fastify-csrf-protection` for security, providing CSRF protection and declarative validation.
 
+#### JSON Schema
+
+JSON Schema is a powerful standard for defining the structure and data types of JSON data. In the context of Fastify, it is used to validate incoming request data, such as form submissions, ensuring that the data meets specific criteria before processing. This declarative approach allows developers to define rules for data validation in a structured format, making it easier to enforce constraints and handle errors systematically.
+
+#### How JSON Schema Works
+
+- **Schema Definition**: A JSON Schema is a JSON object that specifies the expected structure, types, and constraints of the data. For example, it can define required fields, data types (e.g., string, number), and constraints like minimum or maximum length.
+- **Validation Process**: When a request is made, Fastify validates the incoming data (e.g., `request.body`) against the defined schema. If the data conforms, the request proceeds; otherwise, a validation error is thrown.
+- **Error Handling**: Validation errors are captured and can be passed to the client, allowing for user-friendly feedback, such as displaying error messages next to form fields.
+- **Benefits**: JSON Schema ensures data integrity, reduces manual validation code, and integrates seamlessly with Fastify’s ecosystem, enabling reusable and maintainable validation logic.
+
+In this example, the `contactSchema` defines rules for the `name`, `message`, and `_csrf` fields, ensuring they meet specific criteria (e.g., `name` must be a string between 3 and 25 characters).
+
 **Install Additional Plugins**
 
 ```bash
 npm install @fastify/csrf-protection @fastify/cookie
 ```
 
-**Create a CSRF Plugin**  
-**`plugins/csrf.js`:**
+ **Create a CSRF Plugin**
+
+`plugins/csrf.js`:
 
 ```javascript
 const fp = require('fastify-plugin')
-
 module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/cookie'))
   fastify.register(require('@fastify/csrf-protection'))
 })
 ```
 
-**Create a Validated Contact Route**  
+**Create a Validated Contact Route**
+
 We define a JSON Schema to validate form inputs, ensuring fields meet specific criteria.
 
-**`routes/contact.js` (updated):**
+`routes/contact.js` (updated):
 
 ```javascript
 module.exports = async (fastify, opts) => {
@@ -601,8 +615,9 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Create the Validated Contact Template**  
-**`views/contact-wt.hbs`:**
+**Create the Validated Contact Template**
+
+`views/contact-wt.hbs`:
 
 ```html
 {{> _layout}}
@@ -633,10 +648,11 @@ module.exports = async (fastify, opts) => {
 {{/if}}
 ```
 
-**Handle Validation Errors**  
+**Handle Validation Errors**
+
 We add a global error handler to display validation errors in the template.
 
-**`app.js` (updated snippet):**
+`app.js` (updated snippet):
 
 ```javascript
 fastify.setErrorHandler((error, request, reply) => {
@@ -646,14 +662,14 @@ fastify.setErrorHandler((error, request, reply) => {
   }
   reply.send(error)
 })
-
 fastify.register(require('./plugins/csrf'))
 fastify.register(require('./routes/contact'), { prefix: '/' })
 ```
 
-We visit `http://127.0.0.1:3000/contact-wt` and submit the form with invalid data (e.g., a name shorter than 3 characters). Error messages appear next to the fields. A valid submission shows a thank-you message.
 
-**Explanation**: Fastify’s JSON Schema, provide declarative validation for fields like name and message. The `fastify-csrf-protection`, ensure security. Error handling is integrated into Fastify’s ecosystem, passing errors to the template for user-friendly feedback.
+Visit `http://127.0.0.1:3000/contact-wt` and submit the form with invalid data (e.g., a name shorter than 3 characters). Error messages will appear next to the respective fields. A valid submission will display a thank-you message.
+
+Fastify’s JSON Schema provides declarative validation for fields like `name` and `message`, ensuring data integrity before processing. The `fastify-csrf-protection` plugin enhances security by generating and validating CSRF tokens to prevent cross-site request forgery attacks. Error handling is integrated into Fastify’s ecosystem, passing validation errors to the template for user-friendly feedback.
 
 ## Putting It All Together
 
