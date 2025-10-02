@@ -701,7 +701,7 @@ npm install quill
 ```
 
 **Create a Quill.js Plugin**  
-We create a Fastify plugin to serve Quill.js’s static assets (CSS and JavaScript) and provide a reusable configuration for the editor’s toolbar and features. This approach aligns with Fastify’s plugin-based architecture, keeping our setup modular and maintainable.
+We create a Fastify plugin to serve Quill.js’s static assets (CSS and JavaScript) and provide a reusable configuration for the editor’s toolbar and features.  
 
 **`plugins/quill.js`:**
 
@@ -854,7 +854,8 @@ fastify.register(require('./plugins/quill'))
 
 We visit `/create` after logging in, and Quill.js appears as a rich text editor in the form. We format content with headings, bold text, lists, or links, then submit the form. The generated HTML is stored in our in-memory database and displayed at `/wiki/PageName`. If we submit an invalid form (e.g., empty title), a flash message appears, and we’re redirected back to the form.
 
-**Explanation**: Quill.js, served through our Fastify plugin, provides a lightweight and customizable WYSIWYG editor that generates HTML content directly, making it intuitive for users to create formatted wiki pages. The plugin encapsulates Quill’s assets and configuration, ensuring modularity and reusability across routes. JSON Schema validation on the server side ensures that submitted content meets our requirements, while the error handler provides clear feedback via flash messages. The hidden input captures the editor’s HTML, seamlessly integrating with our form submission process. This setup leverages Fastify’s plugin system for a clean, scalable integration of the rich text editor, optimized for performance and ease of use.
+
+Quill.js, served through our Fastify plugin, provides a lightweight and customizable WYSIWYG editor that generates HTML content directly, making it intuitive for users to create formatted wiki pages. The plugin encapsulates Quill’s assets and configuration, ensuring modularity and reusability across routes. JSON Schema validation on the server side ensures that submitted content meets our requirements, while the error handler provides clear feedback via flash messages. The hidden input captures the editor’s HTML, seamlessly integrating with our form submission process. This setup leverages Fastify’s plugin system for a clean, scalable integration of the rich text editor, optimized for performance and ease of use.
 ## File Uploads
 
 Allowing users to upload avatars enhances personalization but requires secure handling. We’ll configure Fastify to accept image uploads, validate file types, and store them safely.
