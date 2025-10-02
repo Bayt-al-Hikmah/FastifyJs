@@ -71,7 +71,12 @@ module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/view'), {
     engine: { handlebars: require('handlebars') },
     templates: path.join(__dirname, '../views'),
-    includeViewExtension: true
+    includeViewExtension: true,
+    options: {
+      partials: {
+        _layout: 'partials/_layout.hbs'
+    }
+  }
   })
 })
 ```
@@ -190,7 +195,7 @@ We create Handlebars templates for registration and login.
     {{/if}}
 
     <section class="content">
-      {{{content}}}
+      {{> @partial-block}}
     </section>
   </main>
 
@@ -206,7 +211,7 @@ We create Handlebars templates for registration and login.
 **`views/register.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Create an account</h1>
 <form method="POST" class="form-card">
   <label for="username">Username</label>
@@ -218,12 +223,13 @@ We create Handlebars templates for registration and login.
     <a href="/login" class="btn btn-link">Already have an account?</a>
   </div>
 </form>
+{{/ _layout}}
 ```
 
 **`views/login.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Log in</h1>
 <form method="POST" class="form-card">
   <label for="username">Username</label>
@@ -235,6 +241,7 @@ We create Handlebars templates for registration and login.
     <a href="/register" class="btn btn-link">Create account</a>
   </div>
 </form>
+{{/ _layout}}
 ```
 
 **Add CSS**  
@@ -419,9 +426,10 @@ start()
 **`views/home.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Welcome to MyApp</h1>
 <p>Create and view wiki pages!</p>
+{{/ _layout}}
 ```
 
 We run `node app.js`, visit `http://127.0.0.1:3000/register`, create a user, log in at `/login`, and log out at `/logout`. Flash messages provide feedback, and the session persists the username across requests.
