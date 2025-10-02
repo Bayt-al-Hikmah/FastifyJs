@@ -140,7 +140,7 @@ We run `node app.js` and visit `http://127.0.0.1:3000` in our browser. The page 
 
 ## Working with Static Files
 
-To enhance our web pages with styling and visuals, we need to serve static files like CSS and images. Fastify uses the `fastify-static` plugin to handle these files efficiently, ensuring fast delivery to the browser.
+To enhance our web pages with styling and visuals, we need to serve static files like CSS and images. Fastify uses the `@fastify/static` plugin to handle these files efficiently, ensuring fast delivery to the browser.
 
 ### Organizing Static Files
 
@@ -165,10 +165,10 @@ my_fastify_project/
 
 We configure Fastify to serve static files and link them in our template.
 
-**Step 1: Install `fastify-static`**
+**Step 1: Install `@fastify/static`**
 
 ```bash
-npm install fastify-static
+npm install @fastify/static
 ```
 
 **Step 2: Create a Static File Plugin**  
@@ -179,7 +179,7 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-static'), {
+  fastify.register(require('@fastify/static'), {
     root: path.join(__dirname, '../public'),
     prefix: '/static/'
   })
@@ -254,7 +254,7 @@ start()
 
 We run the app and refresh `http://127.0.0.1:3000`. Assuming `logo.png` exists in `public/images/`, the page now displays styled text and an image.
 
-**Explanation**: The `fastify-static` plugin ensures reliable file serving by using a configurable prefix.Fastify’s prefix-based approach is simpler and adapts to different deployment contexts, maintaining portability and aligning with Fastify’s focus on performance.
+**Explanation**: The `@fastify/static` plugin ensures reliable file serving by using a configurable prefix.Fastify’s prefix-based approach is simpler and adapts to different deployment contexts, maintaining portability and aligning with Fastify’s focus on performance.
 
 ## Introduction to Handlebars Templating
 
