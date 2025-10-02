@@ -52,7 +52,7 @@ Let’s set up the environment, configure session management, and create routes 
 We install Fastify and the necessary plugins:
 
 ```bash
-npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody
+npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
 **Configure Session and Flash Plugins**  
@@ -73,7 +73,9 @@ module.exports = fp(async (fastify, opts) => {
 })
 ```
 **Configure Argon2 Plugin**  
-We create a plugin to make Argon2 available across the app, allowing us to securely hash and verify passwords.
+Saving passwords in plain text is not safe, if the database is ever leaked, all user passwords would be immediately exposed.  
+To fix this, we use Argon2 to hash the passwords and store them in a much safer format.  
+We apply this by creating a plugin for Argon2, wrapping it as a decorator with fastify.decorate(), and then registering the plugin inside app.js.
 
 **`plugins/argon2.js:`**
 ```
@@ -145,8 +147,8 @@ module.exports = async (fastify, opts) => {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
-
-    fastify.dataStore.users[username] = { password, avatar: null }
+    const hashedPassword = await fastify.argon2.hash(password)
+    fastify.dataStore.users[username] = { password: hashedPassword, avatar: null }
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
@@ -159,7 +161,7 @@ module.exports = async (fastify, opts) => {
     const { username, password } = request.body
     const user = fastify.dataStore.users[username]
 
-    if (user && user.password === password) {
+    if (user && await fastify.argon2.verify(user.password, password)) {
       request.session.set('username', username)
       request.flash('success', 'Login successful!')
       return reply.redirect('/home')
@@ -176,7 +178,47 @@ module.exports = async (fastify, opts) => {
   })
 }
 ```
+**GET /register**
 
+When a user visits /register, the server renders the registration page using a Handlebars template.
+It also passes any flash messages (e.g., error or success notifications) to the template so the user can see feedback (like "Username already exists" or "Registration successful"). 
+
+**POST /register**
+
+When the form is submitted, the server receives the username and password.  
+
+- It first checks if the username already exists in the in-memory dataStore. If it does, a danger flash message is set and the user is redirected back to the registration page.
+
+- If the username is new, the password is securely hashed using Argon2 before storing it. This ensures we never save plain-text passwords, making the system safer if data leaks.
+
+- The new user is saved into fastify.dataStore.users, with their hashed password and a placeholder for their avatar.
+
+- A success flash message is shown, and the user is redirected to the login page to log in with their new credentials.  
+
+**GET /login**
+
+When a user visits /login, the server renders the login page template.  
+Like in registration, flash messages are passed along these could include info like "You’ve been logged out" or errors from failed login attempts.  
+
+**POST /login**
+
+When the login form is submitted:  
+- The server looks up the user in dataStore by the provided username.
+
+- If the user exists, the submitted password is verified against the hashed password stored in the database using Argon2’s verify function.
+
+- If verification succeeds, the username is stored in the session, and a success message is displayed before redirecting the user to /home.
+
+- If verification fails, a danger message is displayed, and the user is redirected back to the login page.
+
+**GET /logout**  
+When the user visits /logout:
+
+- The current session is destroyed, removing the user’s login state.
+
+- A flash message notifies them that they have been logged out.
+
+- The user is redirected to the /login page.
 **Create Templates**  
 We create Handlebars templates for registration and login.
 
