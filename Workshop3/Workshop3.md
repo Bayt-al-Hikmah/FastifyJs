@@ -38,6 +38,7 @@ fastify.register(require('./plugins/db-plugin'));
 ```
 Once registered, we can access the in-memory database object anywhere in our application through fastify.dataStore. This allows us to read from and modify the data just like we would with a real database
 ### Fastify Session Management
+A session is a way to store information about a user across multiple requests. Since HTTP is a stateless protocol (it doesn’t remember anything between requests), sessions allow us to persist data like login status, user preferences, or temporary messages while the user navigates through the app.  
 
 To track user sessions, we’ll use the `@fastify/cookie` and `@fastify/session` plugins, which provide secure session handling . Fastify signs session cookies with a secret key to prevent tampering, ensuring security.
 
