@@ -7,7 +7,7 @@
 
 ## Hashed Passwords and Authentication
 
-Authentication is a cornerstone of multi-user applications, allowing users to register, log in, and access protected resources securely. In this section, we’ll use the bcrypt library to hash passwords securely and leverage Fastify’s session management to track logged-in users. We’ll also create a clean, reusable authentication system using Fastify’s plugin system.
+Authentication is a cornerstone of multi-user applications, allowing users to register, log in, and access protected resources securely. In this section, we’ll use the argon2 library to hash passwords securely and leverage Fastify’s session management to track logged-in users. We’ll also create a clean, reusable authentication system using Fastify’s plugin system.
 
 ### Hashing Passwords
 
@@ -15,13 +15,13 @@ Storing passwords in plain text is a significant security risk, as unauthorized 
 
 We’ll use the bcrypt library, which provides:
 
-- bcrypt.hash(password, saltRounds): Generates a secure hash for a password.
-- bcrypt.compare(password, hash): Verifies if a provided password matches the stored hash.
+- fastify.argon2.hash(password): Generates a secure hash for a password.
+- fastify.argon2.verify(hash, password): Verifies if a provided password matches the stored hash.
 
 **Install Dependencies** We begin by installing Fastify and the necessary plugins for session management, form handling, templating, and password hashing.
 
 ```
-npm install fastify @fastify/cookie @fastify/session fastify-flash fastify-static fastify-point-of-view handlebars fastify-formbody bcrypt
+npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
 **Set Up Session and Templating Plugins** We create plugins to handle sessions, flash messages, and templating with Handlebars, ensuring our application is modular and secure.
@@ -37,7 +37,7 @@ module.exports = fp(async (fastify, opts) => {
     secret: 'your-super-secret-key-that-no-one-knows',
     cookie: { secure: false } // Set secure: true in production with HTTPS
   })
-  fastify.register(require('fastify-flash'))
+  fastify.register(require('@fastify/flash'))
 })
 ```
 
@@ -48,10 +48,16 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-point-of-view'), {
+  fastify.register(require('@fastify/view'), {
     engine: { handlebars: require('handlebars') },
     templates: path.join(__dirname, '../views'),
-    includeViewExtension: true
+    includeViewExtension: true,
+options: {
+    partials: {
+      _layout: 'partials/_layout.hbs'
+
+    }
+  }
   })
 })
 ```
@@ -62,24 +68,53 @@ const fp = require('fastify-plugin')
 const path = require('path')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('fastify-static'), {
+  fastify.register(require('@fastify/static'), {
     root: path.join(__dirname, '../public'),
     prefix: '/static/'
   })
 })
 ```
 
-**Create Authentication Routes with Hashed Passwords** We create an authentication plugin to handle registration and login, using bcrypt to hash passwords securely. For now, we’ll use an in-memory object to store users, which we’ll replace with SQLite later.
+**`plugins/argon2.js:`**
+```
+const fp = require('fastify-plugin')
+const argon2 = require('argon2')
 
+module.exports = fp(async (fastify, opts) => {
+  fastify.decorate('argon2', argon2)
+})
+```
+**`./plugins/db-plugin.js`:**
+
+```javascript
+const fp = require('fastify-plugin');
+
+const users={}
+
+async function dbConnector (fastify, options) {
+  fastify.decorate('users', users);
+}
+
+module.exports = fp(dbConnector, {
+    name: 'data-connector' 
+});
+```
+**`plugins/formbody.js:`**
+```
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.register(require('@fastify/formbody'))
+})
+````
 **routes/auth.js:**
 ```
-const bcrypt = require('bcrypt')
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+  
 
   // In-memory user store (temporary)
-  const users = {}
+  
 
   fastify.get('/register', async (request, reply) => {
     return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
@@ -88,13 +123,13 @@ module.exports = async (fastify, opts) => {
   fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
 
-    if (users[username]) {
+    if (fastify.users[username]) {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
 
-    const passwordHash = await bcrypt.hash(password, 10) // 10 salt rounds
-    users[username] = { passwordHash }
+    const passwordHash = await fastify.argon2.hash(password) // 10 salt rounds
+    fastify.users[username] = { passwordHash }
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
@@ -105,9 +140,9 @@ module.exports = async (fastify, opts) => {
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
-    const user = users[username]
+    const user = fastify.users[username]
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !(await fastify.argon2.verify(user.passwordHash,password))) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
@@ -125,7 +160,8 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Create Templates** We create Handlebars templates for registration and login, ensuring a consistent and user-friendly interface.
+**Create Templates** 
+We create Handlebars templates for registration and login.
 
 **views/partials/_layout.hbs:**
 ```
@@ -166,7 +202,7 @@ module.exports = async (fastify, opts) => {
     {{/if}}
 
     <section class="content">
-      {{{content}}}
+      {{> @partial-block}}
     </section>
   </main>
 
@@ -180,7 +216,7 @@ module.exports = async (fastify, opts) => {
 ```
 **views/register.hbs:**
 ```
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Create an account</h1>
 <form method="POST" class="form-card">
   <label for="username">Username</label>
@@ -192,10 +228,11 @@ module.exports = async (fastify, opts) => {
     <a href="/login" class="btn btn-link">Already have an account?</a>
   </div>
 </form>
+{{/ _layout}}
 ```
 **views/login.hbs:**
 ```
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Log in</h1>
 <form method="POST" class="form-card">
   <label for="username">Username</label>
@@ -207,9 +244,11 @@ module.exports = async (fastify, opts) => {
     <a href="/register" class="btn btn-link">Create account</a>
   </div>
 </form>
+{{/ _layout}}
 ```
 
-**Add CSS** We define styles to ensure a consistent, professional look across our application.
+**Add CSS** 
+We define styles to ensure a consistent, professional look across our application.
 
 **public/css/style.css:**
 ```
@@ -364,9 +403,15 @@ body {
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
+// Plugins
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
+fastify.register(require('./plugins/formbody'));
 fastify.register(require('./plugins/session'))
+fastify.register(require('./plugins/db-plugin'));
+fastify.register(require('./plugins/argon2'));
+
+// Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 
 fastify.get('/home', async (request, reply) => {
@@ -387,14 +432,15 @@ start()
 
 **views/home.hbs:**
 ```
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Welcome to MyApp</h1>
 <p>Create and manage your account!</p>
+{{/ _layout}}
 ```
 
 Run node app.js, visit http://127.0.0.1:3000/register, create a user with a username and password, log in at /login, and log out at /logout. Flash messages provide feedback, and the session persists the user’s login state.
 
-**Explanation**: We use bcrypt to securely hash passwords, ensuring that plain text passwords are never stored. Fastify’s @fastify/session plugin manages user sessions with signed cookies, providing security against tampering. The fastify-flash plugin displays temporary messages, enhancing user feedback. By organizing routes in a plugin (routes/auth.js), we leverage Fastify’s modular architecture, keeping our code clean and reusable. Handlebars templates provide a dynamic front-end, rendered efficiently by fastify-point-of-view.
+We use argon2 to securely hash passwords, ensuring that plain text passwords are never stored. Fastify’s ``@fastify/session`` plugin manages user sessions with signed cookies, providing security against tampering. The `@fastify/flash` plugin displays temporary messages, enhancing user feedback. By organizing routes in a plugin (routes/auth.js), we leverage Fastify’s modular architecture, keeping our code clean and reusable. Handlebars templates provide a dynamic front-end, rendered efficiently by ``@fastify/view``.
 
 ### Protecting Routes with Decorators
 
@@ -402,9 +448,10 @@ Our authentication system works, but if we have multiple protected routes (e.g.,
 
 In Fastify, a **decorator** is a way to extend the framework’s functionality or add reusable logic. We’ll create a custom decorator to check if a user is logged in before allowing access to protected routes. If the user isn’t logged in, the decorator redirects them to the login page with a flash message.
 
-**Create an Authentication Decorator Plugin** We define a loginRequired decorator in a plugin, which we can apply to any route.
+**Create an Authentication Decorator Plugin** 
+We define a loginRequired decorator in a plugin, which we can apply to any route.
 
-**plugins/auth.js:**
+**plugins/auth.js:**  
 ```
 const fp = require('fastify-plugin')
 
@@ -420,8 +467,10 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
+In this plugin, we add a helper called loginRequired to our Fastify app. The main idea is simple: we check if a user is logged in by looking at the session. If no user is found, we do two things: show a flash message to inform them they need to log in, and redirect them to the login page.  
 
-**Apply the Decorator to a Profile Route** We create a profile route and apply the loginRequired decorator to protect it.
+**Apply the Decorator to a Profile Route** 
+We create a profile route and apply the loginRequired decorator to protect it.
 
 **routes/profile.js:**
 ```
@@ -431,25 +480,29 @@ module.exports = async (fastify, opts) => {
   })
 }
 ```
+In this route, we want to show the user’s profile page, but only if they are logged in. We check this by using the loginRequired plugin as a preHandler. Fastify runs this function before the route’s main logic. If the user isn’t logged in, the loginRequired function automatically redirects them to the login page with a flash message.  
 
 **views/profile.hbs:**
 ```
-{{> _layout}}
+{{#> _layout}}
 <h1 class="page-title">Welcome, {{username}}</h1>
 <p>This is your profile page.</p>
+{{/ _layout}}
 ```
 
 **Register the Auth Plugin** We update app.js to register the authentication plugin and profile route.
 
 **app.js (updated snippet):**
 ```
+// in Plugins seciont we add
 fastify.register(require('./plugins/auth'))
+// In routes section we add
 fastify.register(require('./routes/profile'), { prefix: '/' })
 ```
 
- Visit /profile without logging in you’ll be redirected to /login with a flash message. After logging in, /profile displays your username. Add more protected routes (e.g., /dashboard) by applying preHandler: fastify.loginRequired, and the decorator will enforce authentication consistently.
+ Visit /profile without logging in you’ll be redirected to /login with a flash message. After logging in, /profile displays your username. Add more protected routes (e.g., /dashboard) by applying preHandler: ``fastify.loginRequired``, and the decorator will enforce authentication consistently.
 
-**Explanation**: The loginRequired decorator encapsulates the authentication check, making it reusable across routes. By using Fastify’s preHandler hook, we execute the check before the route handler, keeping our route logic focused on its core purpose. This approach aligns with Fastify’s philosophy of modularity and performance, reducing code duplication and ensuring consistent access control. The plugin system allows us to encapsulate this logic, making it easy to extend or modify later.
+The loginRequired decorator encapsulates the authentication check, making it reusable across routes. By using Fastify’s preHandler hook, we execute the check before the route handler, keeping our route logic focused on its core purpose. This approach aligns with Fastify’s philosophy of modularity and performance, reducing code duplication and ensuring consistent access control. The plugin system allows us to encapsulate this logic, making it easy to extend or modify later.
 
 ## Working with SQLite
 
