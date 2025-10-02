@@ -72,7 +72,18 @@ module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/flash'))
 })
 ```
+**Configure Argon2 Plugin**  
+We create a plugin to make Argon2 available across the app, allowing us to securely hash and verify passwords.
 
+**`plugins/argon2.js:`**
+```
+const fp = require('fastify-plugin')
+const argon2 = require('argon2')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.decorate('argon2', argon2)
+})
+```
 **Configure Templating**  
 We use `@fastify/view` with Handlebars to render HTML templates.  
 
@@ -416,11 +427,15 @@ We tie everything together in `app.js`.
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
+// Plugins
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
-fastify.register(require('./routes/auth'), { prefix: '/' })
+fastify.register(require('./plugins/argon2'))
+fastify.register(require('./plugins/db-plugin')); 
 
+// Routes
+fastify.register(require('./routes/auth'), { prefix: '/' })
 fastify.get('/home', async (request, reply) => {
   return reply.view('home')
 })
