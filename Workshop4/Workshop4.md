@@ -18,13 +18,15 @@ We’ll use the bcrypt library, which provides:
 - fastify.argon2.hash(password): Generates a secure hash for a password.
 - fastify.argon2.verify(hash, password): Verifies if a provided password matches the stored hash.
 
-**Install Dependencies** We begin by installing Fastify and the necessary plugins for session management, form handling, templating, and password hashing.
+**Install Dependencies**   
+We begin by installing Fastify and the necessary plugins for session management, form handling, templating, and password hashing.
 
 ```
 npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
-**Set Up Session and Templating Plugins** We create plugins to handle sessions, flash messages, and templating with Handlebars, ensuring our application is modular and secure.
+**Set Up Session and Templating Plugins**   
+We create plugins to handle sessions, flash messages, and templating with Handlebars, ensuring our application is modular and secure.
 
 **plugins/session.js:**
 
@@ -167,7 +169,7 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Create Templates** 
+**Create Templates**  
 We create Handlebars templates for registration and login.
 
 **views/partials/_layout.hbs:**
@@ -254,7 +256,7 @@ We create Handlebars templates for registration and login.
 {{/ _layout}}
 ```
 
-**Add CSS** 
+**Add CSS**   
 We define styles to ensure a consistent, professional look across our application.
 
 **public/css/style.css:**
@@ -402,7 +404,8 @@ body {
 }
 ```
 
-**Bootstrap the Application** We tie everything together in app.js, registering plugins and defining a basic home route.
+**Bootstrap the Application**   
+We tie everything together in app.js, registering plugins and defining a basic home route.
 
 **app.js:**
 
@@ -455,7 +458,7 @@ Our authentication system works, but if we have multiple protected routes (e.g.,
 
 In Fastify, a **decorator** is a way to extend the framework’s functionality or add reusable logic. We’ll create a custom decorator to check if a user is logged in before allowing access to protected routes. If the user isn’t logged in, the decorator redirects them to the login page with a flash message.
 
-**Create an Authentication Decorator Plugin** 
+**Create an Authentication Decorator Plugin**   
 We define a loginRequired decorator in a plugin, which we can apply to any route.
 
 **plugins/auth.js:**  
@@ -476,7 +479,7 @@ module.exports = fp(async (fastify, opts) => {
 ```
 In this plugin, we add a helper called loginRequired to our Fastify app. The main idea is simple: we check if a user is logged in by looking at the session. If no user is found, we do two things: show a flash message to inform them they need to log in, and redirect them to the login page.  
 
-**Apply the Decorator to a Profile Route** 
+**Apply the Decorator to a Profile Route**   
 We create a profile route and apply the loginRequired decorator to protect it.
 
 **routes/profile.js:**
@@ -497,7 +500,8 @@ In this route, we want to show the user’s profile page, but only if they are l
 {{/ _layout}}
 ```
 
-**Register the Auth Plugin** We update app.js to register the authentication plugin and profile route.
+**Register the Auth Plugin**   
+We update app.js to register the authentication plugin and profile route.
 
 **app.js (updated snippet):**
 ```
@@ -511,9 +515,9 @@ fastify.register(require('./routes/profile'), { prefix: '/' })
 
 The loginRequired decorator encapsulates the authentication check, making it reusable across routes. By using Fastify’s preHandler hook, we execute the check before the route handler, keeping our route logic focused on its core purpose. This approach aligns with Fastify’s philosophy of modularity and performance, reducing code duplication and ensuring consistent access control. The plugin system allows us to encapsulate this logic, making it easy to extend or modify later.
 
-## Working with SQLite
+## Working with SQLite  
 
-Our in-memory user store (users object) is convenient for prototyping but loses all data when the server restarts, as it resides in volatile RAM. For a real application, we need **persistent storage** to retain data across server restarts. This is where a **database** comes in, providing a structured way to store, manage, and retrieve data.
+Storing users in memory (just in the server’s RAM) is convenient for quick prototyping, but it has a major limitation: all data is lost whenever the server restarts because RAM is volatile. For any real-world application, we need persistent storage a way to save data that survives server restarts. This is where a database comes in. A database provides a structured and reliable way to store, manage, and retrieve data, ensuring that users’ information is safe and always accessible.
 
 We’ll use **SQLite**, a lightweight, file-based database ideal for learning and small to medium-sized applications. SQLite’s advantages include:
 
@@ -537,7 +541,8 @@ CREATE TABLE user (
 );
 ```
 
-**Initialize the Database** We run the schema to create the database file:
+**Initialize the Database**   
+We run the schema to create the database file:
 
 ```
 sqlite3 database.db < schema.sql
@@ -554,7 +559,8 @@ The sqlite3 package allows us to interact with SQLite databases in Node.js. We c
 npm install sqlite3
 ```
 
-**Create a Database Plugin** We create a plugin to manage SQLite connections, decorating Fastify with a db object for reusable database access.
+**Create a Database Plugin**   
+We create a plugin to manage SQLite connections, decorating Fastify with a db object for reusable database access.
 
 **plugins/db.js:**
 
@@ -584,16 +590,13 @@ module.exports = fp(async (fastify, opts) => {
 
 This plugin opens a connection to database.db and decorates Fastify with the db object. The onClose hook ensures the connection closes gracefully when the server shuts down.
 
-**Update Authentication Routes for SQLite** We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating bcrypt for password hashing.
+**Update Authentication Routes for SQLite**   
+We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating bcrypt for password hashing.
 
 **routes/auth.js (updated):**
 
 ```
-const bcrypt = require('bcrypt')
-
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
-
   fastify.get('/register', async (request, reply) => {
     return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
   })
@@ -615,7 +618,7 @@ module.exports = async (fastify, opts) => {
     }
 
     // Hash password and insert user
-    const passwordHash = await bcrypt.hash(password, 10)
+    const passwordHash = await fastify.argon2.hash(password)
     await new Promise((resolve, reject) => {
       fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], (err) => {
         if (err) reject(err)
@@ -641,7 +644,7 @@ module.exports = async (fastify, opts) => {
       })
     })
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!user || !(await fastify.argon2.verify(user.password_hash, password) )) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
@@ -660,7 +663,21 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Register the Database Plugin** We update app.js to include the database plugin.
+By using the fastify.db plugin that we created, we can run commands on our database in a structured and secure way. To insert data, we use:
+```
+fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], callback)
+```
+To get data, we use:
+```
+fastify.db.get('SELECT * FROM user WHERE username = ?', [username], callback)
+```
+
+Notice that we use placeholders `?` instead of directly concatenating strings. This ensures user input is safely escaped, preventing SQL injection.
+
+We wrap these database calls in Promises because the database plugin uses a callback-based API. Promises allow us to await these operations, making the code cleaner, easier to read, and compatible with async/await syntax. This way, we can handle asynchronous database operations reliably while keeping our code simple and maintainable   
+
+**Register the Database Plugin**   
+We update app.js to include the database plugin.
 
 **app.js (updated snippet):**
 ```
@@ -669,23 +686,22 @@ fastify.register(require('./plugins/db'))
 
 Run node app.js, register a user at /register, and log in at /login. The user data is now stored in database.db, persisting across server restarts. Invalid login attempts or duplicate usernames trigger flash messages.
 
-**Explanation**: The sqlite3 package provides a straightforward way to interact with SQLite, using parameterized queries (e.g., ?) to prevent SQL injection attacks. We encapsulate the database connection in a plugin, making it accessible via fastify.db across routes. The db.run method executes INSERT queries, while db.get retrieves single rows. By promisifying these operations, we integrate seamlessly with Fastify’s async/await syntax, ensuring clean and efficient database interactions. The session now stores both user_id and username for better tracking, and bcrypt ensures secure password handling.
+The sqlite3 package provides a straightforward way to interact with SQLite, using parameterized queries (e.g., ?) to prevent SQL injection attacks. We encapsulate the database connection in a plugin, making it accessible via fastify.db across routes. The db.run method executes INSERT queries, while db.get retrieves single rows. By promisifying these operations, we integrate seamlessly with Fastify’s async/await syntax, ensuring clean and efficient database interactions. The session now stores both user_id and username for better tracking, and argon2 ensures secure password handling.
 
 ### Refactoring with a User Class
 
-Our SQLite-based authentication works, but our routes contain raw SQL queries, mixing database logic with route handling. This violates the DRY principle and makes maintenance harder, as we repeat queries like SELECT * FROM user WHERE username = ? across routes. It also couples our route logic tightly with database details, reducing flexibility.
+Our SQLite-based authentication works, but our routes contain raw SQL queries, mixing database logic with route handling. This violates the DRY principle and makes maintenance harder, as we repeat queries like `SELECT * FROM user WHERE username = ?` across routes. It also couples our route logic tightly with database details, reducing flexibility.
 
 To address this, we’ll encapsulate database operations in a User class, creating a clean interface for user-related actions like creating a user or finding one by username. This approach separates concerns, making our routes focus on business logic while the User class handles data access.
 
-**Create a User Utility Module** We define a User class in a separate file to manage user-related database operations.
+**Create a User Utility Module**   
+We define a User class in a separate file to manage user-related database operations.
 
 **utils/user.js:**
 ```
-const bcrypt = require('bcrypt')
-
 class User {
   static async create(fastify, username, password) {
-    const passwordHash = await bcrypt.hash(password, 10)
+    const passwordHash = await fastify.argon2.hash(password)
     return new Promise((resolve, reject) => {
       fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], function (err) {
         if (err) reject(err)
@@ -706,8 +722,19 @@ class User {
 
 module.exports = User
 ```
+We create a **`User` class** as a **model** to represent users in our application. Using this model, we can **create a new user** or **search for an existing user** with dedicated methods:
 
-**Update Authentication Routes** We refactor auth.js to use the User class, simplifying route logic.
+- `User.create(fastify, username, password)` hashes the password and inserts the new user into the database, returning the newly created user’s ID.
+    
+- `User.findByUsername(fastify, username)` searches the database for a user with the given username and returns the record if found.
+    
+
+Both methods use **Promises** to wrap the database operations, allowing us to `await` them for clean asynchronous handling.
+
+By organizing database operations in a **model**, we **separate data access from application logic**, making the code more maintainable, reusable, and easier to read.
+
+**Update Authentication Routes**   
+We refactor auth.js to use the User class, simplifying route logic.
 
 **routes/auth.js (updated):**
 ```
@@ -762,7 +789,7 @@ module.exports = async (fastify, opts) => {
 
 Register and log in again. The functionality remains the same, but the routes are now cleaner, relying on the User class for database operations. Data persists in SQLite, and the code is easier to maintain.
 
-**Explanation**: The User class encapsulates database logic, providing methods like create and findByUsername that hide SQL details. By passing the fastify instance to these methods, we access the database connection (fastify.db) without hardcoding it in the class. This separation of concerns makes our routes focus on user interaction (e.g., handling form submissions) while the User class handles data access. Promisified database operations ensure compatibility with Fastify’s async nature, and the modular structure aligns with Fastify’s plugin-based design, improving maintainability and scalability.
+The User class encapsulates database logic, providing methods like create and findByUsername that hide SQL details. By passing the fastify instance to these methods, we access the database connection (fastify.db) without hardcoding it in the class. This separation of concerns makes our routes focus on user interaction (e.g., handling form submissions) while the User class handles data access. Promisified database operations ensure compatibility with Fastify’s async nature, and the modular structure aligns with Fastify’s plugin-based design, improving maintainability and scalability.
 
 ### Using Sequelize and Models
 
@@ -770,12 +797,14 @@ While the User class improved our code, we’re still writing raw SQL queries, w
 
 This is where **Sequelize**, an Object-Relational Mapper (ORM) for Node.js, comes in. Sequelize allows us to define database tables as JavaScript classes (models) and interact with them using object-oriented methods, abstracting away raw SQL. Each table becomes a model, and each row an instance, making database operations more intuitive and portable across database engines.
 
-**Install Sequelize** We install Sequelize and the SQLite driver.
+**Install Sequelize**   
+We install Sequelize and the SQLite driver.
 ```
 npm install sequelize sqlite3
 ```
 
-**Create a Sequelize Plugin** We create a plugin to initialize Sequelize and make it available across our application.
+**Create a Sequelize Plugin**   
+We create a plugin to initialize Sequelize and make it available across our application.
 
 **plugins/sequelize.js:**
 ```
@@ -797,22 +826,23 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
+We created a Fastify plugin to set up our database connection using Sequelize, an ORM for Node.js. Inside the plugin, we initialize a Sequelize instance configured to use SQLite (dialect) with a local file (database.db) as storage, and we disable logging for cleaner output. We then attach this instance to Fastify using fastify.decorate('sequelize', sequelize), making it accessible throughout the application. Finally, we add an onClose hook to gracefully close the database connection when the server shuts down.  
 
-**Define a User Model** We create a User model to represent the user table, including methods for password hashing and verification.
+**Define a User Model**   
+We create a User model to represent the user table, including methods for password hashing and verification.
 
 **models/user.js:**
 ```
 const { Model, DataTypes } = require('sequelize')
-const bcrypt = require('bcrypt')
 
 module.exports = (sequelize) => {
   class User extends Model {
     async setPassword(password) {
-      this.password_hash = await bcrypt.hash(password, 10)
+      this.password_hash = await fastify.argon2.hash(password)
     }
 
     async checkPassword(password) {
-      return bcrypt.compare(password, this.password_hash)
+      return fastify.argon2.verify(this.password_hash, password)
     }
   }
 
@@ -841,8 +871,11 @@ module.exports = (sequelize) => {
   return User
 }
 ```
+We define a User model using Sequelize, which represents the users table in our database. The model extends Model and includes two custom methods: setPassword to hash and store a password securely, and checkPassword to verify a password against the stored hash. The User.init method defines the table structure with fields for id, username, and password_hash, along with constraints such as unique usernames and non-nullable fields. We link the model to the Sequelize instance passed as sequelize, specify the table name, and disable timestamps.  
 
-**Initialize Models** We create a module to initialize all models and sync the database schema.
+
+**Initialize Models**   
+We create a module to initialize all models and sync the database schema.
 
 **models/index.js:**
 
@@ -859,7 +892,8 @@ module.exports = (sequelize) => {
 }
 ```
 
-**Update the Sequelize Plugin** We modify the Sequelize plugin to initialize models.
+**Update the Sequelize Plugin**   
+We modify the Sequelize plugin to initialize models.
 
 **plugins/sequelize.js (updated):**
 ```
@@ -883,8 +917,10 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
+We updated the **Sequelize plugin** to not only create and attach the Sequelize instance but also to **load and attach all models** to Fastify. First, we initialize Sequelize with SQLite as the storage and disable logging for cleaner output. Then, we import our models by passing the Sequelize instance (`require('../models')(sequelize)`) and attach them to Fastify using `fastify.decorate('models', models)`. This allows us to access all models easily anywhere in the application through `fastify.models`. Finally, the `onClose` hook ensures that the database connection is **gracefully closed** when the server shuts down.  
 
-**Update Authentication Routes with Sequelize** We refactor auth.js to use the User model, simplifying database interactions.
+**Update Authentication Routes with Sequelize**   
+We refactor auth.js to use the User model, simplifying database interactions.
 
 **routes/auth.js (updated):**
 ```
@@ -941,19 +977,26 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Update app.js** We register the Sequelize plugin and ensure all components are connected.
+**Update app.js**   
+We register the Sequelize plugin and ensure all components are connected.
 
 **app.js (updated):**
 ```
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
+// Plugins
+fastify.register(require('./plugins/formbody'))
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
 fastify.register(require('./plugins/db'))
 fastify.register(require('./plugins/auth'))
 fastify.register(require('./plugins/sequelize'))
+fastify.register(require('./plugins/argon2'))
+
+
+// Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 fastify.register(require('./routes/profile'), { prefix: '/' })
 
@@ -973,63 +1016,9 @@ const start = async () => {
 start()
 ```
 
-**Try It Out**: Run node app.js. Register a user, log in, and verify that data persists in database.db. The profile page is accessible only when logged in, and invalid credentials trigger flash messages.
+Run node app.js. Register a user, log in, and verify that data persists in database.db. The profile page is accessible only when logged in, and invalid credentials trigger flash messages.
 
-**Explanation**: Sequelize abstracts raw SQL into model-based interactions, allowing us to work with User objects instead of queries. The User model encapsulates fields (id, username, password_hash) and methods (setPassword, checkPassword), making routes cleaner and more maintainable. The Sequelize plugin decorates Fastify with sequelize and models, providing easy access across the application. The sync({ force: true }) call recreates the database schema for development (use force: false in production to avoid data loss). This ORM approach ensures portability across databases and simplifies complex operations, aligning with Fastify’s focus on modularity and developer productivity.
+Sequelize abstracts raw SQL into model-based interactions, allowing us to work with User objects instead of queries. The User model encapsulates fields (id, username, password_hash) and methods (setPassword, checkPassword), making routes cleaner and more maintainable. The Sequelize plugin decorates Fastify with sequelize and models, providing easy access across the application. The sync({ force: true }) call recreates the database schema for development (use force: false in production to avoid data loss). This ORM approach ensures portability across databases and simplifies complex operations, aligning with Fastify’s focus on modularity and developer productivity.
 
-## Restructuring Our Project
 
 Our application works, but app.js is becoming crowded with plugin registrations and route definitions. As we add features like wiki pages or file uploads, mixing routes, database logic, and helpers in one file will make it hard to maintain. A well-structured project separates concerns, ensuring each component has a clear purpose: routes handle HTTP requests, models manage data, and utilities provide reusable logic.
-
-### A Cleaner Structure
-
-We organize our project to keep responsibilities distinct, enhancing scalability and collaboration:
-
-text
-
-```
-project/
-├── app.js             # Main entry point, registers plugins and routes
-├── plugins/          # Fastify plugins for shared functionality
-│   ├── session.js
-│   ├── templates.js
-│   ├── static.js
-│   ├── auth.js
-│   ├── db.js
-│   ├── sequelize.js
-├── routes/           # Route definitions
-│   ├── auth.js
-│   ├── profile.js
-├── models/           # Database models
-│   ├── user.js
-│   ├── index.js
-├── utils/            # Helper functions and classes
-│   ├── user.js
-├── public/           # Static assets (CSS, JS, images)
-│   ├── css/
-│   │   └── style.css
-├── views/            # Handlebars templates
-│   ├── partials/
-│   │   ├── _layout.hbs
-│   ├── home.hbs
-│   ├── register.hbs
-│   ├── login.hbs
-│   ├── profile.hbs
-├── schema.sql        # Database schema
-├── database.db       # SQLite database file
-├── package.json
-```
-
-- **app.js**: The main entry point, responsible for initializing Fastify, registering plugins, and defining top-level routes. It remains lightweight, delegating logic to plugins and routes.
-- **plugins/**: Contains reusable functionality like session management, database connections, and decorators. Each plugin encapsulates a specific concern, making it easy to reuse or modify.
-- **routes/**: Defines HTTP endpoints, focusing on request handling and response rendering. Routes use models and utilities, keeping logic minimal.
-- **models/**: Houses Sequelize models (User, etc.), defining database structure and behavior. The index.js file initializes all models.
-- **utils/**: Stores helper classes like the raw SQL User class, used before adopting Sequelize.
-- **public/**: Holds static assets like CSS, served via fastify-static.
-- **views/**: Contains Handlebars templates for dynamic HTML rendering.
-- **schema.sql**: Defines the initial database schema for SQLite.
-- **database.db**: The SQLite database file, storing persistent data.
-
-Organize your project as shown above, ensuring all files are in place. Run node app.js and verify that registration, login, and profile access work as expected. The structured layout makes it easier to locate and modify code, such as adding new routes or models.
-
-**Explanation**: This structure leverages Fastify’s plugin system to encapsulate functionality, ensuring each file has a single responsibility. Plugins handle cross-cutting concerns (e.g., database connections, authentication checks), while routes focus on HTTP interactions and models manage data. This separation makes the codebase easier to navigate, test, and extend, especially as the application grows. For example, adding a new feature like wiki pages would involve creating a new route file and model, without cluttering app.js. Fastify’s lightweight and modular design shines in this setup, enabling high performance and developer productivity.
