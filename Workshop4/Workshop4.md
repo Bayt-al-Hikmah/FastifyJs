@@ -255,6 +255,20 @@ We create Handlebars templates for registration and login.
 </form>
 {{/ _layout}}
 ```
+**views/404.hbs:**
+```
+{{#> _layout}}
+  <div class="card" style="text-align: center; padding: 40px;">
+    <h1 class="page-title" style="font-size: 2rem; margin-bottom: 10px;">404 - Page Not Found</h1>
+    <p class="text-muted" style="margin-bottom: 20px;">
+      Oops! The page you are looking for doesn’t exist or has been moved.
+    </p>
+    <a href="/home" class="btn btn-primary">Go Back Home</a>
+  </div>
+{{/_layout}}
+
+```
+
 
 **Add CSS**   
 We define styles to ensure a consistent, professional look across our application.
@@ -426,6 +440,13 @@ fastify.register(require('./routes/auth'), { prefix: '/' })
 
 fastify.get('/home', async (request, reply) => {
   return reply.view('home')
+})
+
+fastify.setNotFoundHandler((request, reply) => {
+  reply.code(404).view('404', {
+    title: 'Page Not Found',
+    url: request.raw.url
+  })
 })
 
 const start = async () => {
@@ -1004,6 +1025,12 @@ fastify.get('/home', async (request, reply) => {
   return reply.view('home')
 })
 
+fastify.setNotFoundHandler((request, reply) => {
+  reply.code(404).view('404', {
+    title: 'Page Not Found',
+    url: request.raw.url
+  })
+})
 const start = async () => {
   try {
     await fastify.listen({ port: 3000 })
