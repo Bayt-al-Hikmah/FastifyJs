@@ -1075,7 +1075,9 @@ start()
 We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
 
 Fastify’s `@aegisx/fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
-**Handling Unknown Routes**
+
+**Handling Unknown Routes**  
+
 What if the user try to visit random or non existing route (like /does-not-exist) by default Fastify will return a JSON 404 response:
 ```
 {
