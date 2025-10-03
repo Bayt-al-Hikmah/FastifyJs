@@ -1019,6 +1019,3 @@ start()
 Run node app.js. Register a user, log in, and verify that data persists in database.db. The profile page is accessible only when logged in, and invalid credentials trigger flash messages.
 
 Sequelize abstracts raw SQL into model-based interactions, allowing us to work with User objects instead of queries. The User model encapsulates fields (id, username, password_hash) and methods (setPassword, checkPassword), making routes cleaner and more maintainable. The Sequelize plugin decorates Fastify with sequelize and models, providing easy access across the application. The sync({ force: true }) call recreates the database schema for development (use force: false in production to avoid data loss). This ORM approach ensures portability across databases and simplifies complex operations, aligning with Fastify’s focus on modularity and developer productivity.
-
-
-Our application works, but app.js is becoming crowded with plugin registrations and route definitions. As we add features like wiki pages or file uploads, mixing routes, database logic, and helpers in one file will make it hard to maintain. A well-structured project separates concerns, ensuring each component has a clear purpose: routes handle HTTP requests, models manage data, and utilities provide reusable logic.
