@@ -1074,8 +1074,28 @@ start()
 
 We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
 
-Fastify’s `@aegisx/fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.
+Fastify’s `@aegisx/fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
+**Handling Unknown Routes**
+What if the user try to visit random or non existing route (like /does-not-exist) by default Fastify will return a JSON 404 response:
+```
+{
+  "statusCode": 404,
+  "error": "Not Found",
+  "message": "Route GET:/does-not-exist not found"
+}
+```
 
+This is useful for APIs, but in a web app we usually want to show a user-friendly 404 page instead. We can override the default behavior with setNotFoundHandler() and serve a custom Handlebars view (404.hbs):
+```
+fastify.setNotFoundHandler((request, reply) => {
+  reply.code(404).view('404', {
+    title: 'Page Not Found',
+    url: request.raw.url
+  })
+})
+```
+
+With this in place, visiting a non-existent page like ``/random-url`` will render our custom 404.hbs template instead of showing raw JSON. This improves the user experience and keeps the app consistent with other views.
 ## A Journey Through CSS Styling
 
 ### Act I: The Specific Approach (Class-per-Element)
