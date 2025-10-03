@@ -329,47 +329,6 @@ We restart the app and test the following URLs:
 
 We simulate a database with a `productsDb` object and handle dynamic routes with `request.params` and `request.query`. Fastify’s `reply.code(404)` sets the HTTP status for errors, and the JSON response is automatically serialized for efficiency. By organizing the endpoint in a plugin, we maintain modularity, aligning with Fastify’s architecture and ensuring scalability.
 
-## Putting It All Together
-
-Our project now reflects Fastify’s modular structure, with plugins for routes and a clear separation of concerns.
-
-**Final Structure:**
-
-```
-my_fastify_project/
-├── plugins/
-├── routes/
-│   ├── user.js
-│   ├── products.js
-├── node_modules/
-├── package.json
-└── app.js
-```
-
-**Complete `app.js`:**
-
-```javascript
-const fastify = require('fastify')({ logger: true })
-const path = require('path')
-
-fastify.get('/', async (request, reply) => {
-  return 'Hello, World!'
-})
-
-fastify.register(require('./routes/user'), { prefix: '/api' })
-fastify.register(require('./routes/products'), { prefix: '/api' })
-
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000 })
-    console.log('Server running at http://127.0.0.1:3000')
-  } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
-}
-start()
-```
 
 ## Tasks:
 ### Task 1: Build a Basic User Profile API
