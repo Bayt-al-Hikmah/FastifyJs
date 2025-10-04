@@ -1046,3 +1046,70 @@ start()
 Run node app.js. Register a user, log in, and verify that data persists in database.db. The profile page is accessible only when logged in, and invalid credentials trigger flash messages.
 
 Sequelize abstracts raw SQL into model-based interactions, allowing us to work with User objects instead of queries. The User model encapsulates fields (id, username, password_hash) and methods (setPassword, checkPassword), making routes cleaner and more maintainable. The Sequelize plugin decorates Fastify with sequelize and models, providing easy access across the application. The sync({ force: true }) call recreates the database schema for development (use force: false in production to avoid data loss). This ORM approach ensures portability across databases and simplifies complex operations, aligning with Fastify’s focus on modularity and developer productivity.
+### Autoload Plugins and Routes
+As our application grows, we start adding more and more plugins and routes. This can quickly become messy and error-prone.  
+Two major problems often appear:
+
+1. **Too many manual registrations:** We end up with dozens of `fastify.register()` lines cluttering our `app.js` file.
+    
+2. **Forgotten imports:** When new plugins or routes are created, we might forget to register them, causing missing functionality or unexpected errors.
+    
+
+To solve these issues, we can use the **`@fastify/autoload`** plugin, which automatically loads and registers all plugins and routes from given directories.
+
+ **Install the plugin**
+
+In our project directory, we install the autoload plugin:  
+
+`npm install @fastify/autoload`   
+
+**Use autoload**  
+
+We can now replace the long list of manual registrations with a few clean autoload calls.
+```
+const AutoLoad = require('@fastify/autoload')
+fastify.register(AutoLoad, {
+  dir: path.join(__dirname, 'plugins')
+})
+
+// Automatically load all routes from the routes folder
+fastify.register(AutoLoad, {
+  dir: path.join(__dirname, 'routes')
+})
+```
+our ``app.js`` become
+```
+const fastify = require('fastify')({ logger: true })
+const path = require('path')
+const AutoLoad = require('@fastify/autoload')
+
+// Automatically load all plugins from the plugins folder
+fastify.register(AutoLoad, {
+  dir: path.join(__dirname, 'plugins')
+})
+
+fastify.register(AutoLoad, {
+  dir: path.join(__dirname, 'routes')
+})
+
+fastify.get('/home', async (request, reply) => {
+  return reply.view('home')
+})
+
+fastify.setNotFoundHandler((request, reply) => {
+  reply.code(404).view('404', {
+    title: 'Page Not Found',
+    url: request.raw.url
+  })
+})
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 })
+    console.log('Server running at http://127.0.0.1:3000')
+  } catch (err) {
+    fastify.log.error(err)
+    process.exit(1)
+  }
+}
+start()
+```
