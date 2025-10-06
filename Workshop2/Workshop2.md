@@ -504,12 +504,8 @@ npm install @fastify/formbody
 ```
 
 **Create a Form Plugin**  
-**`plugins/formbody.js`:**
-
+We add the following line to our `app.js` to use the form body plugin
 ```javascript
-const fp = require('fastify-plugin')
-
-module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/formbody'))
 })
 ```
@@ -572,7 +568,7 @@ module.exports = async (fastify, opts) => {
 **`app.js` (updated snippet):**
 
 ```javascript
-fastify.register(require('./plugins/formbody'))
+fastify.register(require('@fastify/formbody'))
 fastify.register(require('./routes/contact'), { prefix: '/' })
 ```
 
