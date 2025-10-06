@@ -75,27 +75,15 @@ module.exports = fp(async (fastify, opts) => {
 **Configure Argon2 Plugin**  
 Saving passwords in plain text is not safe, if the database is ever leaked, all user passwords would be immediately exposed.  
 To fix this, we use Argon2 to hash the passwords and store them in a much safer format.  
-We apply this by creating a plugin for Argon2, wrapping it as a decorator with fastify.decorate(), and then registering the plugin inside app.js.
 
-**`plugins/argon2.js:`**
+We register the Argon2 plugin in our app.js file using the following line:
 ```
-const fp = require('fastify-plugin')
-const argon2 = require('argon2')
-
-module.exports = fp(async (fastify, opts) => {
-  fastify.decorate('argon2', argon2)
-})
+fastify.register(require('argon2'))
 ```
 **Handle Form Data**  
-We use @fastify/formbody to parse URL-encoded form submissions, such as login and registration forms.
-
-**`plugins/formbody.js:`**
+We use @fastify/formbody to parse URL-encoded form submissions, such as login and registration forms. we register it as plugin too
 ```
-const fp = require('fastify-plugin')
-
-module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/formbody'))
-})
 ````
 
 This ensures that data submitted via HTML forms (e.g., username and password) is automatically parsed and made available in request.body.   
@@ -485,9 +473,9 @@ const path = require('path')
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/argon2'))
+fastify.register(require('@fastify/formbody'))
+fastify.register(require('argon2'))
 fastify.register(require('./plugins/db-plugin')); 
-fastify.register(require('./plugins/formbody'))
 
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
@@ -1047,9 +1035,9 @@ fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
 fastify.register(require('./plugins/multipart'))
-fastify.register(require('./plugins/argon2'))
+fastify.register(require('@fastify/formbody'))
+fastify.register(require('argon2'))
 fastify.register(require('./plugins/db-plugin')); 
-fastify.register(require('./plugins/formbody'))
 fastify.register(require('./plugins/quill'))
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
