@@ -720,20 +720,21 @@ We define a User class in a separate file to manage user-related database operat
 
 **utils/user.js:**
 ```
+const argon2 = require('argon2')
 class User {
-  static async create(fastify, username, password) {
-    const passwordHash = await fastify.argon2.hash(password)
+  static async create(db, username, password) {
+    const passwordHash = await argon2.hash(password)
     return new Promise((resolve, reject) => {
-      fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], function (err) {
+      db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], function (err) {
         if (err) reject(err)
         resolve(this.lastID)
       })
     })
   }
 
-  static async findByUsername(fastify, username) {
+  static async findByUsername(db, username) {
     return new Promise((resolve, reject) => {
-      fastify.db.get('SELECT * FROM user WHERE username = ?', [username], (err, row) => {
+      db.get('SELECT * FROM user WHERE username = ?', [username], (err, row) => {
         if (err) reject(err)
         resolve(row)
       })
@@ -745,9 +746,9 @@ module.exports = User
 ```
 We create a **`User` class** as a **model** to represent users in our application. Using this model, we can **create a new user** or **search for an existing user** with dedicated methods:
 
-- `User.create(fastify, username, password)` hashes the password and inserts the new user into the database, returning the newly created user’s ID.
+- `User.create(db, username, password)` hashes the password and inserts the new user into the database, returning the newly created user’s ID.
     
-- `User.findByUsername(fastify, username)` searches the database for a user with the given username and returns the record if found.
+- `User.findByUsername(db, username)` searches the database for a user with the given username and returns the record if found.
     
 
 Both methods use **Promises** to wrap the database operations, allowing us to `await` them for clean asynchronous handling.
@@ -771,12 +772,12 @@ module.exports = async (fastify, opts) => {
   fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
 
-    if (await User.findByUsername(fastify, username)) {
+    if (await User.findByUsername(fastify.db, username)) {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
 
-    await User.create(fastify, username, password)
+    await User.create(fastify.db, username, password)
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
@@ -787,7 +788,7 @@ module.exports = async (fastify, opts) => {
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
-    const user = await User.findByUsername(fastify, username)
+    const user = await User.findByUsername(fastify.db, username)
 
     if (!user || !(await argon2.verify(user.password_hash, password))) {
       request.flash('danger', 'Invalid username or password.')
