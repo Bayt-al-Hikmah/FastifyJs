@@ -13,7 +13,7 @@ Authentication is a cornerstone of multi-user applications, allowing users to re
 
 Storing passwords in plain text is a significant security risk, as unauthorized access to our database could expose them. Instead, we’ll hash passwords using a one-way function, ensuring that even we, as developers, cannot reverse them. When a user logs in, we hash their input and compare it to the stored hash. If they match, the login is successful.
 
-We’ll use the bcrypt library, which provides:
+We’ll use the argon2 library, which provides:
 
 - fastify.argon2.hash(password): Generates a secure hash for a password.
 - fastify.argon2.verify(hash, password): Verifies if a provided password matches the stored hash.
@@ -612,7 +612,7 @@ module.exports = fp(async (fastify, opts) => {
 This plugin opens a connection to database.db and decorates Fastify with the db object. The onClose hook ensures the connection closes gracefully when the server shuts down.
 
 **Update Authentication Routes for SQLite**   
-We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating bcrypt for password hashing.
+We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating argon2 for password hashing.
 
 **routes/auth.js (updated):**
 
@@ -789,7 +789,7 @@ module.exports = async (fastify, opts) => {
     const { username, password } = request.body
     const user = await User.findByUsername(fastify, username)
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!user || !(await argon2.verify(user.password_hash, password))) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
