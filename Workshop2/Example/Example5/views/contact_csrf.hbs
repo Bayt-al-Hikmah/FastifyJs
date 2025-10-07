@@ -1,0 +1,27 @@
+{{#> _layout}}
+<h1>Contact Us</h1>
+<form method="POST" action="/contact_csrf">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+    <label for="name">Name:</label><br>
+    <input type="text" id="name" name="name" required><br>
+    {{#each errors}}
+        {{#if (eq this.instancePath '/name')}}
+            <span style="color:red;">{{this.message}}</span><br>
+        {{/if}}
+    {{/each}}
+    <br>
+    <label for="message">Message:</label><br>
+    <textarea id="message" name="message" required></textarea><br>
+    {{#each errors}}
+        {{#if (eq this.instancePath '/message')}}
+            <span style="color:red;">{{this.message}}</span><br>
+        {{/if}}
+    {{/each}}
+    <br>
+    <button type="submit">Submit</button>
+</form>
+
+{{#if submittedName}}
+    <h2>Thanks for your message, {{submittedName}}!</h2>
+{{/if}}
+{{/ _layout}}

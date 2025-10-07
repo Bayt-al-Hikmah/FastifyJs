@@ -306,7 +306,6 @@ fastify.get('/', async (request, reply) => {
   return 'Hello, World!'
 })
 
-fastify.register(require('./routes/user'), { prefix: '/api' })
 fastify.register(require('./routes/products'), { prefix: '/api' })
 
 const start = async () => {

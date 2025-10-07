@@ -76,11 +76,41 @@ button:hover{
 .result{
     text-align: center;
 }
-.quote{
+.quotes-container{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    margin: 10px;
+    column-gap: 20px;
+    row-gap: 20px;
+   
+}
+.quotes-container {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    
+    column-gap: 20px;
+    row-gap: 20px;
+    gap: 32px;
+    padding: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+    .quote {
+    width: 30%;
+    background-color:  #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
-    border: 1px solid #838383;
-    width: 30%;
+    overflow: hidden; /* Ensures child elements respect the border-radius */
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.quote:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 .quote-text{
     word-wrap: break-word;
@@ -111,15 +141,7 @@ button:hover{
 h1{
     color: #2e5e32;
 }
-.quotes-container{
-    display: flex;
-    flex-wrap: wrap;
-    flex-direction: row;
-    margin: 10px;
-    column-gap: 20px;
-    row-gap: 20px;
-   
-}
+
 @media screen and (max-width: 400px){
     .quote{
         width: 90%;

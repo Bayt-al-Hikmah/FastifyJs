@@ -346,7 +346,14 @@ module.exports = async (fastify, opts) => {
 **`views/dashboard.hbs`:**
 
 ```html
-{{> _layout}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
 <div class="welcome-message">
     {{#if (eq userStatus 'admin')}}
         <h1>Welcome, Administrator!</h1>
@@ -359,6 +366,8 @@ module.exports = async (fastify, opts) => {
         <p>Please sign up or log in to access member features.</p>
     {{/if}}
 </div>
+</body>
+</html>
 ```
 
 **Add a Custom Helper**  
@@ -382,6 +391,12 @@ module.exports = fp(async (fastify, opts) => {
     includeViewExtension: true
   })
 })
+```
+**Register the Route**  
+**`app.js` (updated snippet):**
+
+```javascript
+fastify.register(require('./routes/dashboard'), { prefix: '/' })
 ```
 
 We visit `http://127.0.0.1:3000/dashboard/admin`, `/dashboard/member`, or `/dashboard/guest`. Each URL displays a tailored message based on the status.
@@ -480,10 +495,10 @@ We modify `index.hbs` to use the layout partial.
 **`views/index.hbs`:**
 
 ```html
-{{/> _layout}}
+{{#> _layout}}
 <h1>Welcome to Our Website!</h1>
 <p>This page uses a shared layout.</p>
-{{# _layout}}
+{{/ _layout}}
 ```
 
 We refresh `http://127.0.0.1:3000`. The page now includes a navigation bar and footer, consistent across all pages using the `_layout` partial.
@@ -546,7 +561,7 @@ module.exports = async (fastify, opts) => {
 **`views/contact.hbs`:**
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1>Contact Us</h1>
 <form action="/contact" method="POST">
     <label for="name">Name:</label><br>
@@ -562,6 +577,7 @@ module.exports = async (fastify, opts) => {
 {{#if submittedName}}
     <h2>Thanks for your message, {{submittedName}}!</h2>
 {{/if}}
+{{/ _layout}}
 ```
 
 **Register the Plugin and Route**  
@@ -579,7 +595,12 @@ The `GET` route renders the form, and the `POST` route processes the submission 
 ### Form Handling with Validation and CSRF
 
 For robust form handling, we use Fastify’s JSON Schema for validation and `fastify-csrf-protection` for security, providing CSRF protection and declarative validation.
+####  CSRF protection
+CSRF (Cross-Site Request Forgery) is a type of web attack where a malicious site tricks a user’s browser into performing unwanted actions on another site where the user is authenticated.
 
+For example, if a user is logged into a banking site, a CSRF attack could make their browser unknowingly submit a request to transfer money without their consent. The attacker exploits the trust the site has in the user’s browser session.
+
+To defend against CSRF attacks, we use the ``@fastify/csrf-protection`` plugin. It generates a unique CSRF token for each session or form request. This token must be included in all POST, PUT, or DELETE requests. The server checks the token and rejects any request without a valid one, preventing malicious cross-site submissions.
 #### JSON Schema
 
 JSON Schema is a powerful standard for defining the structure and data types of JSON data. In the context of Fastify, it is used to validate incoming request data, such as form submissions, ensuring that the data meets specific criteria before processing. This declarative approach allows developers to define rules for data validation in a structured format, making it easier to enforce constraints and handle errors systematically.
@@ -615,7 +636,7 @@ module.exports = fp(async (fastify, opts) => {
 
 We define a JSON Schema to validate form inputs, ensuring fields meet specific criteria.
 
-`routes/contact.js` (updated):
+`routes/contact_csrf.js` (updated):
 
 ```javascript
 module.exports = async (fastify, opts) => {
@@ -631,33 +652,88 @@ module.exports = async (fastify, opts) => {
     }
   }
 
-  fastify.get('/contact-wt', async (request, reply) => {
+  fastify.get('/contact_csrf', async (request, reply) => {
     const token = await reply.generateCsrf()
-    return reply.view('contact-wt', { csrfToken: token })
+    return reply.view('contact_csrf', { csrfToken: token })
   })
 
-  fastify.post('/contact-wt', { schema: contactSchema }, async (request, reply) => {
+  fastify.post('/contact_csrf', { schema: contactSchema }, async (request, reply) => {
     const { name, message } = request.body
     fastify.log.info(`Received from ${name}: ${message}`)
     const token = await reply.generateCsrf()
-    return reply.view('contact-wt', { submittedName: name, csrfToken: token })
+    return reply.view('contact_csrf', { submittedName: name, csrfToken: token })
   })
 }
 ```
+**GET /contact_csrf**
 
-**Create the Validated Contact Template**
+When a user visits `/contact_csrf`, the server:
 
-`views/contact-wt.hbs`:
+- **Generates a CSRF token** using `reply.generateCsrf()`.
+    
+- **Renders** the `contact_csrf` view (a template page) and **injects the CSRF token** into it.
+    
+
+This token is embedded in the contact form to protect against **Cross-Site Request Forgery (CSRF)** attacks.  
+Each time the page is loaded, a **new CSRF token** is created and sent to the client.
+
+This ensures that any future form submission will only be accepted if it includes the correct token issued by the server.
+
+
+**POST /contact_csrf**
+
+When the contact form is submitted, the server:
+
+- Receives the form data from the request body: `name`, `message`, and `_csrf`.
+    
+- The request is **validated** against the `contactSchema`:
+    
+    - `name` must be a string (3–25 characters).
+        
+    - `message` must be a string (up to 200 characters).
+        
+    - `_csrf` must be present and valid.
+        
+
+If validation passes and the CSRF token is valid:
+
+- The server **logs the submitted message** (e.g., `Received from Alice: Hello there!`) using `fastify.log.info()`.
+    
+- It then **generates a new CSRF token** for the next form submission.
+    
+- Finally, it **renders the same contact page again**, showing the submitted name and the new CSRF token in the view.
+    
+
+If validation or CSRF verification fails, Fastify automatically **rejects the request** with an error response.
+
+
+The contactSchema ensures that any incoming request body follows a specific structure before it’s processed by the server.
+
+- The body must be an object.
+
+- It must include name, message, and _csrf fields.
+
+- name: string, 3–25 characters long.
+
+- message: string, maximum 200 characters.
+
+- _csrf: string, used for security (CSRF protection).
+
+If any field is missing or invalid, the request will be rejected automatically by the validator.  
+
+**Create the Validated Contact Template**  
+In this templates we add hidden input to store the csrf token `<input type="hidden" name="_csrf" value="{{csrfToken}}">`
+`views/contact_csrf.hbs`:
 
 ```html
-{{> _layout}}
+{{#> _layout}}
 <h1>Contact Us</h1>
-<form method="POST" action="/contact-wt">
+<form method="POST" action="/contact_csrf">
     <input type="hidden" name="_csrf" value="{{csrfToken}}">
     <label for="name">Name:</label><br>
     <input type="text" id="name" name="name" required><br>
     {{#each errors}}
-        {{#if (eq this.param 'body.name')}}
+        {{#if (eq this.instancePath '/name')}}
             <span style="color:red;">{{this.message}}</span><br>
         {{/if}}
     {{/each}}
@@ -665,7 +741,7 @@ module.exports = async (fastify, opts) => {
     <label for="message">Message:</label><br>
     <textarea id="message" name="message" required></textarea><br>
     {{#each errors}}
-        {{#if (eq this.param 'body.message')}}
+        {{#if (eq this.instancePath '/message')}}
             <span style="color:red;">{{this.message}}</span><br>
         {{/if}}
     {{/each}}
@@ -676,6 +752,7 @@ module.exports = async (fastify, opts) => {
 {{#if submittedName}}
     <h2>Thanks for your message, {{submittedName}}!</h2>
 {{/if}}
+{{/ _layout}}
 ```
 
 **Handle Validation Errors**
@@ -688,16 +765,16 @@ We add a global error handler to display validation errors in the template.
 fastify.setErrorHandler(async (error, request, reply) => {
   if (error.validation) {
     const token = await reply.generateCsrf();
-    return reply.view('contact-wt', { errors: error.validation, csrfToken: token })
+    return reply.view('contact_csrf', { errors: error.validation, csrfToken: token })
   }
   reply.send(error)
 })
 fastify.register(require('./plugins/csrf'))
-fastify.register(require('./routes/contact'), { prefix: '/' })
+fastify.register(require('./routes/contact_csrf'), { prefix: '/' })
 ```
 
 
-Visit `http://127.0.0.1:3000/contact-wt` and submit the form with invalid data (e.g., a name shorter than 3 characters). Error messages will appear next to the respective fields. A valid submission will display a thank-you message.
+Visit `http://127.0.0.1:3000/contact_csrf` and submit the form with invalid data (e.g., a name shorter than 3 characters). Error messages will appear next to the respective fields. A valid submission will display a thank-you message.
 
 Fastify’s JSON Schema provides declarative validation for fields like `name` and `message`, ensuring data integrity before processing. The `fastify-csrf-protection` plugin enhances security by generating and validating CSRF tokens to prevent cross-site request forgery attacks. Error handling is integrated into Fastify’s ecosystem, passing validation errors to the template for user-friendly feedback.
 

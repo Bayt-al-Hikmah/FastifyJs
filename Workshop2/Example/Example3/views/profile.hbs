@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <h1>Hello, {{user.username}}!</h1>
+    <p><em>{{user.bio}}</em></p>
+
+    {{#if user.shoppingList}}
+        <p>You have {{user.shoppingList.length}} item(s) on your shopping list:</p>
+        <ul>
+            {{#each user.shoppingList}}
+                <li>{{this}}</li>
+            {{/each}}
+        </ul>
+    {{else}}
+        <p>Your shopping list is empty!</p>
+    {{/if}}
+</body>
+</html>
