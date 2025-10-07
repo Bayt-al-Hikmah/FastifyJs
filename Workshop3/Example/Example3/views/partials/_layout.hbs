@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyApp</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/home">MyApp</a>
+      <nav class="main-nav">
+        {{#if session.username}}
+          <span class="greet">Hello, {{session.username}}</span>
+          <a href="/logout" class="nav-link">Logout</a>
+        {{else}}
+          <a href="/login" class="nav-link">Login</a>
+          <a href="/register" class="nav-link">Register</a>
+        {{/if}}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {{#if messages}}
+      <div class="flash-wrapper">
+        {{#each messages}}
+          <div class="flash flash-{{this.category}}">
+            <span class="flash-message">{{this.message}}</span>
+            <button class="flash-dismiss" onclick="this.parentElement.style.display='none'">×</button>
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+
+    <section class="content">
+      {{> @partial-block}}
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>&copy; 2025 MyApp</small>
+    </div>
+  </footer>
+</body>
+</html>

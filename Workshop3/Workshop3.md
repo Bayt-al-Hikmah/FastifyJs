@@ -74,17 +74,12 @@ module.exports = fp(async (fastify, opts) => {
 ```
 **Configure Argon2 Plugin**  
 Saving passwords in plain text is not safe, if the database is ever leaked, all user passwords would be immediately exposed.  
-To fix this, we use Argon2 to hash the passwords and store them in a much safer format.  
-
-We register the Argon2 plugin in our app.js file using the following line:
-```
-fastify.register(require('argon2'))
-```
+To fix this, we use Argon2 to hash the passwords and store them in a much safer format.   
 **Handle Form Data**  
 We use @fastify/formbody to parse URL-encoded form submissions, such as login and registration forms. we register it as plugin too
 ```
   fastify.register(require('@fastify/formbody'))
-````
+```
 
 This ensures that data submitted via HTML forms (e.g., username and password) is automatically parsed and made available in request.body.   
 
@@ -134,10 +129,26 @@ We define routes for registration, login, and logout in a plugin, using Handleba
 **`routes/auth.js`:**
 
 ```javascript
+const argon2 = require('argon2')
+
+function collectMessages(reply) {
+    const categories = ['danger', 'success', 'info']
+    const messages = []
+
+    for (const category of categories) {
+      const msgs = reply.flash(category) || []
+      for (const msg of msgs) {
+        messages.push({ category, message: msg })
+      }
+    }
+
+    return messages
+  }
 
 module.exports = async (fastify, opts) => {
   fastify.get('/register', async (request, reply) => {
-    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+    messages = collectMessages(reply)
+    return reply.view('register', { messages: messages})
   })
 
   fastify.post('/register', async (request, reply) => {
@@ -147,24 +158,26 @@ module.exports = async (fastify, opts) => {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
-    const hashedPassword = await fastify.argon2.hash(password)
+    const hashedPassword = await argon2.hash(password)
     fastify.dataStore.users[username] = { password: hashedPassword, avatar: null }
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
 
   fastify.get('/login', async (request, reply) => {
-    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+    messages = collectMessages(reply)
+
+    return reply.view('login', { messages: messages })
   })
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
     const user = fastify.dataStore.users[username]
 
-    if (user && await fastify.argon2.verify(user.password, password)) {
+    if (user && await argon2.verify(user.password, password)) {
       request.session.set('username', username)
       request.flash('success', 'Login successful!')
-      return reply.redirect('/home')
+      return reply.redirect('/')
     } else {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
@@ -189,7 +202,7 @@ When the form is submitted, the server receives the username and password.
 
 - It first checks if the username already exists in the in-memory dataStore. If it does, a danger flash message is set and the user is redirected back to the registration page.
 
-- If the username is new, the password is securely hashed using Argon2 before storing it. This ensures we never save plain-text passwords, making the system safer if data leaks.
+- If the username is new, the password is securely hashed using Argon2 `await argon2.hash(password)` before storing it. This ensures we never save plain-text passwords, making the system safer if data leaks.
 
 - The new user is saved into fastify.dataStore.users, with their hashed password and a placeholder for their avatar.
 
@@ -205,7 +218,7 @@ Like in registration, flash messages are passed along these could include info l
 When the login form is submitted:  
 - The server looks up the user in dataStore by the provided username.
 
-- If the user exists, the submitted password is verified against the hashed password stored in the database using Argon2’s verify function.
+- If the user exists, the submitted password is verified against the hashed password stored in the database using Argon2’s verify function `argon2.verify(user.password, password), first argument is the user hashed password that we store when he logged in and the second argument is the user input password as plain text.
 
 - If verification succeeds, the username is stored in the session, and a success message is displayed before redirecting the user to /home.
 
@@ -219,6 +232,8 @@ When the user visits /logout:
 - A flash message notifies them that they have been logged out.
 
 - The user is redirected to the /login page.
+
+**``collectMessages``:** is helper function that collect all the flash messages and store them into structured way so we can use them on our template
 **Create Templates**  
 We create Handlebars templates for registration and login.
 
@@ -470,16 +485,18 @@ const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
 // Plugins
+fastify.register(require('@fastify/formbody'))
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
-fastify.register(require('@fastify/formbody'))
-fastify.register(require('argon2'))
 fastify.register(require('./plugins/db-plugin')); 
+
+
 
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
-fastify.get('/home', async (request, reply) => {
+
+fastify.get('/', async (request, reply) => {
   return reply.view('home')
 })
 
@@ -525,7 +542,7 @@ npm install markdown-it
 We create a plugin for wiki page routes, handling page viewing and creation.  
 **Markdown Plugin**  
 We use markdown-it as a plugin to render Markdown content into HTML inside our Fastify app. This plugin decorates Fastify with a reusable fastify.markdown  
-**``plugins/markdown-highlight.js``**
+**``plugins/markdown.js``**
 ```
 const fp = require('fastify-plugin')
 const MarkdownIt = require('markdown-it')
@@ -546,24 +563,39 @@ Now we defines the routes for viewing and creating wiki pages.
 **`routes/wiki.js`:**
 
 ```javascript
-
 module.exports = async (fastify, opts) => {
+  function collectMessages(reply) {
+    const categories = ['danger', 'success', 'info']
+    const messages = []
+
+    for (const category of categories) {
+      const msgs = reply.flash(category) || []
+      for (const msg of msgs) {
+        messages.push({ category, message: msg })
+      }
+    }
+
+    return messages
+  }
+
   fastify.get('/wiki/:page_name', async (request, reply) => {
     const { page_name } = request.params
     const page = fastify.dataStore.pages[page_name]
+    messages = collectMessages(reply)
     if (!page) {
-      return reply.view('404', { messages: request.flash('danger') })
+      return reply.view('404', { messages: messages })
     }
     page.html_content = fastify.markdown.render(page.content)
     return reply.view('wiki_page', { page, page_name })
   })
 
   fastify.get('/create', async (request, reply) => {
+    messages = collectMessages(reply)
     if (!request.session.get('username')) {
       request.flash('danger', 'You must be logged in to create a page.')
       return reply.redirect('/login')
     }
-    return reply.view('create_page', { messages: request.flash('danger') })
+    return reply.view('create_page', { messages: messages })
   })
 
   fastify.post('/create', async (request, reply) => {
@@ -721,7 +753,16 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-
+After creating the plugin we copy the quill config from the modul file to `public/quill` folder by running the following commands  
+**Create the folder**
+```
+mkdir public/quill
+```
+**Copy the Config files**
+```
+cp node_modules/quill/dist/quill.snow.css public/quill/
+cp node_modules/quill/dist/quill.js public/quill/
+```
 This plugin serves Quill.js’s assets (e.g., `quill.snow.css` and `quill.js`) under the `/quill/` prefix and decorates Fastify with a `quillConfig` object. The configuration defines a toolbar with essential formatting options like headings, bold, italic, links, lists, and indent controls, using the ‘snow’ theme for a clean, modern look.
 
 **Update Wiki Routes with Validation**  
@@ -730,8 +771,21 @@ We update our wiki routes to include JSON Schema validation for the page creatio
 **`routes/wiki.js` (updated):**
 
 ```javascript
-module.exports = async (fastify, opts) => {
+function collectMessages(reply) {
+    const categories = ['danger', 'success', 'info']
+    const messages = []
 
+    for (const category of categories) {
+      const msgs = reply.flash(category) || []
+      for (const msg of msgs) {
+        messages.push({ category, message: msg })
+      }
+    }
+
+    return messages
+  }
+
+module.exports = async (fastify, opts) => {
   const createSchema = {
     body: {
       type: 'object',
@@ -746,24 +800,24 @@ module.exports = async (fastify, opts) => {
   fastify.get('/wiki/:page_name', async (request, reply) => {
     const { page_name } = request.params
     const page = fastify.dataStore.pages[page_name]
+    messages = collectMessages(reply)
     if (!page) {
-      return reply.view('404', { messages: request.flash('danger') })
+      return reply.view('404', { messages: messages })
     }
+    page.html_content = page.content
     return reply.view('wiki_page', { page, page_name })
   })
 
   fastify.get('/create', async (request, reply) => {
+    messages = collectMessages(reply)
     if (!request.session.get('username')) {
       request.flash('danger', 'You must be logged in to create a page.')
       return reply.redirect('/login')
     }
-    return reply.view('create_page', { 
-      messages: request.flash('danger'), 
-      quillConfig: fastify.quillConfig 
-    })
+    return reply.view('create_page', { messages: messages ,quillConfig: JSON.stringify(fastify.quillConfig) })
   })
 
-  fastify.post('/create', { schema: createSchema }, async (request, reply) => {
+  fastify.post('/create', async (request, reply) => {
     if (!request.session.get('username')) {
       request.flash('danger', 'You must be logged in to create a page.')
       return reply.redirect('/login')
@@ -797,20 +851,21 @@ We modify the `create_page.hbs` template to load Quill.js from our plugin’s st
 </form>
 
 <!-- Load Quill.js styles and script -->
-<link href="/quill/quill.snow.css" rel="stylesheet">
-<script src="/quill/quill.js"></script>
+<link href="/static/quill/quill.snow.css" rel="stylesheet">
+<script src="/static/quill/quill.js"></script>
 <script>
-  const quill = new Quill('#editor', {{json quillConfig}});
+  
+  const quill = new Quill('#editor',  {{{ quillConfig }}});
   const form = document.querySelector('#create-page-form');
   form.onsubmit = function() {
     const content = document.querySelector('#content');
     content.value = quill.root.innerHTML; // Capture editor content
   };
 </script>
-{/ _layout}}
+{{/ _layout}}
 ```
 
-The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{json quillConfig}}` helper serializes the configuration to JSON for initialization.
+The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{{quillConfig}}}` helper serializes the configuration to JSON for initialization.
 
 **Update CSS for Quill.js Editor**  
 We add minimal CSS to ensure the Quill editor integrates smoothly with our app’s styling.
@@ -852,10 +907,10 @@ Allowing users to upload avatars enhances personalization but requires secure ha
 
 We configure a directory for avatars and define allowed file extensions.
 
-**Install `@aegisx/fastify-multipart`**
+**Install `@fastify/multipart`**
 
 ```bash
-npm install @aegisx/fastify-multipart
+npm install @fastify/multipart
 ```
 
 **Create File Upload Plugin**  
@@ -866,45 +921,62 @@ We create a plugin to handle file uploads.
 ```javascript
 const fp = require('fastify-plugin')
 const path = require('path')
+const fs = require('fs')
 
-// Use @aegisx/fastify-multipart instead of @fastify/multipart
+const UPLOAD_FOLDER = path.join(path.dirname(__dirname), 'public/avatars')
+
+const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
 module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('@aegisx/fastify-multipart'), {
+  await fastify.register(require('@fastify/multipart'), {
     limits: {
       fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     attachFieldsToBody: true // optional: auto attach text fields/files to request.body
   })
-})
-```
-
-**Configure Upload Settings**  
-We define constants in app.js and ensure the public/avatars directory exists. We then create a set of allowed file extensions `ALLOWED_EXTENSIONS` and a helper function to check whether a file is allowed. Finally, we add this function as a decorator so it can be accessed in other routes  (`fastify.allowedFile`).  
-**`app.js` (updated snippet):**
-
-```javascript
-const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
-
-if (!fs.existsSync(UPLOAD_FOLDER)) {
+  if (!fs.existsSync(UPLOAD_FOLDER)) {
   fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
 }
 
-fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
-fastify.decorate('allowedFile', filename => {
+await fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
+await fastify.decorate('allowedFile', filename => {
   if (!filename.includes('.')) return false
   const ext = filename.split('.').pop().toLowerCase()
   return ALLOWED_EXTENSIONS.has(ext)
 })
+})
 ```
+**Configure Upload Settings**   
+In this plugin, we start by defining constants and ensuring that the `public/avatars` directory exists. Next, we create a set of allowed file extensions called `ALLOWED_EXTENSIONS` and implement a helper function that checks whether a file has a valid extension. We then register the `@fastify/multipart` plugin with appropriate configuration options, such as file size limits and upload behavior. Finally, we add the helper function as a Fastify decorator (`fastify.allowedFile`) so it can be easily accessed and reused in other routes throughout the application.
 
+**Creating utils.js**  
+Since multiple routes use the collectMessages function, we can refactor our code to avoid repetition. Instead of declaring the function in every route file, we create a separate file called utils.js where we define the function once. Then, whenever we need it in a route, we simply import it using const collectMessages = require('../utils'). This approach keeps the code cleaner, more modular, and easier to maintain.  
+**`utils.js`**  
+```javascript
+function collectMessages(reply) {
+    const categories = ['danger', 'success', 'info']
+    const messages = []
+
+    for (const category of categories) {
+      const msgs = reply.flash(category) || []
+      for (const msg of msgs) {
+        messages.push({ category, message: msg })
+      }
+    }
+
+    return messages
+}
+
+module.exports = collectMessages
+```
 **Create Profile Route**  
 We add a profile route to handle avatar uploads.
 
 **`routes/profile.js`:**
 
 ```javascript
-const path = require('path')
+const fs = require('fs');
+const path = require('path');
+const collectMessages = require('../utils')
 
 module.exports = async (fastify, opts) => {
   fastify.get('/profile', async (request, reply) => {
@@ -913,8 +985,10 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/login')
     }
     const user = fastify.dataStore.users[request.session.get('username')]
-    return reply.view('profile', { user, messages: request.flash('danger') || request.flash('success') })
+    messages = collectMessages(reply)
+    return reply.view('profile', { user, messages: messages })
   })
+
 
   fastify.post('/profile', async (request, reply) => {
     if (!request.session.get('username')) {
@@ -922,7 +996,8 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/login')
     }
 
-    const file = request.body.avatar
+    const file = await request.body.avatar
+    
     if (!file) {
       request.flash('danger', 'No file selected.')
       return reply.redirect('/profile')
@@ -935,7 +1010,9 @@ module.exports = async (fastify, opts) => {
 
     const filename = `${Date.now()}_${file.filename}`
     const filepath = path.join(fastify.UPLOAD_FOLDER, filename)
-    await fs.promises.rename(file.filepath, filepath)
+    await fs.promises.writeFile(filepath, file._buf);
+       
+
     fastify.dataStore.users[request.session.get('username')].avatar = filename
     request.flash('success', 'Avatar updated!')
     return reply.redirect('/profile')
@@ -953,7 +1030,7 @@ When a user visits /profile, the server checks if they are logged in by verifyin
 When the user submits the avatar upload form, the server processes the uploaded file.
 
 - First, it checks if the user is logged in. If not, a danger flash message is set and the user is redirected to ``/login``.
-
+- Then load the file using `const file = await request.body.avatar` avatar is the name we provided in the input field.  
 - If a file was not provided, a danger message is set and the user is redirected back to ``/profile``.
 
 - If a file was provided but its extension is not allowed, a danger message is set and the user is redirected back to ``/profile``.
@@ -982,7 +1059,7 @@ We create a template to display the user profile and add a form that allows upda
   </div>
   <form action="/profile" method="POST" enctype="multipart/form-data" class="form-card">
     <label for="avatar">Upload new avatar:</label>
-    <input type="file" id="avatar" name="avatar" accept="image/*" required>
+    <input type="file" id="avatar" name="avatar" accept="image/*"  required>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Upload</button>
     </div>
@@ -1006,45 +1083,22 @@ We update `app.js` and create the `public/avatars` directory.
 
 ```javascript
 const fastify = require('fastify')({ logger: true })
-const path = require('path')
-const fs = require('fs')
 
-const UPLOAD_FOLDER = path.join(__dirname, 'public/avatars')
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
 
-if (!fs.existsSync(UPLOAD_FOLDER)) {
-  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
-}
-
-fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
-fastify.decorate('allowedFile', filename => {
-  if (!filename.includes('.')) return false
-  const ext = filename.split('.').pop().toLowerCase()
-  return ALLOWED_EXTENSIONS.has(ext)
-})
-
-fastify.setErrorHandler((error, request, reply) => {
-  if (error.validation) {
-    request.flash('danger', error.validation.map(e => e.message).join(', '))
-    return reply.redirect('/create')
-  }
-  reply.send(error)
-})
-// Plugin
+// Plugins
+fastify.register(require('./plugins/multipart'))
+fastify.register(require('@fastify/formbody'))
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/multipart'))
-fastify.register(require('@fastify/formbody'))
-fastify.register(require('argon2'))
 fastify.register(require('./plugins/db-plugin')); 
 fastify.register(require('./plugins/quill'))
+
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 fastify.register(require('./routes/wiki'), { prefix: '/' })
 fastify.register(require('./routes/profile'), { prefix: '/' })
-
-fastify.get('/home', async (request, reply) => {
+fastify.get('/', async (request, reply) => {
   return reply.view('home')
 })
 
@@ -1062,12 +1116,12 @@ start()
 
 We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
 
-Fastify’s `@aegisx/fastify-multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
+Fastify’s `@fastify/multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
 
 **Handling Unknown Routes**  
 
 What if the user try to visit random or non existing route (like /does-not-exist) by default Fastify will return a JSON 404 response:
-```
+```json
 {
   "statusCode": 404,
   "error": "Not Found",
@@ -1075,16 +1129,25 @@ What if the user try to visit random or non existing route (like /does-not-exist
 }
 ```
 
-This is useful for APIs, but in a web app we usually want to show a user-friendly 404 page instead. We can override the default behavior with setNotFoundHandler() and serve a custom Handlebars view (404.hbs):
-```
-fastify.setNotFoundHandler((request, reply) => {
-  reply.code(404).view('404', {
-    title: 'Page Not Found',
-    url: request.raw.url
-  })
+This is useful for APIs, but in a web app we usually want to show a user-friendly 404 page instead. We can override the default behavior with setNotFoundHandler() and serve a custom Handlebars view (404.hbs), we create a 404.js plugin
+
+**`plugins/404.js`**
+```javascript
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+    await fastify.setNotFoundHandler((request, reply) => {
+        reply.code(404).view('404', {
+            title: 'Page Not Found',
+            url: request.raw.url
+        })
+    })
 })
 ```
-
+We add it to ``app.js``
+```javascript
+fastify.register(require('./plugins/404'))
+```
 With this in place, visiting a non-existent page like ``/random-url`` will render our custom 404.hbs template instead of showing raw JSON. This improves the user experience and keeps the app consistent with other views.
 ## A Journey Through CSS Styling
 

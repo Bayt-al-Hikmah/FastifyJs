@@ -1,0 +1,19 @@
+{{#> _layout}}
+<div class="container">
+  <h1 class="page-title">Welcome, {{user.username}}</h1>
+  <div class="avatar-section">
+    {{#if user.avatar}}
+      <img src="/static/avatars/{{user.avatar}}" alt="User Avatar" class="avatar">
+    {{else}}
+      <p>No avatar uploaded yet.</p>
+    {{/if}}
+  </div>
+  <form action="/profile" method="POST" enctype="multipart/form-data" class="form-card">
+    <label for="avatar">Upload new avatar:</label>
+    <input type="file" id="avatar" name="avatar" accept="image/*"  required>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </form>
+</div>
+{{/ _layout}}

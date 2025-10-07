@@ -1,0 +1,26 @@
+{{#> _layout}}
+<h1 class="page-title">Create a Wiki Page</h1>
+<form method="POST" class="form-card" id="create-page-form">
+  <label for="title">Page Title</label>
+  <input id="title" name="title" type="text" required>
+  <label for="content">Content</label>
+  <div id="editor" style="min-height: 200px;"></div>
+  <input type="hidden" name="content" id="content">
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Page</button>
+  </div>
+</form>
+
+<!-- Load Quill.js styles and script -->
+<link href="/static/quill/quill.snow.css" rel="stylesheet">
+<script src="/static/quill/quill.js"></script>
+<script>
+  
+  const quill = new Quill('#editor',  {{{ quillConfig }}});
+  const form = document.querySelector('#create-page-form');
+  form.onsubmit = function() {
+    const content = document.querySelector('#content');
+    content.value = quill.root.innerHTML; // Capture editor content
+  };
+</script>
+{{/ _layout}}

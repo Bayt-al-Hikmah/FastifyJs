@@ -1,0 +1,26 @@
+{{#> _layout}}
+<h1 class="page-title">Create a Wiki Page</h1>
+<form method="POST" class="form-card">
+  <label for="title">Page Title</label>
+  <input id="title" name="title" type="text" required>
+  <label for="content">Content (Markdown supported)</label>
+  <textarea id="content" name="content" rows="12" placeholder="# Heading
+Write your text here...
+- bullet list
+**bold text**
+*italic text*"></textarea>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Page</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px;">
+  <h3>Markdown Quick Reference</h3>
+  <ul>
+    <li><code># Heading</code> → Heading</li>
+    <li><code>**bold**</code> → <strong>bold</strong></li>
+    <li><code>*italic*</code> → <em>italic</em></li>
+    <li><code>- Item</code> → bullet list</li>
+    <li><code>[Link](https://example.com)</code> → link</li>
+  </ul>
+</div>
+{{/ _layout}}
