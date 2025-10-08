@@ -43,7 +43,6 @@ module.exports = async (fastify, opts) => {
 
   fastify.get('/logout', async (request, reply) => {
     await request.session.destroy()
-    request.flash('info', 'You have been logged out.')
     return reply.redirect('/login')
   })
 }

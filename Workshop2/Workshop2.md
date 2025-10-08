@@ -522,7 +522,7 @@ npm install @fastify/formbody
 We add the following line to our `app.js` to use the form body plugin
 ```javascript
   fastify.register(require('@fastify/formbody'))
-})
+
 ```
 When an HTML form is submitted with the default encoding (application/x-www-form-urlencoded), the browser sends data like:
 ```

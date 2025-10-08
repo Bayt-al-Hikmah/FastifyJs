@@ -30,7 +30,7 @@ We create plugins to handle sessions, flash messages, and templating with Handle
 
 **plugins/session.js:**
 
-```
+```javascript
 const fp = require('fastify-plugin')
 
 module.exports = fp(async (fastify, opts) => {
@@ -50,9 +50,10 @@ module.exports = fp(async (fastify, opts) => {
 ```
 For more security, we updated the previous session plugin to fix issues with storing sensitive data. Instead of relying on localStorage for JWTs which OWASP and Auth0 strongly advise against due to XSS risks we now store session tokens in HttpOnly cookies with a short expiry of 15 minutes. In the code, ``fastify.register(require('@fastify/session'), {...})`` sets up the session with a secret key for signing, and the cookie options enforce secure handling: ``httpOnly: true`` prevents access from client-side scripts, ``sameSite: 'lax'`` mitigates CSRF risks, and ``maxAge: 15 * 60 * 1000`` ensures the session expires after 15 minutes. The saveUninitialized: false option avoids creating empty sessions, keeping session storage efficient while maintaining secure server-side session management.
 
-**plugins/templates.js:**
+**plugins/templates.js:** 
+We set the templates plugin
 
-```
+```javascript
 const fp = require('fastify-plugin')
 const path = require('path')
 
@@ -71,8 +72,9 @@ options: {
 })
 ```
 
-**plugins/static.js:**
-```
+**plugins/static.js:**   
+We set the static plugin so we can serve static files
+```javascript
 const fp = require('fastify-plugin')
 const path = require('path')
 
@@ -83,18 +85,8 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-
-**`plugins/argon2.js:`**
-```
-const fp = require('fastify-plugin')
-const argon2 = require('argon2')
-
-module.exports = fp(async (fastify, opts) => {
-  fastify.decorate('argon2', argon2)
-})
-```
-**`./plugins/db-plugin.js`:**
-
+**`./plugins/db-plugin.js`:**  
+We create a database plugin to work as our In-memory database
 ```javascript
 const fp = require('fastify-plugin');
 
@@ -108,25 +100,57 @@ module.exports = fp(dbConnector, {
     name: 'data-connector' 
 });
 ```
-**`plugins/formbody.js:`**
-```
+**`plugins/formbody.js:`**  
+We set the form parser plugin
+```javascript
 const fp = require('fastify-plugin')
 
 module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/formbody'))
 })
-````
-**routes/auth.js:**
 ```
+**`plugins/404.js`**  
+We add the non found page plugin  
+```javascript
+const fp = require('fastify-plugin')
 
+module.exports = fp(async (fastify, opts) => {
+    await fastify.setNotFoundHandler((request, reply) => {
+        reply.code(404).view('404', {
+            title: 'Page Not Found',
+            url: request.raw.url
+        })
+    })
+})
+```
+Now we create the ``util.js`` File and we save inside it the `collectMessages` function that we used in last lecture.  
+**`utils.js`:**
+```javascript
+function collectMessages(reply) {
+    const categories = ['danger', 'success', 'info']
+    const messages = []
+
+    for (const category of categories) {
+      const msgs = reply.flash(category) || []
+      for (const msg of msgs) {
+        messages.push({ category, message: msg })
+      }
+    }
+
+    return messages
+}
+
+module.exports = collectMessages
+```
+After we finish setting our plugins we move to create the routes
+**``routes/auth.js:``**
+```javascript
+const argon2 = require('argon2')
+const collectMessages = require('../utils')
 module.exports = async (fastify, opts) => {
-  
-
-  // In-memory user store (temporary)
-  
-
   fastify.get('/register', async (request, reply) => {
-    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+    messages = collectMessages(reply)
+    return reply.view('register', { messages: messages })
   })
 
   fastify.post('/register', async (request, reply) => {
@@ -137,43 +161,97 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/register')
     }
 
-    const passwordHash = await fastify.argon2.hash(password) // 10 salt rounds
+    const passwordHash = await argon2.hash(password) 
     fastify.users[username] = { passwordHash }
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
 
   fastify.get('/login', async (request, reply) => {
-    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+    messages = collectMessages(reply)
+    return reply.view('login', { messages: messages })
   })
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
     const user = fastify.users[username]
 
-    if (!user || !(await fastify.argon2.verify(user.passwordHash,password))) {
+    if (!user || !(await argon2.verify(user.passwordHash,password))) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
 
     request.session.set('user', username)
     request.flash('success', 'Logged in successfully!')
-    return reply.redirect('/profile')
+    return reply.redirect('/')
   })
 
   fastify.get('/logout', async (request, reply) => {
     await request.session.destroy()
-    request.flash('info', 'You have been logged out.')
     return reply.redirect('/login')
   })
 }
 ```
+**GET /register**
+
+When the user visits `/register`:
+
+- The server uses the `collectMessages()` utility to gather any flash messages (temporary notifications).
+    
+- It renders the `register` view (a Handlebars or EJS template) and displays messages such as “Username already exists” or “Registration successful”.
+    
+
+**POST /register**
+
+When the registration form is submitted:
+
+1. The server extracts `username` and `password` from the request body.
+    
+2. It checks if the username already exists in memory (`fastify.users`).
+    
+    - If yes: shows a danger message (“Username already exists!”) and redirects back to `/register`.
+3. If it’s a new username:
+    - The password is **hashed using Argon2** with`const passwordHash = await argon2.hash(password)`, This ensures passwords are stored securely.
+
+    - The new user is added to memory: `fastify.users[username] = { passwordHash }`
+        
+    - A success message is shown, and the user is redirected to `/login`.
+        
+
+**GET /login**
+
+When the user visits `/login`:
+
+- Flash messages (like “You have been logged out” or “Invalid credentials”) are collected.
+- The `login` view is rendered with these messages.
+
+**POST /login**
+
+When the login form is submitted:
+
+1. The server retrieves the user record by `username`.
+    
+2. If no such user exists or the password doesn’t match, it shows an error, `argon2.verify()` compares the stored hash and the entered password.
+        
+3. If valid, the user’s session is created: `request.session.set('user', username)`, and a success message is shown before redirecting to `/profile`.
+    
+
+**GET /logout**
+
+When visiting `/logout`:
+
+- The current session is **destroyed**, logging the user out.
+    
+- A message “You have been logged out.” is displayed.
+    
+- The user is redirected back to `/login`.  
+
 
 **Create Templates**  
 We create Handlebars templates for registration and login.
 
-**views/partials/_layout.hbs:**
-```
+**``views/partials/_layout.hbs``:**
+```HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -185,7 +263,7 @@ We create Handlebars templates for registration and login.
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="brand" href="/home">MyApp</a>
+      <a class="brand" href="/">MyApp</a>
       <nav class="main-nav">
         {{#if session.user}}
           <span class="greet">Hello, {{session.user}}</span>
@@ -223,8 +301,16 @@ We create Handlebars templates for registration and login.
 </body>
 </html>
 ```
-**views/register.hbs:**
+
+**``views/home.hbs``:**
+```HTML
+{{#> _layout}}
+<h1 class="page-title">Welcome to MyApp</h1>
+<p>Create and manage your account!</p>
+{{/ _layout}}
 ```
+**``views/register.hbs``:**
+```HTML
 {{#> _layout}}
 <h1 class="page-title">Create an account</h1>
 <form method="POST" class="form-card">
@@ -240,7 +326,7 @@ We create Handlebars templates for registration and login.
 {{/ _layout}}
 ```
 **views/login.hbs:**
-```
+```HTML
 {{#> _layout}}
 <h1 class="page-title">Log in</h1>
 <form method="POST" class="form-card">
@@ -256,14 +342,14 @@ We create Handlebars templates for registration and login.
 {{/ _layout}}
 ```
 **views/404.hbs:**
-```
+```HTML
 {{#> _layout}}
   <div class="card" style="text-align: center; padding: 40px;">
     <h1 class="page-title" style="font-size: 2rem; margin-bottom: 10px;">404 - Page Not Found</h1>
     <p class="text-muted" style="margin-bottom: 20px;">
       Oops! The page you are looking for doesn’t exist or has been moved.
     </p>
-    <a href="/home" class="btn btn-primary">Go Back Home</a>
+    <a href="/" class="btn btn-primary">Go Back Home</a>
   </div>
 {{/_layout}}
 
@@ -274,7 +360,7 @@ We create Handlebars templates for registration and login.
 We define styles to ensure a consistent, professional look across our application.
 
 **public/css/style.css:**
-```
+```CSS
 /* Basic reset */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
 
@@ -421,9 +507,9 @@ body {
 **Bootstrap the Application**   
 We tie everything together in app.js, registering plugins and defining a basic home route.
 
-**app.js:**
+**``app.js``:**
 
-```
+```javascript
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 
@@ -433,21 +519,16 @@ fastify.register(require('./plugins/static'))
 fastify.register(require('./plugins/formbody'));
 fastify.register(require('./plugins/session'))
 fastify.register(require('./plugins/db-plugin'));
-fastify.register(require('./plugins/argon2'));
+fastify.register(require('./plugins/404'))
 
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 
-fastify.get('/home', async (request, reply) => {
-  return reply.view('home')
+fastify.get('/', async (request, reply) => {
+  return reply.view('home',{session:request.session})
 })
 
-fastify.setNotFoundHandler((request, reply) => {
-  reply.code(404).view('404', {
-    title: 'Page Not Found',
-    url: request.raw.url
-  })
-})
+
 
 const start = async () => {
   try {
@@ -459,14 +540,6 @@ const start = async () => {
   }
 }
 start()
-```
-
-**views/home.hbs:**
-```
-{{#> _layout}}
-<h1 class="page-title">Welcome to MyApp</h1>
-<p>Create and manage your account!</p>
-{{/ _layout}}
 ```
 
 Run node app.js, visit http://127.0.0.1:3000/register, create a user with a username and password, log in at /login, and log out at /logout. Flash messages provide feedback, and the session persists the user’s login state.
@@ -482,12 +555,12 @@ In Fastify, a **decorator** is a way to extend the framework’s functionality o
 **Create an Authentication Decorator Plugin**   
 We define a loginRequired decorator in a plugin, which we can apply to any route.
 
-**plugins/auth.js:**  
-```
+**``plugins/auth.js``:**  
+```javascript
 const fp = require('fastify-plugin')
 
 module.exports = fp(async (fastify, opts) => {
-  fastify.decorate('loginRequired', (handler) => {
+  fastify.decorate('loginRequired', async (handler) => {
     return async (request, reply) => {
       if (!request.session.get('user')) {
         request.flash('danger', 'You must log in to access this page.')
@@ -503,18 +576,26 @@ In this plugin, we add a helper called loginRequired to our Fastify app. The mai
 **Apply the Decorator to a Profile Route**   
 We create a profile route and apply the loginRequired decorator to protect it.
 
-**routes/profile.js:**
-```
+**``routes/profile.js``:**  
+```javascript
 module.exports = async (fastify, opts) => {
-  fastify.get('/profile', { preHandler: fastify.loginRequired }, async (request, reply) => {
-    return reply.view('profile', { username: request.session.get('user') })
-  })
+  fastify.get('/profile', await fastify.loginRequired(async (request, reply) => {
+  const user = request.session.get('user')
+  return reply.view('profile', { username:user })
+}))
 }
 ```
-In this route, we want to show the user’s profile page, but only if they are logged in. We check this by using the loginRequired plugin as a preHandler. Fastify runs this function before the route’s main logic. If the user isn’t logged in, the loginRequired function automatically redirects them to the login page with a flash message.  
+In this route, we want to display the user’s profile page, but only if they are logged in.  
+We achieve this by using the **`loginRequired`** decorator we created earlier.
 
-**views/profile.hbs:**
-```
+When a request is made to `/profile`, Fastify first runs the `loginRequired` function before executing the route’s main logic.
+
+- If the user **is not logged in**, `loginRequired` automatically redirects them to the login page and shows a flash message saying they must log in.
+    
+- If the user **is logged in**, the route handler runs normally and renders the `profile` view, passing the logged-in username to the template.
+
+**``views/profile.hbs``:**
+```html
 {{#> _layout}}
 <h1 class="page-title">Welcome, {{username}}</h1>
 <p>This is your profile page.</p>
@@ -525,14 +606,79 @@ In this route, we want to show the user’s profile page, but only if they are l
 We update app.js to register the authentication plugin and profile route.
 
 **app.js (updated snippet):**
-```
+```javascript
 // in Plugins seciont we add
 fastify.register(require('./plugins/auth'))
 // In routes section we add
 fastify.register(require('./routes/profile'), { prefix: '/' })
 ```
+### Using hooks
+Another way to implemet the loginReguired is using hooks, hooks allow us to plugins tap into the request-response lifecycle, allowing us to add custom logic like logging or authentication checks.   
+Fastify provide us the following hooks
+#### **`onRequest`**  
+Runs **as soon as a request arrives** before anything else, Used for:    
+- Logging requests
+- Basic request filtering
+- Adding headers or tracking info
+#### **`preParsing`**  
+ Runs **before Fastify parses the incoming body**,Used for:    
+- Modifying or validating raw request data     
+- Handling custom content types
+#### **`preValidation`**  
+Runs **after the request is parsed**, but **before validation**, Used for:
+- Checking authentication or tokens     
+- Preparing data for validation
 
- Visit /profile without logging in you’ll be redirected to /login with a flash message. After logging in, /profile displays your username. Add more protected routes (e.g., /dashboard) by applying preHandler: ``fastify.loginRequired``, and the decorator will enforce authentication consistently.
+#### **`preHandler`**  
+ Runs **right before the route handler**, Used for: 
+- Authorization checks
+- Attaching data to the request    
+- Final setup before main logic        
+
+#### **`Handler`**  
+ The main route function that processes the request and returns a response.
+#### **`onSend`**  
+ Runs **after the response is generated**, but **before it’s sent to the client**, Used for:    
+- Modifying the response     
+- Adding headers
+- Logging response data        
+
+#### `onResponse`  
+Runs **after the response is fully sent** to the client, Used for:    
+- Cleanup tasks    
+- Logging or metrics collection
+
+### Editing our code  
+**`plugins/auth.js`:**
+We’ve updated the ``loginRequired`` function so that it now checks whether the user is logged in.  
+If the user is not logged in, it redirects them to the login page with a flash message.  
+If the user is logged in, the function allows the request to continue and complete the normal Fastify lifecycle  
+```javascript
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+  fastify.decorate('loginRequired',  async (request, reply) => {
+      if (!request.session.get('user')) {
+        request.flash('danger', 'You must log in to access this page.')
+        return reply.redirect('/login')
+      }
+    })
+  })
+
+```
+**``routes/profile.js``**    
+Now we add fastify.loginRequired to our route by passing an object that specifies which hooks should run before the route handler.
+In this case, we want to run the preHandler hook, so we include it like this:`{ preHandler: fastify.loginRequired }`, This ensures that the authentication check runs before the main function that handles the route’s request.
+```javascript
+module.exports = async (fastify, opts) => {
+  fastify.get('/profile', {preHandler:fastify.loginRequired},async (request, reply) => {
+  const user = request.session.get('user')
+  return reply.view('profile', { username:user })
+})
+}
+```
+
+Visit /profile without logging in you’ll be redirected to /login with a flash message. After logging in, /profile displays your username. Add more protected routes (e.g., /dashboard) by applying preHandler: ``fastify.loginRequired``, and the decorator will enforce authentication consistently.
 
 The loginRequired decorator encapsulates the authentication check, making it reusable across routes. By using Fastify’s preHandler hook, we execute the check before the route handler, keeping our route logic focused on its core purpose. This approach aligns with Fastify’s philosophy of modularity and performance, reducing code duplication and ensuring consistent access control. The plugin system allows us to encapsulate this logic, making it easy to extend or modify later.
 
@@ -550,9 +696,9 @@ We’ll use **SQLite**, a lightweight, file-based database ideal for learning an
 
 We define a schema for our SQLite database to store user information. The schema includes a user table with fields for id, username, and password_hash.
 
-**schema.sql:**
+**``schema.sql``:**
 
-```
+```SQL
 DROP TABLE IF EXISTS user;
 
 CREATE TABLE user (
@@ -563,12 +709,20 @@ CREATE TABLE user (
 ```
 
 **Initialize the Database**   
-We run the schema to create the database file:
+We run the schema to create the database file:  
 
+First we connect and create the database file
+```BASH
+sqlite3 database.db 
 ```
-sqlite3 database.db < schema.sql
+Now we will be inside the `sqlite` terminal , we run the following command to create our table
+```BASH
+.read schema.sql
 ```
-
+Then we quit the sqlite terminal using
+```
+.quit
+```
 This creates database.db with the user table, ready for use.
 
 ### Connecting Fastify with SQLite
@@ -576,16 +730,16 @@ This creates database.db with the user table, ready for use.
 The sqlite3 package allows us to interact with SQLite databases in Node.js. We connect to the database, execute SQL queries using parameterized statements to prevent SQL injection, and manage connections properly to ensure reliability.
 
 **Install SQLite3**
-```
+```BASH
 npm install sqlite3
 ```
 
 **Create a Database Plugin**   
 We create a plugin to manage SQLite connections, decorating Fastify with a db object for reusable database access.
 
-**plugins/db.js:**
+**``plugins/db.js:``**
 
-```
+```javascript
 const fp = require('fastify-plugin')
 const sqlite3 = require('sqlite3').verbose()
 
@@ -614,18 +768,21 @@ This plugin opens a connection to database.db and decorates Fastify with the db 
 **Update Authentication Routes for SQLite**   
 We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating argon2 for password hashing.
 
-**routes/auth.js (updated):**
+**``routes/auth.js`` (updated):**
 
-```
+```javascript
+const argon2 = require('argon2')
+const collectMessages = require('../utils')
+
 module.exports = async (fastify, opts) => {
   fastify.get('/register', async (request, reply) => {
-    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+    const messages = collectMessages(reply)
+    return reply.view('register', { messages: messages })
   })
 
   fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
 
-    // Check if username exists
     const existingUser = await new Promise((resolve, reject) => {
       fastify.db.get('SELECT * FROM user WHERE username = ?', [username], (err, row) => {
         if (err) reject(err)
@@ -639,7 +796,7 @@ module.exports = async (fastify, opts) => {
     }
 
     // Hash password and insert user
-    const passwordHash = await fastify.argon2.hash(password)
+    const passwordHash = await argon2.hash(password)
     await new Promise((resolve, reject) => {
       fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], (err) => {
         if (err) reject(err)
@@ -652,7 +809,8 @@ module.exports = async (fastify, opts) => {
   })
 
   fastify.get('/login', async (request, reply) => {
-    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+    const messages = collectMessages(reply)
+    return reply.view('login', { messages: messages })
   })
 
   fastify.post('/login', async (request, reply) => {
@@ -665,31 +823,30 @@ module.exports = async (fastify, opts) => {
       })
     })
 
-    if (!user || !(await fastify.argon2.verify(user.password_hash, password) )) {
+    if (!user || !(await argon2.verify(user.password_hash, password) )) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
 
-    request.session.set('user_id', user.id)
-    request.session.set('username', user.username)
+    request.session.set('user_id', user["id"])
+    request.session.set('user', user["username"])
     request.flash('success', 'Logged in successfully!')
-    return reply.redirect('/profile')
+    return reply.redirect('/')
   })
 
   fastify.get('/logout', async (request, reply) => {
     await request.session.destroy()
-    request.flash('info', 'You have been logged out.')
     return reply.redirect('/login')
   })
 }
 ```
 
-By using the fastify.db plugin that we created, we can run commands on our database in a structured and secure way. To insert data, we use:
-```
+By using the ``fastify.db`` plugin that we created, we can run commands on our database in a structured and secure way. To insert data, we use:
+```javascript
 fastify.db.run('INSERT INTO user (username, password_hash) VALUES (?, ?)', [username, passwordHash], callback)
 ```
 To get data, we use:
-```
+```javascript
 fastify.db.get('SELECT * FROM user WHERE username = ?', [username], callback)
 ```
 
@@ -700,8 +857,8 @@ We wrap these database calls in Promises because the database plugin uses a call
 **Register the Database Plugin**   
 We update app.js to include the database plugin.
 
-**app.js (updated snippet):**
-```
+**``app.js`` (updated snippet):**
+```javascript
 fastify.register(require('./plugins/db'))
 ```
 
@@ -718,8 +875,8 @@ To address this, we’ll encapsulate database operations in a User class, creati
 **Create a User Utility Module**   
 We define a User class in a separate file to manage user-related database operations.
 
-**utils/user.js:**
-```
+**``utils/user.js``:**
+```javascript
 const argon2 = require('argon2')
 class User {
   static async create(db, username, password) {
@@ -759,14 +916,15 @@ By organizing database operations in a **model**, we **separate data access from
 We refactor auth.js to use the User class, simplifying route logic.
 
 **routes/auth.js (updated):**
-```
+```javascript
+const argon2 = require('argon2')
 const User = require('../utils/user')
+const collectMessages = require('../utils')
 
 module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
-
   fastify.get('/register', async (request, reply) => {
-    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+    const messages = collectMessages(reply)
+    return reply.view('register', { messages: messages })
   })
 
   fastify.post('/register', async (request, reply) => {
@@ -777,33 +935,37 @@ module.exports = async (fastify, opts) => {
       return reply.redirect('/register')
     }
 
+    // Hash password and insert user
+   
     await User.create(fastify.db, username, password)
+
     request.flash('success', 'Registration successful! Please log in.')
     return reply.redirect('/login')
   })
 
   fastify.get('/login', async (request, reply) => {
-    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+    const messages = collectMessages(reply)
+    return reply.view('login', { messages: messages })
   })
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
-    const user = await User.findByUsername(fastify.db, username)
 
-    if (!user || !(await argon2.verify(user.password_hash, password))) {
+    const user =  await User.findByUsername(fastify.db, username)
+
+    if (!user || !(await argon2.verify(user.password_hash, password) )) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
 
-    request.session.set('user_id', user.id)
-    request.session.set('username', user.username)
+    request.session.set('user_id', user["id"])
+    request.session.set('user', user["username"])
     request.flash('success', 'Logged in successfully!')
-    return reply.redirect('/profile')
+    return reply.redirect('/')
   })
 
   fastify.get('/logout', async (request, reply) => {
     await request.session.destroy()
-    request.flash('info', 'You have been logged out.')
     return reply.redirect('/login')
   })
 }
@@ -819,52 +981,29 @@ While the User class improved our code, we’re still writing raw SQL queries, w
 
 This is where **Sequelize**, an Object-Relational Mapper (ORM) for Node.js, comes in. Sequelize allows us to define database tables as JavaScript classes (models) and interact with them using object-oriented methods, abstracting away raw SQL. Each table becomes a model, and each row an instance, making database operations more intuitive and portable across database engines.
 
+**Updating Our Project**  
+We’ll start by removing ``utils/user`` and ``plugins/db.js`` since we don’t need them anymore.
 **Install Sequelize**   
 We install Sequelize and the SQLite driver.
-```
+```Bash
 npm install sequelize sqlite3
 ```
-
-**Create a Sequelize Plugin**   
-We create a plugin to initialize Sequelize and make it available across our application.
-
-**plugins/sequelize.js:**
-```
-const fp = require('fastify-plugin')
-const { Sequelize } = require('sequelize')
-
-module.exports = fp(async (fastify, opts) => {
-  const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: 'database.db',
-    logging: false // Disable logging for cleaner output
-  })
-
-  fastify.decorate('sequelize', sequelize)
-
-  fastify.addHook('onClose', async (fastify, done) => {
-    await sequelize.close()
-    done()
-  })
-})
-```
-We created a Fastify plugin to set up our database connection using Sequelize, an ORM for Node.js. Inside the plugin, we initialize a Sequelize instance configured to use SQLite (dialect) with a local file (database.db) as storage, and we disable logging for cleaner output. We then attach this instance to Fastify using fastify.decorate('sequelize', sequelize), making it accessible throughout the application. Finally, we add an onClose hook to gracefully close the database connection when the server shuts down.  
-
 **Define a User Model**   
-We create a User model to represent the user table, including methods for password hashing and verification.
+We create a User model to represent the user table, including methods for password hashing and verification, this Model extand from sequelize
 
-**models/user.js:**
-```
+**``models/user.js``:**
+```javascript
+const argon2 = require('argon2')
 const { Model, DataTypes } = require('sequelize')
 
 module.exports = (sequelize) => {
   class User extends Model {
     async setPassword(password) {
-      this.password_hash = await fastify.argon2.hash(password)
+      this.password_hash = await argon2.hash(password)
     }
 
     async checkPassword(password) {
-      return fastify.argon2.verify(this.password_hash, password)
+      return argon2.verify(this.password_hash, password)
     }
   }
 
@@ -899,9 +1038,9 @@ We define a User model using Sequelize, which represents the users table in our 
 **Initialize Models**   
 We create a module to initialize all models and sync the database schema.
 
-**models/index.js:**
+**``models/index.js``:**
 
-```
+```javascript
 module.exports = (sequelize) => {
   const User = require('./user')(sequelize)
 
@@ -912,15 +1051,24 @@ module.exports = (sequelize) => {
 
   return { User }
 }
-```
+``` 
+We create a module to initialize all Sequelize models and synchronize the database schema.  
+This file acts as the **central hub** for all model definitions — instead of initializing each model separately in different parts of the code, we do it once here. This design keeps the project organized and makes it easy to manage model relationships (like associations) later on.
 
-**Update the Sequelize Plugin**   
-We modify the Sequelize plugin to initialize models.
+When the function is called with a Sequelize instance, it:
 
-**plugins/sequelize.js (updated):**
-```
+1. Imports the `User` model and initializes it using the provided Sequelize instance.
+    
+2. Calls `sequelize.sync({ force: true })` to synchronize the database schema with the model definitions. The `{ force: true }` option recreates the tables each time the app runs (useful for development, but should be avoided in production to prevent data loss).
+    
+3. Returns an object containing all initialized models (currently just `User`), so other parts of the app can easily import and use them.
+**Create a Sequelize Plugin**   
+
+**``plugins/sequelize.js``:**
+```javascript
 const fp = require('fastify-plugin')
 const { Sequelize } = require('sequelize')
+const models = require('../models')(sequelize)
 
 module.exports = fp(async (fastify, opts) => {
   const sequelize = new Sequelize({
@@ -929,7 +1077,7 @@ module.exports = fp(async (fastify, opts) => {
     logging: false
   })
 
-  const models = require('../models')(sequelize)
+  
   fastify.decorate('sequelize', sequelize)
   fastify.decorate('models', models)
 
@@ -939,32 +1087,33 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-We updated the **Sequelize plugin** to not only create and attach the Sequelize instance but also to **load and attach all models** to Fastify. First, we initialize Sequelize with SQLite as the storage and disable logging for cleaner output. Then, we import our models by passing the Sequelize instance (`require('../models')(sequelize)`) and attach them to Fastify using `fastify.decorate('models', models)`. This allows us to access all models easily anywhere in the application through `fastify.models`. Finally, the `onClose` hook ensures that the database connection is **gracefully closed** when the server shuts down.  
+We created a Fastify plugin to set up our database connection and load all models using Sequelize, an ORM for Node.js. Inside the plugin, we initialize a Sequelize instance configured to use SQLite (database.db) as storage and disable logging for cleaner output. We then import all models by passing the Sequelize instance (require('../models')(sequelize)) and attach both the Sequelize instance and the models to Fastify using fastify.decorate('sequelize', sequelize) and fastify.decorate('models', models). This makes the database and models easily accessible throughout the application via fastify.sequelize and fastify.models. Finally, we add an onClose hook to gracefully close the database connection when the server shuts down.
 
 **Update Authentication Routes with Sequelize**   
 We refactor auth.js to use the User model, simplifying database interactions.
 
-**routes/auth.js (updated):**
-```
-module.exports = async (fastify, opts) => {
-  fastify.register(require('fastify-formbody'))
+**``routes/auth.js`` (updated):**
+```javascript
+const argon2 = require('argon2')
+const collectMessages = require('../utils')
 
+module.exports = async (fastify, opts) => {
   fastify.get('/register', async (request, reply) => {
-    return reply.view('register', { messages: request.flash('danger') || request.flash('success') })
+    const messages = collectMessages(reply)
+    return reply.view('register', { messages: messages })
   })
 
   fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
     const { User } = fastify.models
-
     const existingUser = await User.findOne({ where: { username } })
     if (existingUser) {
       request.flash('danger', 'Username already exists!')
       return reply.redirect('/register')
     }
 
-    const user = await User.create({ username })
-    await user.setPassword(password)
+    const password_hash = await argon2.hash(password)
+    const user = await User.create({ username,password_hash })
     await user.save()
 
     request.flash('success', 'Registration successful! Please log in.')
@@ -972,28 +1121,28 @@ module.exports = async (fastify, opts) => {
   })
 
   fastify.get('/login', async (request, reply) => {
-    return reply.view('login', { messages: request.flash('danger') || request.flash('success') || request.flash('info') })
+    const messages = collectMessages(reply)
+    return reply.view('login', { messages: messages })
   })
 
   fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
     const { User } = fastify.models
-
     const user = await User.findOne({ where: { username } })
+
     if (!user || !(await user.checkPassword(password))) {
       request.flash('danger', 'Invalid username or password.')
       return reply.redirect('/login')
     }
 
-    request.session.set('user_id', user.id)
-    request.session.set('username', user.username)
+    request.session.set('user_id', user["id"])
+    request.session.set('user', user["username"])
     request.flash('success', 'Logged in successfully!')
-    return reply.redirect('/profile')
+    return reply.redirect('/')
   })
 
   fastify.get('/logout', async (request, reply) => {
     await request.session.destroy()
-    request.flash('info', 'You have been logged out.')
     return reply.redirect('/login')
   })
 }
@@ -1002,36 +1151,29 @@ module.exports = async (fastify, opts) => {
 **Update app.js**   
 We register the Sequelize plugin and ensure all components are connected.
 
-**app.js (updated):**
-```
-const fastify = require('fastify')({ logger: true })
+**``app.js`` (updated):**
+```javascript
+const fastify = require('fastify')({ logger: false})
 const path = require('path')
 
 // Plugins
-fastify.register(require('./plugins/formbody'))
 fastify.register(require('./plugins/templates'))
 fastify.register(require('./plugins/static'))
+fastify.register(require('./plugins/formbody'));
 fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/db'))
-fastify.register(require('./plugins/auth'))
 fastify.register(require('./plugins/sequelize'))
-fastify.register(require('./plugins/argon2'))
-
+fastify.register(require('./plugins/auth'))
+fastify.register(require('./plugins/404'))
 
 // Routes
 fastify.register(require('./routes/auth'), { prefix: '/' })
 fastify.register(require('./routes/profile'), { prefix: '/' })
-
-fastify.get('/home', async (request, reply) => {
-  return reply.view('home')
+fastify.get('/', async (request, reply) => {
+  return reply.view('home',{session:request.session})
 })
 
-fastify.setNotFoundHandler((request, reply) => {
-  reply.code(404).view('404', {
-    title: 'Page Not Found',
-    url: request.raw.url
-  })
-})
+
+
 const start = async () => {
   try {
     await fastify.listen({ port: 3000 })
@@ -1067,7 +1209,7 @@ In our project directory, we install the autoload plugin:
 **Use autoload**  
 
 We can now replace the long list of manual registrations with a few clean autoload calls.
-```
+```javascript
 const AutoLoad = require('@fastify/autoload')
 fastify.register(AutoLoad, {
   dir: path.join(__dirname, 'plugins')
@@ -1078,8 +1220,9 @@ fastify.register(AutoLoad, {
   dir: path.join(__dirname, 'routes')
 })
 ```
-our ``app.js`` become
-```
+ 
+**`app.js`**
+```javascript
 const fastify = require('fastify')({ logger: true })
 const path = require('path')
 const AutoLoad = require('@fastify/autoload')
@@ -1092,17 +1235,10 @@ fastify.register(AutoLoad, {
 fastify.register(AutoLoad, {
   dir: path.join(__dirname, 'routes')
 })
-
-fastify.get('/home', async (request, reply) => {
-  return reply.view('home')
+fastify.get('/', async (request, reply) => {
+  return reply.view('home',{session:request.session})
 })
 
-fastify.setNotFoundHandler((request, reply) => {
-  reply.code(404).view('404', {
-    title: 'Page Not Found',
-    url: request.raw.url
-  })
-})
 const start = async () => {
   try {
     await fastify.listen({ port: 3000 })

@@ -36,7 +36,11 @@ Fastify’s architecture revolves around a **plugin-based modular system**, whic
 
 1. **Plugins**: These are self-contained modules that encapsulate specific functionality, such as database connections, authentication, or route handlers. Plugins can register routes, hooks, or middleware, keeping our code organized and focused.
 2. **Encapsulation**: Each plugin operates in its own scope, preventing conflicts between different parts of the application. For example, routes in a user plugin won’t interfere with those in a product plugin unless explicitly designed to do so.
-3. **Lifecycle Hooks**: Fastify provides hooks (e.g., `onRequest`, `preHandler`) that let plugins tap into the request-response lifecycle, allowing us to add custom logic like logging or authentication checks.
+3. **Lifecycle Hooks**: Fastify provides hooks (e.g., `onRequest`, `preHandler`) that let plugins tap into the request-response lifecycle, allowing us to add custom logic like logging or authentication checks.  
+Those Hook work according the following schema
+```
+onRequest → preParsing → preValidation → preHandler → Handler → onSend → onResponse
+```
 
 ### How Fastify Leverages Plugins
 
