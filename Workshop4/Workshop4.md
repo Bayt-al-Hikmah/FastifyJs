@@ -15,17 +15,17 @@ Storing passwords in plain text is a significant security risk, as unauthorized 
 
 We’ll use the argon2 library, which provides:
 
-- fastify.argon2.hash(password): Generates a secure hash for a password.
-- fastify.argon2.verify(hash, password): Verifies if a provided password matches the stored hash.
+- argon2.hash(password): Generates a secure hash for a password.
+- argon2.verify(hash, password): Verifies if a provided password matches the stored hash.
 
-**Install Dependencies**   
+### Install Dependencies  
 We begin by installing Fastify and the necessary plugins for session management, form handling, templating, and password hashing.
 
 ```
 npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
-**Set Up Session and Templating Plugins**   
+### Set Up Session and Templating Plugins 
 We create plugins to handle sessions, flash messages, and templating with Handlebars, ensuring our application is modular and secure.
 
 **plugins/session.js:**
@@ -48,9 +48,9 @@ module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/flash'))
 })
 ```
-For more security, we updated the previous session plugin to fix issues with storing sensitive data. Instead of relying on localStorage for JWTs which OWASP and Auth0 strongly advise against due to XSS risks we now store session tokens in HttpOnly cookies with a short expiry of 15 minutes. In the code, ``fastify.register(require('@fastify/session'), {...})`` sets up the session with a secret key for signing, and the cookie options enforce secure handling: ``httpOnly: true`` prevents access from client-side scripts, ``sameSite: 'lax'`` mitigates CSRF risks, and ``maxAge: 15 * 60 * 1000`` ensures the session expires after 15 minutes. The saveUninitialized: false option avoids creating empty sessions, keeping session storage efficient while maintaining secure server-side session management.
+For more security, we updated the previous session plugin to fix issues with storing sensitive data. Instead of relying on localStorage for JWTs which OWASP and Auth0 strongly advise against due to XSS risks we now store session tokens in HttpOnly cookies with a short expiry of 15 minutes. In the code, ``fastify.register(require('@fastify/session'), {...})`` sets up the session with a secret key for signing, and the cookie options enforce secure handling: ``httpOnly: true`` prevents access from client-side scripts, ``sameSite: 'lax'`` mitigates CSRF risks, and ``maxAge: 15 * 60 * 1000`` ensures the session expires after 15 minutes. The saveUninitialized: false option avoids creating empty sessions, keeping session storage efficient while maintaining secure server-side session management.  
 
-**plugins/templates.js:** 
+**plugins/templates.js:**   
 We set the templates plugin
 
 ```javascript
@@ -85,7 +85,7 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-**`./plugins/db-plugin.js`:**  
+**`./plugins/db-plugin.js`:**   
 We create a database plugin to work as our In-memory database
 ```javascript
 const fp = require('fastify-plugin');
@@ -123,7 +123,7 @@ module.exports = fp(async (fastify, opts) => {
     })
 })
 ```
-Now we create the ``util.js`` File and we save inside it the `collectMessages` function that we used in last lecture.  
+Now we create the ``util.js`` File and we save inside it the `collectMessages` function that we used in last lecture.   
 **`utils.js`:**
 ```javascript
 function collectMessages(reply) {
@@ -142,7 +142,8 @@ function collectMessages(reply) {
 
 module.exports = collectMessages
 ```
-After we finish setting our plugins we move to create the routes
+### Creating the Routes
+After we finish setting our plugins we move to create the routes.  
 **``routes/auth.js:``**
 ```javascript
 const argon2 = require('argon2')
@@ -247,7 +248,7 @@ When visiting `/logout`:
 - The user is redirected back to `/login`.  
 
 
-**Create Templates**  
+### Creating Templates 
 We create Handlebars templates for registration and login.
 
 **``views/partials/_layout.hbs``:**
@@ -356,7 +357,7 @@ We create Handlebars templates for registration and login.
 ```
 
 
-**Add CSS**   
+### Adding CSS  
 We define styles to ensure a consistent, professional look across our application.
 
 **public/css/style.css:**
@@ -546,13 +547,13 @@ Run node app.js, visit http://127.0.0.1:3000/register, create a user with a user
 
 We use argon2 to securely hash passwords, ensuring that plain text passwords are never stored. Fastify’s ``@fastify/session`` plugin manages user sessions with signed cookies, providing security against tampering. The `@fastify/flash` plugin displays temporary messages, enhancing user feedback. By organizing routes in a plugin (routes/auth.js), we leverage Fastify’s modular architecture, keeping our code clean and reusable. Handlebars templates provide a dynamic front-end, rendered efficiently by ``@fastify/view``.
 
-### Protecting Routes with Decorators
+## Protecting Routes with Decorators
 
 Our authentication system works, but if we have multiple protected routes (e.g., profile, dashboard, settings), repeatedly checking request.session.get('user') in each route becomes repetitive and error-prone. This violates the DRY (Don’t Repeat Yourself) principle, making our code harder to maintain. Fastify’s plugin system and decorators offer a cleaner solution.
 
 In Fastify, a **decorator** is a way to extend the framework’s functionality or add reusable logic. We’ll create a custom decorator to check if a user is logged in before allowing access to protected routes. If the user isn’t logged in, the decorator redirects them to the login page with a flash message.
 
-**Create an Authentication Decorator Plugin**   
+### Creating Authentication Decorator Plugin   
 We define a loginRequired decorator in a plugin, which we can apply to any route.
 
 **``plugins/auth.js``:**  
@@ -573,7 +574,7 @@ module.exports = fp(async (fastify, opts) => {
 ```
 In this plugin, we add a helper called loginRequired to our Fastify app. The main idea is simple: we check if a user is logged in by looking at the session. If no user is found, we do two things: show a flash message to inform them they need to log in, and redirect them to the login page.  
 
-**Apply the Decorator to a Profile Route**   
+### Editing The Profile Route**   
 We create a profile route and apply the loginRequired decorator to protect it.
 
 **``routes/profile.js``:**  
@@ -594,6 +595,7 @@ When a request is made to `/profile`, Fastify first runs the `loginRequired` fun
     
 - If the user **is logged in**, the route handler runs normally and renders the `profile` view, passing the logged-in username to the template.
 
+### Creating Profile Template
 **``views/profile.hbs``:**
 ```html
 {{#> _layout}}
@@ -601,8 +603,7 @@ When a request is made to `/profile`, Fastify first runs the `loginRequired` fun
 <p>This is your profile page.</p>
 {{/ _layout}}
 ```
-
-**Register the Auth Plugin**   
+### Configure The app.js 
 We update app.js to register the authentication plugin and profile route.
 
 **app.js (updated snippet):**
@@ -649,7 +650,7 @@ Runs **after the response is fully sent** to the client, Used for:
 - Logging or metrics collection
 
 ### Editing our code  
-**`plugins/auth.js`:**
+**`plugins/auth.js`:**  
 We’ve updated the ``loginRequired`` function so that it now checks whether the user is logged in.  
 If the user is not logged in, it redirects them to the login page with a flash message.  
 If the user is logged in, the function allows the request to continue and complete the normal Fastify lifecycle  
@@ -708,7 +709,7 @@ CREATE TABLE user (
 );
 ```
 
-**Initialize the Database**   
+### Initialize the Database 
 We run the schema to create the database file:  
 
 First we connect and create the database file
@@ -734,7 +735,7 @@ The sqlite3 package allows us to interact with SQLite databases in Node.js. We c
 npm install sqlite3
 ```
 
-**Create a Database Plugin**   
+### Create a Database Plugin  
 We create a plugin to manage SQLite connections, decorating Fastify with a db object for reusable database access.
 
 **``plugins/db.js:``**
@@ -765,7 +766,7 @@ module.exports = fp(async (fastify, opts) => {
 
 This plugin opens a connection to database.db and decorates Fastify with the db object. The onClose hook ensures the connection closes gracefully when the server shuts down.
 
-**Update Authentication Routes for SQLite**   
+### Update Authentication Routes for SQLite  
 We modify the auth.js routes to use SQLite instead of the in-memory users object, incorporating argon2 for password hashing.
 
 **``routes/auth.js`` (updated):**
@@ -854,7 +855,7 @@ Notice that we use placeholders `?` instead of directly concatenating strings. T
 
 We wrap these database calls in Promises because the database plugin uses a callback-based API. Promises allow us to await these operations, making the code cleaner, easier to read, and compatible with async/await syntax. This way, we can handle asynchronous database operations reliably while keeping our code simple and maintainable   
 
-**Register the Database Plugin**   
+### Register the Database Plugin
 We update app.js to include the database plugin.
 
 **``app.js`` (updated snippet):**
@@ -866,13 +867,13 @@ Run node app.js, register a user at /register, and log in at /login. The user da
 
 The sqlite3 package provides a straightforward way to interact with SQLite, using parameterized queries (e.g., ?) to prevent SQL injection attacks. We encapsulate the database connection in a plugin, making it accessible via fastify.db across routes. The db.run method executes INSERT queries, while db.get retrieves single rows. By promisifying these operations, we integrate seamlessly with Fastify’s async/await syntax, ensuring clean and efficient database interactions. The session now stores both user_id and username for better tracking, and argon2 ensures secure password handling.
 
-### Refactoring with a User Class
+## Refactoring with a User Class
 
 Our SQLite-based authentication works, but our routes contain raw SQL queries, mixing database logic with route handling. This violates the DRY principle and makes maintenance harder, as we repeat queries like `SELECT * FROM user WHERE username = ?` across routes. It also couples our route logic tightly with database details, reducing flexibility.
 
 To address this, we’ll encapsulate database operations in a User class, creating a clean interface for user-related actions like creating a user or finding one by username. This approach separates concerns, making our routes focus on business logic while the User class handles data access.
 
-**Create a User Utility Module**   
+### Create a User Utility Module 
 We define a User class in a separate file to manage user-related database operations.
 
 **``utils/user.js``:**
@@ -912,7 +913,7 @@ Both methods use **Promises** to wrap the database operations, allowing us to `a
 
 By organizing database operations in a **model**, we **separate data access from application logic**, making the code more maintainable, reusable, and easier to read.
 
-**Update Authentication Routes**   
+### Update Authentication Routes  
 We refactor auth.js to use the User class, simplifying route logic.
 
 **routes/auth.js (updated):**
@@ -975,20 +976,20 @@ Register and log in again. The functionality remains the same, but the routes ar
 
 The User class encapsulates database logic, providing methods like create and findByUsername that hide SQL details. By passing the fastify instance to these methods, we access the database connection (fastify.db) without hardcoding it in the class. This separation of concerns makes our routes focus on user interaction (e.g., handling form submissions) while the User class handles data access. Promisified database operations ensure compatibility with Fastify’s async nature, and the modular structure aligns with Fastify’s plugin-based design, improving maintainability and scalability.
 
-### Using Sequelize and Models
+## Using Sequelize and Models
 
 While the User class improved our code, we’re still writing raw SQL queries, which can become cumbersome as the application grows. If we need to switch databases (e.g., to PostgreSQL), we’d have to rewrite queries. Additionally, managing complex relationships (e.g., users to wiki pages) requires more boilerplate SQL.
 
 This is where **Sequelize**, an Object-Relational Mapper (ORM) for Node.js, comes in. Sequelize allows us to define database tables as JavaScript classes (models) and interact with them using object-oriented methods, abstracting away raw SQL. Each table becomes a model, and each row an instance, making database operations more intuitive and portable across database engines.
 
-**Updating Our Project**  
-We’ll start by removing ``utils/user`` and ``plugins/db.js`` since we don’t need them anymore.
-**Install Sequelize**   
+### Updating Our Project  
+We’ll start by removing ``utils/user`` and ``plugins/db.js`` since we don’t need them anymore.  
+### Install Sequelize 
 We install Sequelize and the SQLite driver.
 ```Bash
 npm install sequelize sqlite3
 ```
-**Define a User Model**   
+### Define a User Model  
 We create a User model to represent the user table, including methods for password hashing and verification, this Model extand from sequelize
 
 **``models/user.js``:**
@@ -1035,7 +1036,7 @@ module.exports = (sequelize) => {
 We define a User model using Sequelize, which represents the users table in our database. The model extends Model and includes two custom methods: setPassword to hash and store a password securely, and checkPassword to verify a password against the stored hash. The User.init method defines the table structure with fields for id, username, and password_hash, along with constraints such as unique usernames and non-nullable fields. We link the model to the Sequelize instance passed as sequelize, specify the table name, and disable timestamps.  
 
 
-**Initialize Models**   
+### Initialize Models  
 We create a module to initialize all models and sync the database schema.
 
 **``models/index.js``:**
@@ -1061,8 +1062,8 @@ When the function is called with a Sequelize instance, it:
     
 2. Calls `sequelize.sync({ force: true })` to synchronize the database schema with the model definitions. The `{ force: true }` option recreates the tables each time the app runs (useful for development, but should be avoided in production to prevent data loss).
     
-3. Returns an object containing all initialized models (currently just `User`), so other parts of the app can easily import and use them.
-**Create a Sequelize Plugin**   
+3. Returns an object containing all initialized models (currently just `User`), so other parts of the app can easily import and use them.  
+### Create a Sequelize Plugin
 
 **``plugins/sequelize.js``:**
 ```javascript
@@ -1089,7 +1090,7 @@ module.exports = fp(async (fastify, opts) => {
 ```
 We created a Fastify plugin to set up our database connection and load all models using Sequelize, an ORM for Node.js. Inside the plugin, we initialize a Sequelize instance configured to use SQLite (database.db) as storage and disable logging for cleaner output. We then import all models by passing the Sequelize instance (require('../models')(sequelize)) and attach both the Sequelize instance and the models to Fastify using fastify.decorate('sequelize', sequelize) and fastify.decorate('models', models). This makes the database and models easily accessible throughout the application via fastify.sequelize and fastify.models. Finally, we add an onClose hook to gracefully close the database connection when the server shuts down.
 
-**Update Authentication Routes with Sequelize**   
+### Update Authentication Routes with Sequelize 
 We refactor auth.js to use the User model, simplifying database interactions.
 
 **``routes/auth.js`` (updated):**
@@ -1148,7 +1149,7 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Update app.js**   
+### Update app.js
 We register the Sequelize plugin and ensure all components are connected.
 
 **``app.js`` (updated):**
@@ -1189,7 +1190,7 @@ start()
 Run node app.js. Register a user, log in, and verify that data persists in database.db. The profile page is accessible only when logged in, and invalid credentials trigger flash messages.
 
 Sequelize abstracts raw SQL into model-based interactions, allowing us to work with User objects instead of queries. The User model encapsulates fields (id, username, password_hash) and methods (setPassword, checkPassword), making routes cleaner and more maintainable. The Sequelize plugin decorates Fastify with sequelize and models, providing easy access across the application. The sync({ force: true }) call recreates the database schema for development (use force: false in production to avoid data loss). This ORM approach ensures portability across databases and simplifies complex operations, aligning with Fastify’s focus on modularity and developer productivity.
-### Autoload Plugins and Routes
+## Autoload Plugins and Routes
 As our application grows, we start adding more and more plugins and routes. This can quickly become messy and error-prone.  
 Two major problems often appear:
 
@@ -1206,7 +1207,7 @@ In our project directory, we install the autoload plugin:
 
 `npm install @fastify/autoload`   
 
-**Use autoload**  
+### Use autoload
 
 We can now replace the long list of manual registrations with a few clean autoload calls.
 ```javascript
@@ -1250,3 +1251,5 @@ const start = async () => {
 }
 start()
 ```
+### Using Controllers
+As our Fastify.js app grows, we can notice that the **route files become cluttered** with many endpoints and all their logic written directly inside the same file. This makes it harder to debug, update, or extend functionality, especially when multiple routes share similar operations. To solve this, we introduce a controllers folder. Each controller file groups functions that handle specific endpoints for a given resource (e.g., users, wikis, or profiles). For example, `Profile.js` can contain `getProfile`and `updateProfile` functions, each responsible for one endpoint’s logic. Then, the route file simply maps HTTP requests to these controller functions. This separation of concerns keeps the project clean, modular, and easier to maintain when an issue arises, we wifll immediately know where to look: in the controller that handles that specific route.
