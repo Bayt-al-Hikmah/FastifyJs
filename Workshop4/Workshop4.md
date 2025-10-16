@@ -21,7 +21,7 @@ We’ll use the argon2 library, which provides:
 ### Install Dependencies  
 We begin by installing Fastify and the necessary plugins for session management, form handling, templating, and password hashing.
 
-```
+```bash
 npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
