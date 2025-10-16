@@ -33,7 +33,7 @@ module.exports = fp(dbConnector, {
 });
 ```
 After creating the plugin, we need to register it inside app.js by adding: 
-```
+```javascript
 fastify.register(require('./plugins/db-plugin')); 
 ```
 Once registered, we can access the in-memory database object anywhere in our application through fastify.dataStore. This allows us to read from and modify the data just like we would with a real database
@@ -48,14 +48,14 @@ We’ll also use `@fastify/flash` to display temporary messages (e.g., “Login 
 
 Let’s set up the environment, configure session management, and create routes for registration, login, and logout. We’ll organize our code using Fastify’s plugin system for modularity.
 
-**Install Dependencies**  
+### Install Dependencies
 We install Fastify and the necessary plugins:
 
 ```bash
 npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
 ```
 
-**Configure Session and Flash Plugins**  
+### Configure Session and Flash Plugins 
 We create a plugin to manage sessions and flash messages, ensuring secure cookie handling.
 
 **`plugins/session.js`:**
@@ -72,18 +72,18 @@ module.exports = fp(async (fastify, opts) => {
   fastify.register(require('@fastify/flash'))
 })
 ```
-**Configure Argon2 Plugin**  
+### Configure Argon2 Plugin 
 Saving passwords in plain text is not safe, if the database is ever leaked, all user passwords would be immediately exposed.  
 To fix this, we use Argon2 to hash the passwords and store them in a much safer format.   
 **Handle Form Data**  
-We use @fastify/formbody to parse URL-encoded form submissions, such as login and registration forms. we register it as plugin too
-```
+We use ``@fastify/formbody`` to parse URL-encoded form submissions, such as login and registration forms. we register it as plugin too
+```javascript
   fastify.register(require('@fastify/formbody'))
 ```
 
 This ensures that data submitted via HTML forms (e.g., username and password) is automatically parsed and made available in request.body.   
 
-**Configure Templating**  
+### Configure Templating  
 We use `@fastify/view` with Handlebars to render HTML templates.  
 
 **`plugins/templates.js`:**
@@ -106,7 +106,7 @@ module.exports = fp(async (fastify, opts) => {
 })
 ```
  
-**Serve Static Files**  
+### Serve Static Files 
 We serve CSS and avatar images using `@fastify/static`.
 
 **`plugins/static.js`:**
@@ -123,7 +123,7 @@ module.exports = fp(async (fastify, opts) => {
 })
 ```
 
-**Create Authentication Routes**  
+### Create Authentication Routes
 We define routes for registration, login, and logout in a plugin, using Handlebars templates for the front-end.
 
 **`routes/auth.js`:**
@@ -233,7 +233,7 @@ When the user visits /logout:
 - The user is redirected to the /login page.
 
 **``collectMessages``:** is helper function that collect all the flash messages and store them into structured way so we can use them on our template
-**Create Templates**  
+### Create Templates
 We create Handlebars templates for registration and login.
 
 **`views/partials/_layout.hbs`:**
@@ -325,156 +325,10 @@ We create Handlebars templates for registration and login.
 {{/ _layout}}
 ```
 
-**Add CSS**  
-We reuse the provided CSS, ensuring a consistent look.
+### Adding style
+Create a ``css`` folder inside the public ``folder`` and place your ``style.css`` file inside it. For this lecture, we will use the styles from the ``material`` folder.
 
-**`public/css/style.css`:**
-
-```css
-/* Basic reset */
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-
-:root {
-  --container-width: 900px;
-  --accent: #2b7cff;
-  --muted: #6b7280;
-  --bg: #f7f8fb;
-  --card: #ffffff;
-  --danger: #ef4444;
-  --success: #16a34a;
-  --info: #0ea5e9;
-}
-
-/* Layout */
-body {
-  background: var(--bg);
-  color: #111827;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.container {
-  width: 92%;
-  max-width: var(--container-width);
-  margin: 0 auto;
-  padding: 24px 0;
-}
-
-/* Header */
-.site-header {
-  background: var(--card);
-  box-shadow: 0 1px 2px rgba(16,24,40,0.06);
-  border-bottom: 1px solid rgba(16,24,40,0.04);
-}
-.header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-}
-
-.brand {
-  font-weight: 700;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 1.1rem;
-}
-
-.main-nav { display: flex; gap: 12px; align-items: center; }
-.nav-link { text-decoration: none; color: var(--muted); font-size: 0.95rem; padding: 6px 8px; border-radius: 6px; }
-.nav-link:hover { background: rgba(43,124,255,0.06); color: var(--accent); }
-
-.greet { color: var(--muted); font-size: 0.95rem; margin-right: 8px; }
-
-/* Flash messages */
-.flash-wrapper { margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
-.flash {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
-  background: #fff;
-  border: 1px solid rgba(16,24,40,0.04);
-}
-.flash-message { flex: 1; margin-right: 8px; font-size: 0.95rem; }
-.flash-dismiss {
-  background: transparent;
-  border: none;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-/* Flash color variants */
-.flash-success { border-color: rgba(22,163,74,0.15); background: rgba(22,163,74,0.05); color: #064e2b; }
-.flash-danger { border-color: rgba(239,68,68,0.15); background: rgba(239,68,68,0.05); color: #4c0505; }
-.flash-info { border-color: rgba(14,165,233,0.15); background: rgba(14,165,233,0.05); color: #063045; }
-
-/* Content */
-.page-title { font-size: 1.4rem; margin-bottom: 12px; color: #111827; }
-.content { margin-top: 6px; }
-
-/* Form card */
-.form-card {
-  display: grid;
-  gap: 10px;
-  padding: 18px;
-  background: var(--card);
-  border-radius: 10px;
-  border: 1px solid rgba(16,24,40,0.04);
-  max-width: 520px;
-}
-.form-card label { font-size: 0.9rem; color: var(--muted); }
-.form-card input[type="text"],
-.form-card input[type="password"],
-.form-card input[type="email"],
-.form-card textarea {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(16,24,40,0.08);
-  font-size: 1rem;
-  width: 100%;
-  background: #fff;
-}
-
-/* Buttons */
-.btn {
-  display: inline-block;
-  padding: 9px 14px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.btn-primary { background: var(--accent); color: white; border-color: rgba(43,124,255,0.1); }
-.btn-success { background: var(--success); color: white; border-color: rgba(22,163,74,0.08); }
-.btn-link { background: transparent; color: var(--muted); text-decoration: none; padding-left: 8px; }
-.form-actions { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
-
-/* Card */
-.card {
-  padding: 16px;
-  border-radius: 10px;
-  background: var(--card);
-  border: 1px solid rgba(16,24,40,0.04);
-}
-
-/* Footer */
-.site-footer {
-  margin-top: auto;
-  padding: 18px 0;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-```
-
-**Bootstrap the Application**  
+### Bootstrap the Application
 We tie everything together in `app.js`.
 
 **`app.js`:**
@@ -531,18 +385,16 @@ Our wiki application needs to support rich text for formatted content, such as h
 
 We use the `markdown-it` library to convert Markdown to HTML, ensuring safe rendering without allowing raw HTML input, which could introduce security risks like XSS (cross-site scripting).
 
-**Install `markdown-it`**
-
+### Install `markdown-it`
+First we install the markdown-it using
 ```bash
 npm install markdown-it
 ```
 
-**Create Wiki Routes**  
-We create a plugin for wiki page routes, handling page viewing and creation.  
-**Markdown Plugin**  
-We use markdown-it as a plugin to render Markdown content into HTML inside our Fastify app. This plugin decorates Fastify with a reusable fastify.markdown  
+### Create Markdown Plugins*
+We use ``markdown-it`` as a plugin to render Markdown content into HTML inside our Fastify app. This plugin decorates Fastify with a reusable ``fastify.markdown``     
 **``plugins/markdown.js``**
-```
+```javascript
 const fp = require('fastify-plugin')
 const MarkdownIt = require('markdown-it')
 
@@ -557,8 +409,8 @@ module.exports = fp(async (fastify, opts) => {
 })
 
 ```
-**Wiki route**  
-Now we defines the routes for viewing and creating wiki pages.  
+### Creating Wiki route
+Now we defines the routes for viewing and creating wiki pages.   
 **`routes/wiki.js`:**
 
 ```javascript
@@ -637,7 +489,7 @@ When the form on the create page is submitted, the server handles creating a new
 - A new page is saved in fastify.dataStore.pages under the given title, with the page’s content and the current user’s username as the author.
 
 - Finally, the user is redirected to the new wiki page they just created at ``/wiki/:title``.
-**Create Wiki Templates**  
+### Create Wiki Templates
 We create templates for viewing and creating wiki pages.
 Template for the page that displays a wiki page. 
 
@@ -654,6 +506,7 @@ Template for the page that displays a wiki page.
 {{/ _layout}}
 ```
 Template with a form to create and add a new wiki page.  
+
 **`views/create_page.hbs`:**
 
 ```html
@@ -686,7 +539,7 @@ Write your text here...
 ```
 
 **Create 404 Template**  
-Template for the page that is displayed when a user searches for a non-existing wiki page.  
+Template for the page that is displayed when a user searches for a non-existing wiki page.   
 **`views/404.hbs`:**  
 ```html
 {{#> _layout}}
@@ -695,7 +548,7 @@ Template for the page that is displayed when a user searches for a non-existing 
 {{/ _layout}}
 ```
 
-**Register the Wiki Plugin**  
+### Register the Wiki Plugin 
 We update `app.js` to include the wiki routes.
 
 **`app.js` (updated snippet):**
@@ -709,17 +562,17 @@ fastify.register(require('./routes/wiki'), { prefix: '/' })
 
 We visit `http://127.0.0.1:3000/create` (after logging in), create a page with Markdown content, and view it at `/wiki/PageName`. If the page doesn’t exist, we see a 404 page.
 
-### Using Quill.js with Fastify
+## Using Quill.js with Fastify
 
 To provide an intuitive way for users to create rich text content for our wiki pages, we’ll integrate Quill.js, a lightweight and customizable WYSIWYG editor. Quill.js allows users to format text with headings, bold, italic, lists, and more directly in the browser, offering a modern and user-friendly editing experience. We’ll implement Quill.js as a Fastify plugin, encapsulating its configuration and assets for modularity and seamless integration with our application. The editor will generate HTML content, which we’ll store and render securely, ensuring a smooth experience for users without requiring them to learn any syntax.
 
-**Install Quill.js**  
-
+### Install Quill.js  
+We first start by installing the `quill` package.
 ```bash
 npm install quill
 ```
 
-**Create a Quill.js Plugin**  
+### Create a Quill.js Plugin
 We create a Fastify plugin to serve Quill.js’s static assets (CSS and JavaScript) and provide a reusable configuration for the editor’s toolbar and features.  
 
 **`plugins/quill.js`:**
@@ -752,7 +605,7 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-After creating the plugin we copy the quill config from the modul file to `public/quill` folder by running the following commands  
+After creating the plugin we copy the quill config from the modul file to `public/quill` folder by running the following commands    
 **Create the folder**
 ```
 mkdir public/quill
@@ -764,7 +617,7 @@ cp node_modules/quill/dist/quill.js public/quill/
 ```
 This plugin serves Quill.js’s assets (e.g., `quill.snow.css` and `quill.js`) under the `/quill/` prefix and decorates Fastify with a `quillConfig` object. The configuration defines a toolbar with essential formatting options like headings, bold, italic, links, lists, and indent controls, using the ‘snow’ theme for a clean, modern look.
 
-**Update Wiki Routes with Validation**  
+### Update Wiki Routes with Validation 
 We update our wiki routes to include JSON Schema validation for the page creation form, ensuring that the title and content meet our requirements. The `create` route passes the Quill.js configuration to the template for editor initialization.
 
 **`routes/wiki.js` (updated):**
@@ -830,7 +683,7 @@ module.exports = async (fastify, opts) => {
 
 The `create` route checks for a logged-in user and passes the `quillConfig` to the template, while the JSON Schema ensures valid form submissions.
 
-**Update Create Page Template with Quill.js**  
+### Update Create Page Template with Quill.js 
 We modify the `create_page.hbs` template to load Quill.js from our plugin’s static route and initialize it with the provided configuration. We also add a hidden input to capture the editor’s HTML content, as Quill.js stores content in a div, not a textarea.
 
 **`views/create_page.hbs` (updated):**
@@ -866,7 +719,7 @@ We modify the `create_page.hbs` template to load Quill.js from our plugin’s st
 
 The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{{quillConfig}}}` helper serializes the configuration to JSON for initialization.
 
-**Update CSS for Quill.js Editor**  
+### Update CSS for Quill.js Editor
 We add minimal CSS to ensure the Quill editor integrates smoothly with our app’s styling.
 
 **`public/css/style.css` (updated snippet):**
@@ -885,7 +738,7 @@ We add minimal CSS to ensure the Quill editor integrates smoothly with our app�
 
 This ensures the editor matches our app’s aesthetic, with a consistent border and font size.
 
-**Register the Quill.js Plugin**  
+### Register the Quill.js Plugin  
 We ensure the Quill.js plugin is registered in our main application file to make its assets and configuration available.
 
 **`app.js` (updated snippet):**
@@ -906,13 +759,13 @@ Allowing users to upload avatars enhances personalization but requires secure ha
 
 We configure a directory for avatars and define allowed file extensions.
 
-**Install `@fastify/multipart`**
-
+### Install `@fastify/multipart`
+We start by installing ``@fastify/multipart`` package
 ```bash
 npm install @fastify/multipart
 ```
 
-**Create File Upload Plugin**  
+### Create File Upload Plugin 
 We create a plugin to handle file uploads.
 
 **`plugins/multipart.js`:**
@@ -944,11 +797,11 @@ await fastify.decorate('allowedFile', filename => {
 })
 })
 ```
-**Configure Upload Settings**   
+#### Configure Upload Settings
 In this plugin, we start by defining constants and ensuring that the `public/avatars` directory exists. Next, we create a set of allowed file extensions called `ALLOWED_EXTENSIONS` and implement a helper function that checks whether a file has a valid extension. We then register the `@fastify/multipart` plugin with appropriate configuration options, such as file size limits and upload behavior. Finally, we add the helper function as a Fastify decorator (`fastify.allowedFile`) so it can be easily accessed and reused in other routes throughout the application.
 
-**Creating utils.js**  
-Since multiple routes use the collectMessages function, we can refactor our code to avoid repetition. Instead of declaring the function in every route file, we create a separate file called utils.js where we define the function once. Then, whenever we need it in a route, we simply import it using const collectMessages = require('../utils'). This approach keeps the code cleaner, more modular, and easier to maintain.  
+### Creating utils.js 
+Since multiple routes use the collectMessages function, we can refactor our code to avoid repetition. Instead of declaring the function in every route file, we create a separate file called utils.js where we define the function once. Then, whenever we need it in a route, we simply import it using const collectMessages = require('../utils'). This approach keeps the code cleaner, more modular, and easier to maintain.   
 **`utils.js`**  
 ```javascript
 function collectMessages(reply) {
@@ -967,7 +820,7 @@ function collectMessages(reply) {
 
 module.exports = collectMessages
 ```
-**Create Profile Route**  
+### Create Profile Route
 We add a profile route to handle avatar uploads.
 
 **`routes/profile.js`:**
@@ -1041,8 +894,8 @@ When the user submits the avatar upload form, the server processes the uploaded 
 - Finally, the user is redirected back to ``/profile``.
 
 
-**Create Profile Template**  
-We create a template to display the user profile and add a form that allows updating the profile avatar.  
+### Create Profile Template
+We create a template to display the user profile and add a form that allows updating the profile avatar.   
 **`views/profile.hbs`:**
 
 ```html
@@ -1067,7 +920,8 @@ We create a template to display the user profile and add a form that allows upda
 {{/ _layout}}
 ```
 
-**Update CSS for Avatars**  
+### Update CSS for Avatars
+We update the ``style.css`` file and style the avatar image.  
 **`public/css/style.css` (updated snippet):**
 
 ```css
@@ -1075,7 +929,7 @@ We create a template to display the user profile and add a form that allows upda
 .avatar { max-width: 150px; border-radius: 10px; }
 ```
 
-**Register Profile Plugin and Ensure Directory**  
+### Register Profile Plugin and Ensure Directory
 We update `app.js` and create the `public/avatars` directory.
 
 **`app.js` (updated):**
@@ -1117,7 +971,7 @@ We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Inval
 
 Fastify’s `@fastify/multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
 
-**Handling Unknown Routes**  
+## Handling Unknown Routes
 
 What if the user try to visit random or non existing route (like /does-not-exist) by default Fastify will return a JSON 404 response:
 ```json
