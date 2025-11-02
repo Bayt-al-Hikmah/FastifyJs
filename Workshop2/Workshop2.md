@@ -269,7 +269,7 @@ To keep our templates clean, we handle complex logic in route handlers or servic
 
 Let’s create a profile page that dynamically displays a user’s name, bio, and shopping list.
 
-**Create a Profile Route**  
+#### Create a Profile Route
 **`routes/profile.js`:**
 
 ```javascript
@@ -279,14 +279,13 @@ module.exports = async (fastify, opts) => {
     const userDetails = {
       username: name,
       bio: 'Loves coding in JavaScript and exploring new technologies.',
-      shoppingList: ['Apples', 'Oranges', 'Bananas']
     }
     return reply.view('profile', { user: userDetails })
   })
 }
 ```
 
-**Create the Profile Template**  
+#### Create the Profile Template
 **`views/profile.hbs`:**
 
 ```html
@@ -300,22 +299,11 @@ module.exports = async (fastify, opts) => {
 <body>
     <h1>Hello, {{user.username}}!</h1>
     <p><em>{{user.bio}}</em></p>
-
-    {{#if user.shoppingList}}
-        <p>You have {{user.shoppingList.length}} item(s) on your shopping list:</p>
-        <ul>
-            {{#each user.shoppingList}}
-                <li>{{this}}</li>
-            {{/each}}
-        </ul>
-    {{else}}
-        <p>Your shopping list is empty!</p>
-    {{/if}}
 </body>
 </html>
 ```
 
-**Register the Route**  
+#### Register the Route 
 **`app.js` (updated snippet):**
 
 ```javascript
@@ -326,11 +314,11 @@ We visit `http://127.0.0.1:3000/profile/alice`. The page shows Alice’s name, b
 
 The route passes a user object to the template, where `{{user.username}}` displays the name, and `{{#if}}` and `{{#each}}` handle conditional logic and iteration, Handlebars relies on helpers or JavaScript properties (e.g., `length`). We keep logic in the route, ensuring the template remains simple and focused on presentation.
 
-### Conditionals and Loops
+### Conditionals 
 
-Handlebars’ conditionals and loops allow us to display content dynamicall. Let’s build a dashboard that shows different messages based on a user’s status (e.g., admin, member, or guest).
+Handlebars’ conditionals allow us to display content dynamicall. Let’s build a dashboard that shows different messages based on a user’s status (e.g., admin, member, or guest).
 
-**Create a Dashboard Route**  
+### Create a Dashboard Route  
 **`routes/dashboard.js`:**
 
 ```javascript
@@ -342,7 +330,7 @@ module.exports = async (fastify, opts) => {
 }
 ```
 
-**Create the Dashboard Template**  
+#### Create the Dashboard Template 
 **`views/dashboard.hbs`:**
 
 ```html
@@ -369,8 +357,10 @@ module.exports = async (fastify, opts) => {
 </body>
 </html>
 ```
+#### Notice
+The basic Handlebars `{{#if}}` helper only checks for "falsy" values (like `false`, `null`, `undefined`, `0`, or an empty string). It cannot do direct comparisons like `==`. to handle this, the common practice is to pass booleans from the controller.
 
-**Add a Custom Helper**  
+#### Add a Custom Helper
 We can create custom helpers in Handlebars to extend template functionality. For example, we can create a helper to check equality between two values. 
 First, we include Handlebars in our project by requiring it, then we register the helper using handlebars.registerHelper(name, function). 
 Inside the helper function, we can define the logic, such as comparing two values and returning different blocks for true or false. Once registered, this helper can be used in any template by referencing its name, allowing us to simplify templates and reduce duplication. 
@@ -392,7 +382,7 @@ module.exports = fp(async (fastify, opts) => {
   })
 })
 ```
-**Register the Route**  
+#### Register the Route
 **`app.js` (updated snippet):**
 
 ```javascript
@@ -402,6 +392,64 @@ fastify.register(require('./routes/dashboard'), { prefix: '/' })
 We visit `http://127.0.0.1:3000/dashboard/admin`, `/dashboard/member`, or `/dashboard/guest`. Each URL displays a tailored message based on the status.
 
 The `eq` helper enables conditional logic. The route prepares the data, and the template handles presentation, keeping the logic minimal. Handlebars’ block helpers provide  control structures, ensuring dynamic content rendering.
+### Loops
+Handlebars also allows us to loop through data* (like arrays) in our templates. This is essential for displaying lists, tables, or collections of items.   
+We use the `{{#each}}` block helper to iterate over data.
+Let's build a to-do list page that displays a list of tasks passed from our route.
+### Create a Tasks Route
+**`routes/tasks.js`:**
+```js
+module.exports = async (fastify, opts) => {
+  fastify.get('/tasks', async (request, reply) => {
+    const taskList = [
+      { name: 'Finish project proposal', priority: 'High' },
+      { name: 'Buy groceries', priority: 'Medium' },
+      { name: 'Call the doctor', priority: 'High' },
+      { name: 'Read a chapter', priority: 'Low' }
+    ]
+
+    // To test the 'else' block, uncomment the line below:
+    // const taskList = []
+
+    return reply.view('tasks', { tasks: taskList })
+  })
+}
+```
+Here, we define a route that passes a `taskList` array (containing objects) to our `tasks.hbs` template.
+#### Create the Tasks Template
+**`views/tasks.hbs`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My To-Do List</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <h1>Today's Tasks</h1>
+  <ul class="task-list">
+      {{#each tasks}}
+          <li class="task-priority-{{priority}}">
+              <strong>{{name}}</strong> (Priority: {{priority}})
+          </li>
+      {{else}}
+          <li class="no-tasks">No tasks available. Enjoy your day!</li>
+      {{/each}}
+  </ul>
+</body>
+</html>
+```
+In this template, the `{{#each tasks}}` helper iterates over the `tasks` array.
+1. Inside the loop, Handlebars sets the context to the current object, so we can directly access its properties using `{{name}}` and `{{priority}}`.
+2. The `{{else}}` block is a powerful feature. It will only be rendered **if the `tasks` array is empty or null**. This provides a clean way to show an "empty state" message.
+#### Register the Route
+**`app.js` (updated snippet):**
+```js
+fastify.register(require('./routes/tasks'), { prefix: '/' })
+```
+
+Now, when we visit `http://127.0.0.1:3000/tasks`, Handlebars will loop through the `tasks` array. For each object, it will render an `<li>` element, filling in the `{{name}}` and `{{priority}}` placeholders. If you pass an empty array from the route, the page will automatically display the "No tasks available" message.
 
 ## Template Partials
 
