@@ -705,7 +705,7 @@ module.exports = async (fastify, opts) => {
     return reply.view('contact_csrf', { csrfToken: token })
   })
 
-  fastify.post('/contact_csrf', { schema: contactSchema }, async (request, reply) => {
+  fastify.post('/contact_csrf', { schema: contactSchema,preHandler: fastify.csrfProtection }, async (request, reply) => {
     const { name, message } = request.body
     fastify.log.info(`Received from ${name}: ${message}`)
     const token = await reply.generateCsrf()
@@ -731,7 +731,7 @@ This ensures that any future form submission will only be accepted if it include
 **POST /contact_csrf**
 
 When the contact form is submitted, the server:
-
+- Run `preHandler: fastify.csrfProtection` To check if our csrf token is correct
 - Receives the form data from the request body: `name`, `message`, and `_csrf`.
     
 - The request is **validated** against the `contactSchema`:
