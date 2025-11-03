@@ -16,7 +16,7 @@ module.exports = async (fastify, opts) => {
     return reply.view('search', { csrfToken: token })
   })
 
-  fastify.post('/search', { schema: searchSchema }, async (request, reply) => {
+  fastify.post('/search', { schema: searchSchema, preHandler: fastify.csrfProtection}, async (request, reply) => {
     const {author} = request.body
     Quotes = fastify.QuotesDB.filter(quote => quote.author.toLowerCase() === author.toLowerCase());
     const token = await reply.generateCsrf()
