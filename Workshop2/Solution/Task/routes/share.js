@@ -17,7 +17,7 @@ module.exports = async (fastify, opts) => {
     return reply.view('share', { csrfToken: token })
   })
 
-  fastify.post('/share', { schema: shareSchema }, async (request, reply) => {
+  fastify.post('/share', { schema: shareSchema,preHandler: fastify.csrfProtection }, async (request, reply) => {
     const {author, quote } = request.body
     console.log(author)
     fastify.QuotesDB.push({ author, quote });
