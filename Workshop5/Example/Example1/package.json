@@ -1,0 +1,27 @@
+{
+  "name": "example1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@fastify/autoload": "^6.3.1",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/multipart": "^9.3.0",
+    "@fastify/session": "^11.1.1",
+    "@fastify/static": "^8.3.0",
+    "@fastify/view": "^11.1.1",
+    "argon2": "^0.44.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.2",
+    "handlebars": "^4.7.8",
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7"
+  }
+}
