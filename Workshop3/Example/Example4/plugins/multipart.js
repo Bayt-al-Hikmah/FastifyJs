@@ -8,9 +8,9 @@ const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
 module.exports = fp(async (fastify, opts) => {
   await fastify.register(require('@fastify/multipart'), {
     limits: {
-      fileSize: 5 * 1024 * 1024 // 5MB limit
+      fileSize: 5 * 1024 * 1024 
     },
-    attachFieldsToBody: true // optional: auto attach text fields/files to request.body
+    attachFieldsToBody: true 
   })
   if (!fs.existsSync(UPLOAD_FOLDER)) {
   fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
