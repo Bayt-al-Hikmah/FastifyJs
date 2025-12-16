@@ -4,29 +4,11 @@ module.exports = (sequelize) => {
   const Task = sequelize.define(
     'Task',
     {
-      id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-      },
-      state: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'active',
-      },
-      userId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true,},
+      name: { type: DataTypes.STRING, allowNull: false,},
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW,},
+      state: { type: DataTypes.STRING, allowNull: false, defaultValue: 'active',},
+      userId: { type: DataTypes.INTEGER, allowNull: false,},
     },
     {
       tableName: 'tasks', 
@@ -40,6 +22,5 @@ module.exports = (sequelize) => {
       as: 'user',
     });
   };
-
   return Task;
 };
