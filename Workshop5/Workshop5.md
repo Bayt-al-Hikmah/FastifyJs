@@ -61,7 +61,7 @@ npm init -y
 After initializing the project, it’s time to install the packages required for our Fastify application.   
 For this project, we will use **fastify** as the web framework, **handlebars** template engine, **@fastify/session** for session management, **sequelize** as an ORM for database interaction, **dotenv** for environment variables ,and **argon2** for secure password hashing.
 ```
-npm install fastify sequelize handlebars @fastify/view @fastify/static @fastify/session sqlite3 dotenv argon2 @fastify/multipart @fastify/formbody @fastify/cookie
+npm install fastify sequelize handlebars @fastify/view @fastify/static @fastify/session sqlite3 dotenv argon2 @fastify/multipart @fastify/formbody @fastify/cookie @fastify/autoload
 ```
 ### Creating Database Models
 Now we move to creating our database models. we only need two core models: the **User** model and the Task model.
@@ -570,3 +570,336 @@ This is the most important part. The JavaScript file acts as the bridge between 
 The code listens for form submissions and button clicks, then makes API calls using fetch to the corresponding endpoints. For example, when a user logs in, it sends a POST request to ``/api/login``, stores the session, and updates the view to display the user’s tasks. Similarly, task actions like creating, updating, or deleting a task are sent to the ``/api/tasks`` endpoints, and the page updates dynamically without reloading.  
 Helper functions handle view switching, displaying messages, and ensuring that only logged-in users can access protected sections.   
 The file is currently in the ``materials`` folder. We should move it  to the ``public/js`` folder so it can be served as a static asset by Fastify.
+### Token-Based Authentication
+In the current Task Manager API, we use session to manage authentication. This approach is effective for traditional web applications where the server and client are closely tied, and the browser handles session cookies automatically.  
+However, modern APIs often require authentication that is stateless and can be easily used by various clients (mobile apps, other servers, JavaScript frontends). This is where Token-Based Authentication comes in. 
+#### How Tokens Work
+Instead of the server storing session data for every user (stateful), the server issues a secure, self-contained token (like a JSON Web Token or JWT) upon successful login.
+
+1. **Client Logs In:** The user sends credentials (username/password) to the `/api/login` endpoint.
+2. **Server Generates Token:** If successful, the server creates a unique token containing the user's ID, expiration time, and a secure signature. The token is returned in the response.
+3. **Client Stores Token:** The frontend (e.g., JavaScript) stores this token (usually in local storage).
+4. **API Access:** For every subsequent request to protected endpoints (e.g., `/api/tasks`), the client includes this token in the `Authorization` header, typically prefixed with `Bearer`.
+5. **Server Verification:** The server receives the request, verifies the token's signature, extracts the user ID, and grants access. No database lookup for a session is required, making the API stateless and faster.
+#### Implementing Token Authentication with Flask
+While Fastify is flexible and lightweight, it does not provide built-in support for JWT (JSON Web Token) authentication. To generate, sign, and verify JWTs, we use a dedicated library such as **`@fastify/jwt`**.   
+JWT authentication allows us to build stateless APIs, where the server does not store session data. Instead, the authentication state is stored inside a token that is sent with each request.  
+
+We start by installing the required packages:
+```shell
+npm install @fastify/jwt
+```
+#### Configuring Our App
+Now, instead of using sessions, we configure our Fastify application to use JWT-based authentication.   
+First, we define a secret key used to sign and verify tokens, along with token expiration settings. These values are usually stored in environment variables.    
+**`.env`**
+```
+JWT_SECRET = aaavoapoq9852e29f22à¨bè^.^én
+JWT_EXPIRES_IN = '1h'
+```
+We remove the session plugin and instead of it we create jwt plugin.  
+**``plugins/jwt.js``**
+```js
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+fastify.register(require('@fastify/jwt'), {
+  secret: process.env.JWT_SECRET,
+  expiresIn: process.env.JWT_EXPIRES_IN
+
+})
+
+fastify.register(require('@fastify/cookie'))
+})
+```
+We also create an authentication decorator.
+
+**``plugins/auth.js``**
+```js
+fastify.decorate("authenticate", async function (request, reply) {
+  try {
+    await request.jwtVerify()
+  } catch (err) {
+    reply.code(401).send({ error: "Unauthorized" })
+  }
+})
+```
+#### Editing Login EndPoint
+Now we need to edit our  **`api/Auth.py`**, we modify the ``login`` route to generate and return a token instead of setting a session variable:
+
+```js
+  fastify.post('/api/login', async (request, reply) => {
+    const { email,password } = request.body
+    const { User } = fastify.models
+    const user = await User.findOne({ where: { email } })
+    if (!user || !(await argon2.verify(user.password, password))) {
+      return reply.status(401).send({ message: 'Invalid email or password' })
+    }   
+    
+    const token = fastify.jwt.sign(
+    {
+      id: user.id,
+      role: user.role
+    },
+    {
+      expiresIn: '1h'
+    }
+  ) 
+    return reply.send({ access_token:token,message: 'Login successful' });
+    
+  })
+```
+We singing token using `jwt.sign` token stay we set it to expire after 1 hour, we returning the access token to our front end, we can save them and send them in our requests.
+#### Applying The JWT on Task and User EndPoint
+Finally we add protection to `/api/Tasks` and `/api/Users`  , we use the `fastify.authenticate` decorator as `preHandler` to verify the token in the request header, and if valid we access the user id by using `request.user.id`:  
+**``api/User.js``**
+```js
+const argon2 = require('argon2')
+const saveFile = require('../utils')
+  
+module.exports = async (fastify, opts) => {
+   fastify.get('/api/user', {preHandler: fastify.authenticate}, async (request, reply) => {
+        if (!request.user.id) {
+            return reply.status(401).send({ message: 'Unauthorized' });
+        }
+        const { User } = fastify.models
+        const user = await User.findOne({ where: { id: request.user.id} })
+        return reply.status(201).send(
+            {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            avatar: 'static/avatars/'+user.avatar,
+            });
+    });
+
+    fastify.put('/api/user',{preHandler: fastify.authenticate},  async (request, reply) => {
+        if (!request.user.id) {
+            return reply.status(401).send({ message: 'Unauthorized' });
+        }
+
+        
+        const username = request.body.username?.value;
+        const email = request.body.email?.value;
+        const file = await request.body.avatar
+        let filename;
+        if (file) {
+            const {status,avatar} = await saveFile(fastify,file)
+            if(!status){
+                return reply.status(400).send({ message: 'Invalid file type. Allowed: png, jpg, jpeg, gif.' })
+            }
+            filename = avatar;
+        }
+            
+            
+        const { User } = fastify.models
+
+        await User.update(
+        {
+        ...(username !== undefined && { username }),
+        ...(email !== undefined && { email }),
+        ...(filename !== undefined && { avatar: filename }),
+        },
+        {
+        where: { id: request.user.id },
+        }
+        );
+    return reply.status(201).send({ message: 'User profile updated successfully' });
+
+});
+
+fastify.patch('/api/user/password',{preHandler: fastify.authenticate},  async  (request, reply)=> {
+    const { password } = request.body;
+    const hashedPassword = await argon2.hash(password);
+    const { User } = fastify.models
+    await User.update(
+    { password: hashedPassword },
+    {
+        where: { id: request.user.id },
+    }
+    );
+    return reply.status(201).send({ message: 'Password updated successfully'  });
+
+
+});
+}
+```
+**``api/Task.js``**
+```js
+
+const argon2 = require('argon2')
+const saveFile = require('../utils')
+
+
+  
+module.exports = async (fastify, opts) => {
+  fastify.get('/api/tasks', {preHandler: fastify.authenticate}, async (request, reply) => {
+    const { Task } = fastify.models
+    const tasks = await Task.findAll({ where: { userId: request.user.id} })
+    return reply.status(201).send(
+      tasks.map(task => ({
+        id: task.id,
+        name: task.name,
+        state: task.state,
+        createdAt: task.createdAt,
+      }))
+    )
+  });
+ fastify.post('/api/tasks', {preHandler: fastify.authenticate}, async (request, reply) => {
+    const { name } = request.body;
+    const { Task} = fastify.models
+    const task = await Task.create({ name, userId: request.user.id})
+    await task.save()
+    return reply.status(201).send({ message: 'Task created successfully' })
+  });
+
+ fastify.put('/api/tasks/:taskId', {preHandler: fastify.authenticate}, async (request, reply) => {
+    const { taskId } = request.params;
+    const { name, state } = request.body;
+    const { Task } = fastify.models
+    const task = await Task.findOne({ where: { id: parseInt(taskId), userId: request.user.id} })
+    if (!task) {
+        return reply.status(401).send({ message: 'Task not found' });
+    }
+    await Task.update(
+        {
+        ...(name !== undefined && { name }),
+        ...(state !== undefined && { state }),
+        },
+        {
+        where: { id: task.id  },
+        }
+        );
+    return reply.status(201).send({ message: 'Task updated successfully' })
+  });
+  
+  fastify.delete('/api/tasks/:taskId',{preHandler: fastify.authenticate},  async (request, reply) => {
+    const { taskId } = request.params;
+    const { Task } = fastify.models
+    const task = await Task.findOne({ where: { id: parseInt(taskId), userId: request.user.id} })
+    if (!task) {
+        return reply.status(401).send({ message: 'Task not found' });
+    }
+    await Task.destroy({
+    where: { id: task.id },
+    });
+    return reply.status(201).send({ message: 'Task deleted successfully' })
+
+  });
+
+}
+```
+This simple change moves the application from stateful (session) to stateless (token) authentication, which is the standard for building high-performance APIs.
+#### Editing the Javascript
+Now we update our JavaScript to work with JWT authentication. When a user logs in, the backend returns a token, which we store in the browser using:
+```javascript
+localStorage.setItem('token', data.access_token);
+```
+For every subsequent API request, we need to include this token in the Authorization header so the backend can verify the user. This is done by adding:
+```js
+'Authorization': `Bearer ${localStorage.getItem('token')}`
+```
+to the headers of each `fetch` request. This ensures that only authenticated users can access protected endpoints.
+### API Rate Limiting
+As our API gains more users, we need to protect it from abuse, excessive load, and denial-of-service (DoS) attacks. Rate Limiting is the practice of restricting the number of API requests a user (or IP address) can make within a specific time window.
+#### Implementing Rate Limiting
+To protect our Fastify application from abuse and excessive requests, we implement rate limiting. Rate limiting helps prevent brute-force attacks, reduces server load, and improves overall API reliability.    
+In Fastify, the most common and recommended solution is the **`@fastify/rate-limit`** plugin
+We start by installing it using:
+```
+npm install @fastify/rate-limit
+```
+#### Installing Redis
+Redis (Remote Dictionary Server) is a very fast, in-memory data store. It is commonly used for caching, sessions, queues, and rate limiting. Because Redis stores data in memory, it is significantly faster than traditional databases, making it ideal for tracking API requests in real time.   
+In our Fastify application, Redis is used with rate limiting plugin (such as `@fastify/rate-limit` with a Redis store) to persist rate-limit data. This allows rate limits to remain consistent even if the server restarts or runs across multiple instances.   
+We install it as following
+- Ubuntu / Debian:
+```
+sudo apt update
+sudo apt install redis-server
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+```
+- macOS (Homebrew):
+```
+brew install redis
+brew services start redis
+```
+- Windows Redis is not officially supported on Windows, but we can use **Redis for Windows** provided by the community [Redis for Windows](https://github.com/tporadowski/redis/releases).
+
+After that we install the redis package
+```
+npm install ioredis
+```
+#### Configuring the Rate Limiter
+After installing Redis, we create a new plugin file called **`limit.js`**.     
+In this file, we configure **`@fastify/rate-limit`** to protect our API from excessive requests.
+
+We configure the limiter to:
+- Use the client’s IP address to track requests
+- Store rate-limit data in Redis
+- Apply default limits to all API endpoints
+
+**`plugins/limit.js`**
+```js
+const rateLimit = require('@fastify/rate-limit');
+const Redis = require('ioredis');
+const fp = require('fastify-plugin')
+
+module.exports = fp(async (fastify, opts) => {
+
+  const redis = new Redis({
+    host: '127.0.0.1',
+    port: 6379,
+  });
+
+  await fastify.register(rateLimit, {
+    redis,
+     max: 50,
+     timeWindow: '1 hour',
+    keyGenerator: (request) => request.ip,
+  });
+  
+})
+```
+With this setup, every endpoint in our application is automatically limited unless we override the limits on a specific route. Redis ensures that these limits are fast, reliable, and persistent even if the server restarts.
+
+#### Apply the Rate Limit
+Finally we can apply limits globally or to specific API routes.
+
+**Global Limit:** The default limits above apply to every route unless overridden. we set this in by registring our plugin in the `app.js` file 
+**Specific Endpoint Limit:** We can reconfigre the rate limit  to a specific endpoint.  
+
+For example, to set a rate limit of 5 API calls per minute for login endpoint and  100 API calls per minute for task endpoint 
+
+For login EndPoint we add the following
+
+**`api/Auth.js`**
+```js
+fastify.post('/api/login',{
+  config: {
+    rateLimit: {
+      max: 5,
+      timeWindow: '1 minute',
+    },
+  },
+}, async (request, reply)
+```
+And for tasks end point we create configuration dictionary then we add it to all routes that we have
+
+**``api/Task.js``**
+```js
+module.exports = async (fastify, opts) => {
+  cnst rateLimitConfig = {
+    rateLimit: {
+      max: 100,
+      timeWindow: '1 minute',
+    },
+  };
+  fastify.get('/api/tasks', {preHandler: fastify.authenticate,config: rateLimitConfig}, async (request, reply) => {
+```
+Rate limiting ensures our API remains responsive and stable, providing a layer of security and robustness as our application scales.
+#### Warning
+When setting rate limits, the main (global) limit should always have the highest limit.  
+All other endpoints should use smaller, more restrictive limits, especially sensitive routes like authentication.   
+Global limits cannot be overridden with higher values, only reduced.  If the global limit is too low, no endpoint will be able to exceed it even if we apply a higher limit later.
