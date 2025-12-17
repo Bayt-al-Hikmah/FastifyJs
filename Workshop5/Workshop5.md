@@ -899,7 +899,9 @@ module.exports = async (fastify, opts) => {
   fastify.get('/api/tasks', {preHandler: fastify.authenticate,config: rateLimitConfig}, async (request, reply) => {
 ```
 Rate limiting ensures our API remains responsive and stable, providing a layer of security and robustness as our application scales.
-#### Warning
-When setting rate limits, the main (global) limit should always have the highest limit.  
-All other endpoints should use smaller, more restrictive limits, especially sensitive routes like authentication.   
-Global limits cannot be overridden with higher values, only reduced.  If the global limit is too low, no endpoint will be able to exceed it even if we apply a higher limit later.
+#### Remark
+When setting rate limits, the global rate limit is just a default setting. It applies to all routes only if no other limit is defined.  
+If a route or a group of routes defines its own rate limit, it completely replaces the global one.    
+Because of this, the global limit should be a safe general value, not necessarily the highest one. Any route can later use a higher or lower limit if needed.  
+Sensitive endpoints, such as login or authentication routes, should always use much stricter limits to prevent abuse. Less sensitive endpoints can use higher limits if required.  
+In Fastify, the rule is simple: the more specific the rate limit, the one that is used.
