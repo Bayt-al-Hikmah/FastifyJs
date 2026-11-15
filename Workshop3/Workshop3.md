@@ -1,1119 +1,2530 @@
+# Workshop 3: Persistent Data Storage with PostgreSQL and Prisma
+
 ## Objectives
 
-- Implement user **registration, login, and logout** functionality using Fastify’s session management.
-- Build a simple wiki app where users can create and view pages.
-- Handle **rich text** input safely using Markdown, processed server-side.
-- Allow users to **upload files** (like avatars) and manage them securely.
-- Explore the evolution of CSS styling, from component classes to **utility-first frameworks** like Tailwind CSS.
-
-## User Authentication
-
-Authentication is the cornerstone of any multi-user application, enabling users to register, log in, and log out securely. In this workshop, we’ll simulate a user database with a JavaScript object and use Fastify’s session management to track logged-in users`.
-
-### Simulating Our Database
-
-For simplicity, we'll start by simulating a database using an in-memory JavaScript object to hold user and page data. (In a production application, this would be replaced by a robust solution like MongoDB or PostgreSQL.) We'll initialize this object within a Fastify plugin and make it accessible across all routes and plugins by decorating the Fastify instance with fastify.decorate().
-
-**`./plugins/db-plugin.js`:**
-
-```javascript
-const fp = require('fastify-plugin');
-
-const inMemoryDatabase = {
-  users: {},
-  pages: {}
-};
-
-async function dbConnector (fastify, options) {
-  fastify.decorate('dataStore', inMemoryDatabase);
-}
-
-module.exports = fp(dbConnector, {
-    name: 'data-connector' 
-});
-```
-After creating the plugin, we need to register it inside app.js by adding: 
-```javascript
-fastify.register(require('./plugins/db-plugin')); 
-```
-Once registered, we can access the in-memory database object anywhere in our application through fastify.dataStore. This allows us to read from and modify the data just like we would with a real database
-### Fastify Session Management
-A session is a way to store information about a user across multiple requests. Since HTTP is a stateless protocol (it doesn’t remember anything between requests), sessions allow us to persist data like login status, user preferences, or temporary messages while the user navigates through the app.  
-
-To track user sessions, we’ll use the `@fastify/cookie` and `@fastify/session` plugins, which provide secure session handling . Fastify signs session cookies with a secret key to prevent tampering, ensuring security.
-
-We’ll also use `@fastify/flash` to display temporary messages (e.g., “Login successful!”).
-
-### Setting Up Authentication
-
-Let’s set up the environment, configure session management, and create routes for registration, login, and logout. We’ll organize our code using Fastify’s plugin system for modularity.
-
-### Install Dependencies
-We install Fastify and the necessary plugins:
-
-```bash
-npm install fastify @fastify/cookie @fastify/session @fastify/flash @fastify/static @fastify/view handlebars @fastify/formbody argon2
-```
-
-### Configure Session and Flash Plugins 
-We create a plugin to manage sessions and flash messages, ensuring secure cookie handling.
-
-**`plugins/session.js`:**
-
-```javascript
-const fp = require('fastify-plugin')
-
-module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('@fastify/cookie'))
-  fastify.register(require('@fastify/session'), {
-    secret: 'your-super-secret-key-that-no-one-knows',
-    cookie: { secure: false } // Set secure: true in production with HTTPS
-  })
-  fastify.register(require('@fastify/flash'))
-})
-```
-### Configure Argon2 Plugin 
-Saving passwords in plain text is not safe, if the database is ever leaked, all user passwords would be immediately exposed.  
-To fix this, we use Argon2 to hash the passwords and store them in a much safer format.   
-**Handle Form Data**  
-We use ``@fastify/formbody`` to parse URL-encoded form submissions, such as login and registration forms. we register it as plugin too
-```javascript
-  fastify.register(require('@fastify/formbody'))
-```
-
-This ensures that data submitted via HTML forms (e.g., username and password) is automatically parsed and made available in request.body.   
-
-### Configure Templating  
-We use `@fastify/view` with Handlebars to render HTML templates.  
-
-**`plugins/templates.js`:**
-
-```javascript
-const fp = require('fastify-plugin')
-const path = require('path')
-
-module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('@fastify/view'), {
-    engine: { handlebars: require('handlebars') },
-    templates: path.join(__dirname, '../views'),
-    includeViewExtension: true,
-    options: {
-      partials: {
-        _layout: 'partials/_layout.hbs'
-    }
-  }
-  })
-})
-```
- 
-### Serve Static Files 
-We serve CSS and avatar images using `@fastify/static`.
-
-**`plugins/static.js`:**
-
-```javascript
-const fp = require('fastify-plugin')
-const path = require('path')
-
-module.exports = fp(async (fastify, opts) => {
-  fastify.register(require('@fastify/static'), {
-    root: path.join(__dirname, '../public'),
-    prefix: '/static/'
-  })
-})
-```
-
-### Create Authentication Routes
-We define routes for registration, login, and logout in a plugin, using Handlebars templates for the front-end.
-
-**`routes/auth.js`:**
-
-```javascript
-const argon2 = require('argon2')
-
-function collectMessages(reply) {
-    const categories = ['danger', 'success', 'info']
-    const messages = []
-
-    for (const category of categories) {
-      const msgs = reply.flash(category) || []
-      for (const msg of msgs) {
-        messages.push({ category, message: msg })
-      }
-    }
-
-    return messages
-  }
-
-module.exports = async (fastify, opts) => {
-  fastify.get('/register', async (request, reply) => {
-    messages = collectMessages(reply)
-    return reply.view('register', { messages: messages})
-  })
-
-  fastify.post('/register', async (request, reply) => {
-    const { username, password } = request.body
-
-    if (fastify.dataStore.users[username]) {
-      request.flash('danger', 'Username already exists!')
-      return reply.redirect('/register')
-    }
-    const hashedPassword = await argon2.hash(password)
-    fastify.dataStore.users[username] = { password: hashedPassword, avatar: null }
-    request.flash('success', 'Registration successful! Please log in.')
-    return reply.redirect('/login')
-  })
-
-  fastify.get('/login', async (request, reply) => {
-    messages = collectMessages(reply)
-
-    return reply.view('login', { messages: messages })
-  })
-
-  fastify.post('/login', async (request, reply) => {
-    const { username, password } = request.body
-    const user = fastify.dataStore.users[username]
-
-    if (user && await argon2.verify(user.password, password)) {
-      request.session.set('username', username)
-      request.flash('success', 'Login successful!')
-      return reply.redirect('/')
-    } else {
-      request.flash('danger', 'Invalid username or password.')
-      return reply.redirect('/login')
-    }
-  })
-
-  fastify.get('/logout', async (request, reply) => {
-    await request.session.destroy()
-    return reply.redirect('/login')
-  })
-}
-```
-**GET /register**
-
-When a user visits /register, the server renders the registration page using a Handlebars template.
-It also passes any flash messages (e.g., error or success notifications) to the template so the user can see feedback (like "Username already exists" or "Registration successful"). 
-
-**POST /register**
-
-When the form is submitted, the server receives the username and password.  
-
-- It first checks if the username already exists in the in-memory dataStore. If it does, a danger flash message is set and the user is redirected back to the registration page.
-
-- If the username is new, the password is securely hashed using Argon2 `await argon2.hash(password)` before storing it. This ensures we never save plain-text passwords, making the system safer if data leaks.
-
-- The new user is saved into fastify.dataStore.users, with their hashed password and a placeholder for their avatar.
-
-- A success flash message is shown, and the user is redirected to the login page to log in with their new credentials.  
-
-**GET /login**
-
-When a user visits /login, the server renders the login page template.  
-Like in registration, flash messages are passed along these could include info like "You’ve been logged out" or errors from failed login attempts.  
-
-**POST /login**
-
-When the login form is submitted:  
-- The server looks up the user in dataStore by the provided username.
-
-- If the user exists, the submitted password is verified against the hashed password stored in the database using Argon2’s verify function `argon2.verify(user.password, password), first argument is the user hashed password that we store when he logged in and the second argument is the user input password as plain text.
-
-- If verification succeeds, the username is stored in the session, and a success message is displayed before redirecting the user to /home.
-
-- If verification fails, a danger message is displayed, and the user is redirected back to the login page.
-
-**GET /logout**  
-When the user visits /logout:
-
-- The current session is destroyed, removing the user’s login state.
-
-- A flash message notifies them that they have been logged out.
-
-- The user is redirected to the /login page.
-
-**``collectMessages``:** is helper function that collect all the flash messages and store them into structured way so we can use them on our template
-### Create Templates
-We create Handlebars templates for registration and login.
-
-**`views/partials/_layout.hbs`:**
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MyApp</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="brand" href="/home">MyApp</a>
-      <nav class="main-nav">
-        {{#if session.username}}
-          <span class="greet">Hello, {{session.username}}</span>
-          <a href="/logout" class="nav-link">Logout</a>
-        {{else}}
-          <a href="/login" class="nav-link">Login</a>
-          <a href="/register" class="nav-link">Register</a>
-        {{/if}}
-      </nav>
-    </div>
-  </header>
-
-  <main class="container">
-    {{#if messages}}
-      <div class="flash-wrapper">
-        {{#each messages}}
-          <div class="flash flash-{{this.category}}">
-            <span class="flash-message">{{this.message}}</span>
-            <button class="flash-dismiss" onclick="this.parentElement.style.display='none'">×</button>
-          </div>
-        {{/each}}
-      </div>
-    {{/if}}
-
-    <section class="content">
-      {{> @partial-block}}
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <small>&copy; 2025 MyApp</small>
-    </div>
-  </footer>
-</body>
-</html>
-```
-
-**`views/register.hbs`:**
-
-```html
-{{#> _layout}}
-<h1 class="page-title">Create an account</h1>
-<form method="POST" class="form-card">
-  <label for="username">Username</label>
-  <input id="username" name="username" type="text" required>
-  <label for="password">Password</label>
-  <input id="password" name="password" type="password" required>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">Register</button>
-    <a href="/login" class="btn btn-link">Already have an account?</a>
-  </div>
-</form>
-{{/ _layout}}
-```
-
-**`views/login.hbs`:**
-
-```html
-{{#> _layout}}
-<h1 class="page-title">Log in</h1>
-<form method="POST" class="form-card">
-  <label for="username">Username</label>
-  <input id="username" name="username" type="text" required>
-  <label for="password">Password</label>
-  <input id="password" name="password" type="password" required>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-success">Login</button>
-    <a href="/register" class="btn btn-link">Create account</a>
-  </div>
-</form>
-{{/ _layout}}
-```
-
-### Adding style
-Create a ``css`` folder inside the public ``folder`` and place your ``style.css`` file inside it. For this lecture, we will use the styles from the ``material`` folder.
-
-### Bootstrap the Application
-We tie everything together in `app.js`.
-
-**`app.js`:**
-
-```javascript
-const fastify = require('fastify')({ logger: true })
-const path = require('path')
-
-// Plugins
-fastify.register(require('@fastify/formbody'))
-fastify.register(require('./plugins/templates'))
-fastify.register(require('./plugins/static'))
-fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/db-plugin')); 
-
-
-
-// Routes
-fastify.register(require('./routes/auth'), { prefix: '/' })
-
-fastify.get('/', async (request, reply) => {
-  return reply.view('home')
-})
-
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000 })
-    console.log('Server running at http://127.0.0.1:3000')
-  } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
-}
-start()
-```
-
-**`views/home.hbs`:**
-
-```html
-{{#> _layout}}
-<h1 class="page-title">Welcome to MyApp</h1>
-<p>Create and view wiki pages!</p>
-{{/ _layout}}
-```
-
-We run `node app.js`, visit `http://127.0.0.1:3000/register`, create a user, log in at `/login`, and log out at `/logout`. Flash messages provide feedback, and the session persists the username across requests.
-
-
-## Rich Text and Pages
-
-Our wiki application needs to support rich text for formatted content, such as headings, bold text, and lists. To handle this securely, we’ll use Markdown, processed server-side into HTML.
-
-### Using Markdown
-
-We use the `markdown-it` library to convert Markdown to HTML, ensuring safe rendering without allowing raw HTML input, which could introduce security risks like XSS (cross-site scripting).
-
-### Install `markdown-it`
-First we install the markdown-it using
-```bash
-npm install markdown-it
-```
-
-### Create Markdown Plugins*
-We use ``markdown-it`` as a plugin to render Markdown content into HTML inside our Fastify app. This plugin decorates Fastify with a reusable ``fastify.markdown``     
-**``plugins/markdown.js``**
-```javascript
-const fp = require('fastify-plugin')
-const MarkdownIt = require('markdown-it')
-
-module.exports = fp(async (fastify, opts) => {
-  const md = new MarkdownIt({
-    html: false,
-    breaks: true
-  })
-
-  // Expose markdown-it instance on fastify
-  fastify.decorate('markdown', md)
-})
-
-```
-### Creating Wiki route
-Now we defines the routes for viewing and creating wiki pages.   
-**`routes/wiki.js`:**
-
-```javascript
-module.exports = async (fastify, opts) => {
-  function collectMessages(reply) {
-    const categories = ['danger', 'success', 'info']
-    const messages = []
-
-    for (const category of categories) {
-      const msgs = reply.flash(category) || []
-      for (const msg of msgs) {
-        messages.push({ category, message: msg })
-      }
-    }
-
-    return messages
-  }
-
-  fastify.get('/wiki/:page_name', async (request, reply) => {
-    const { page_name } = request.params
-    const page = fastify.dataStore.pages[page_name]
-    messages = collectMessages(reply)
-    if (!page) {
-      return reply.view('404', { messages: messages })
-    }
-    page.html_content = fastify.markdown.render(page.content)
-    return reply.view('wiki_page', { page, page_name })
-  })
-
-  fastify.get('/create', async (request, reply) => {
-    messages = collectMessages(reply)
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to create a page.')
-      return reply.redirect('/login')
-    }
-    return reply.view('create_page', { messages: messages })
-  })
-
-  fastify.post('/create', async (request, reply) => {
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to create a page.')
-      return reply.redirect('/login')
-    }
-    const { title, content } = request.body
-    fastify.dataStore.pages[title] = { content, author: request.session.get('username') }
-    return reply.redirect(`/wiki/${title}`)
-  })
-}
-```
-**GET /wiki/:page_name**
-
-When a user visits /wiki/:page_name, the server looks up the requested page name in `fastify.dataStore.pages`.
-
-- If the page exists, its Markdown content is rendered into HTML using fastify.markdown.render().
-
-- The rendered content is then passed to the wiki_page view template, along with the page name.
-
-- If the page does not exist, the server returns a 404 template with any danger flash messages.
-
-**GET /create**
-
-When a user visits `/create`, the server checks if the user is logged in by verifying if their username exists in the session.
-
-- If the user is not logged in, a danger flash message is set ("You must be logged in to create a page.") and the user is redirected to the login page.
-
-- If the user is logged in, the server renders the create_page template, including any flash messages to display feedback.
-
-**POST /create**
-
-When the form on the create page is submitted, the server handles creating a new wiki entry.
-
-- First, it checks if the user is logged in. If not, a danger message is set and the user is redirected to ``/login``.
-
-- If the user is logged in, the submitted title and content are extracted from the request body.
-
-- A new page is saved in fastify.dataStore.pages under the given title, with the page’s content and the current user’s username as the author.
-
-- Finally, the user is redirected to the new wiki page they just created at ``/wiki/:title``.
-### Create Wiki Templates
-We create templates for viewing and creating wiki pages.
-Template for the page that displays a wiki page. 
-
-**`views/wiki_page.hbs`:**
-
-```html
-{{#> _layout}}
-<h1>{{page_name}}</h1>
-<p><em>By: {{page.author}}</em></p>
-<hr>
-<div>
-  {{{page.html_content}}}
-</div>
-{{/ _layout}}
-```
-Template with a form to create and add a new wiki page.  
-
-**`views/create_page.hbs`:**
-
-```html
-{{#> _layout}}
-<h1 class="page-title">Create a Wiki Page</h1>
-<form method="POST" class="form-card">
-  <label for="title">Page Title</label>
-  <input id="title" name="title" type="text" required>
-  <label for="content">Content (Markdown supported)</label>
-  <textarea id="content" name="content" rows="12" placeholder="# Heading
-Write your text here...
-- bullet list
-**bold text**
-*italic text*"></textarea>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">Create Page</button>
-  </div>
-</form>
-<div class="card" style="margin-top:16px;">
-  <h3>Markdown Quick Reference</h3>
-  <ul>
-    <li><code># Heading</code> → Heading</li>
-    <li><code>**bold**</code> → <strong>bold</strong></li>
-    <li><code>*italic*</code> → <em>italic</em></li>
-    <li><code>- Item</code> → bullet list</li>
-    <li><code>[Link](https://example.com)</code> → link</li>
-  </ul>
-</div>
-{{/ _layout}}
-```
-
-**Create 404 Template**  
-Template for the page that is displayed when a user searches for a non-existing wiki page.   
-**`views/404.hbs`:**  
-```html
-{{#> _layout}}
-<h1 class="page-title">Page Not Found</h1>
-<p>The requested page does not exist.</p>
-{{/ _layout}}
-```
-
-### Register the Wiki Plugin 
-We update `app.js` to include the wiki routes.
-
-**`app.js` (updated snippet):**
-
-```javascript
-// in plugin sections
-fastify.register(require('./plugins/markdown')) 
-// in routes section
-fastify.register(require('./routes/wiki'), { prefix: '/' })
-```
-
-We visit `http://127.0.0.1:3000/create` (after logging in), create a page with Markdown content, and view it at `/wiki/PageName`. If the page doesn’t exist, we see a 404 page.
-
-## Using Quill.js with Fastify
-
-To provide an intuitive way for users to create rich text content for our wiki pages, we’ll integrate Quill.js, a lightweight and customizable WYSIWYG editor. Quill.js allows users to format text with headings, bold, italic, lists, and more directly in the browser, offering a modern and user-friendly editing experience. We’ll implement Quill.js as a Fastify plugin, encapsulating its configuration and assets for modularity and seamless integration with our application. The editor will generate HTML content, which we’ll store and render securely, ensuring a smooth experience for users without requiring them to learn any syntax.
-
-### Install Quill.js  
-We first start by installing the `quill` package.
-```bash
-npm install quill
-```
-
-### Create a Quill.js Plugin
-We create a Fastify plugin to serve Quill.js’s static assets (CSS and JavaScript) and provide a reusable configuration for the editor’s toolbar and features.  
-
-**`plugins/quill.js`:**
-
-```javascript
-const fp = require('fastify-plugin')
-const path = require('path')
-
-module.exports = fp(async (fastify, opts) => {
-  // Serve Quill.js static assets
-  fastify.register(require('@fastify/static'), {
-    root: path.join(__dirname, '../../node_modules/quill/dist'),
-    prefix: '/quill/',
-    decorateReply: false // Avoid conflicts with other static routes
-  })
-
-  // Decorate Fastify with Quill configuration
-  fastify.decorate('quillConfig', {
-    modules: {
-      toolbar: [
-        [{ 'header': [1, 2, false] }],
-        ['bold', 'italic', 'underline'],
-        ['link', 'blockquote'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        [{ 'indent': '-1'}, { 'indent': '+1' }],
-        ['clean']
-      ]
-    },
-    theme: 'snow'
-  })
-})
-```
-After creating the plugin we copy the quill config from the modul file to `public/quill` folder by running the following commands    
-**Create the folder**
-```
-mkdir public/quill
-```
-**Copy the Config files**
-```
-cp node_modules/quill/dist/quill.snow.css public/quill/
-cp node_modules/quill/dist/quill.js public/quill/
-```
-This plugin serves Quill.js’s assets (e.g., `quill.snow.css` and `quill.js`) under the `/quill/` prefix and decorates Fastify with a `quillConfig` object. The configuration defines a toolbar with essential formatting options like headings, bold, italic, links, lists, and indent controls, using the ‘snow’ theme for a clean, modern look.
-
-### Update Wiki Routes with Validation 
-We update our wiki routes to include JSON Schema validation for the page creation form, ensuring that the title and content meet our requirements. The `create` route passes the Quill.js configuration to the template for editor initialization.
-
-**`routes/wiki.js` (updated):**
-
-```javascript
-function collectMessages(reply) {
-    const categories = ['danger', 'success', 'info']
-    const messages = []
-
-    for (const category of categories) {
-      const msgs = reply.flash(category) || []
-      for (const msg of msgs) {
-        messages.push({ category, message: msg })
-      }
-    }
-
-    return messages
-  }
-
-module.exports = async (fastify, opts) => {
-  const createSchema = {
-    body: {
-      type: 'object',
-      required: ['title', 'content'],
-      properties: {
-        title: { type: 'string', minLength: 1, maxLength: 50 },
-        content: { type: 'string', minLength: 1 }
-      }
-    }
-  }
-
-  fastify.get('/wiki/:page_name', async (request, reply) => {
-    const { page_name } = request.params
-    const page = fastify.dataStore.pages[page_name]
-    messages = collectMessages(reply)
-    if (!page) {
-      return reply.view('404', { messages: messages })
-    }
-    page.html_content = page.content
-    return reply.view('wiki_page', { page, page_name })
-  })
-
-  fastify.get('/create', async (request, reply) => {
-    messages = collectMessages(reply)
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to create a page.')
-      return reply.redirect('/login')
-    }
-    return reply.view('create_page', { messages: messages ,quillConfig: JSON.stringify(fastify.quillConfig) })
-  })
-
-  fastify.post('/create', async (request, reply) => {
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to create a page.')
-      return reply.redirect('/login')
-    }
-    const { title, content } = request.body
-    fastify.dataStore.pages[title] = { content, author: request.session.get('username') }
-    return reply.redirect(`/wiki/${title}`)
-  })
-}
-```
-
-The `create` route checks for a logged-in user and passes the `quillConfig` to the template, while the JSON Schema ensures valid form submissions.
-
-### Update Create Page Template with Quill.js 
-We modify the `create_page.hbs` template to load Quill.js from our plugin’s static route and initialize it with the provided configuration. We also add a hidden input to capture the editor’s HTML content, as Quill.js stores content in a div, not a textarea.
-
-**`views/create_page.hbs` (updated):**
-
-```html
-{{#> _layout}}
-<h1 class="page-title">Create a Wiki Page</h1>
-<form method="POST" class="form-card" id="create-page-form">
-  <label for="title">Page Title</label>
-  <input id="title" name="title" type="text" required>
-  <label for="content">Content</label>
-  <div id="editor" style="min-height: 200px;"></div>
-  <input type="hidden" name="content" id="content">
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">Create Page</button>
-  </div>
-</form>
-
-<!-- Load Quill.js styles and script -->
-<link href="/static/quill/quill.snow.css" rel="stylesheet">
-<script src="/static/quill/quill.js"></script>
-<script>
-  
-  const quill = new Quill('#editor',  {{{ quillConfig }}});
-  const form = document.querySelector('#create-page-form');
-  form.onsubmit = function() {
-    const content = document.querySelector('#content');
-    content.value = quill.root.innerHTML; // Capture editor content
-  };
-</script>
-{{/ _layout}}
-```
-
-The template includes Quill.js’s CSS and JavaScript from the `/quill/` prefix. We initialize Quill on a `<div id="editor">` and use JavaScript to copy the editor’s HTML content to a hidden input (`#content`) on form submission, ensuring the content is sent to the server. The `{{{quillConfig}}}` helper serializes the configuration to JSON for initialization.
-
-### Update CSS for Quill.js Editor
-We add minimal CSS to ensure the Quill editor integrates smoothly with our app’s styling.
-
-**`public/css/style.css` (updated snippet):**
-
-```css
-#editor {
-  background: #fff;
-  border: 1px solid rgba(16,24,40,0.08);
-  border-radius: 8px;
-  font-size: 1rem;
-}
-#editor .ql-container {
-  min-height: 200px;
-}
-```
-
-This ensures the editor matches our app’s aesthetic, with a consistent border and font size.
-
-### Register the Quill.js Plugin  
-We ensure the Quill.js plugin is registered in our main application file to make its assets and configuration available.
-
-**`app.js` (updated snippet):**
-
-```javascript
-fastify.register(require('./plugins/quill'))
-```
-
-We visit `/create` after logging in, and Quill.js appears as a rich text editor in the form. We format content with headings, bold text, lists, or links, then submit the form. The generated HTML is stored in our in-memory database and displayed at `/wiki/PageName`. If we submit an invalid form (e.g., empty title), a flash message appears, and we’re redirected back to the form.
-
-
-Quill.js, served through our Fastify plugin, provides a lightweight and customizable WYSIWYG editor that generates HTML content directly, making it intuitive for users to create formatted wiki pages. The plugin encapsulates Quill’s assets and configuration, ensuring modularity and reusability across routes. JSON Schema validation on the server side ensures that submitted content meets our requirements, while the error handler provides clear feedback via flash messages. The hidden input captures the editor’s HTML, seamlessly integrating with our form submission process. This setup leverages Fastify’s plugin system for a clean, scalable integration of the rich text editor, optimized for performance and ease of use.
-## File Uploads
-
-Allowing users to upload avatars enhances personalization but requires secure handling. We’ll configure Fastify to accept image uploads, validate file types, and store them safely.
-
-### Setting Up File Uploads
-
-We configure a directory for avatars and define allowed file extensions.
-
-### Install `@fastify/multipart`
-We start by installing ``@fastify/multipart`` package
-```bash
-npm install @fastify/multipart
-```
-
-### Create File Upload Plugin 
-We create a plugin to handle file uploads.
-
-**`plugins/multipart.js`:**
-
-```javascript
-const fp = require('fastify-plugin')
-const path = require('path')
-const fs = require('fs')
-
-const UPLOAD_FOLDER = path.join(path.dirname(__dirname), 'public/avatars')
-
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif'])
-module.exports = fp(async (fastify, opts) => {
-  await fastify.register(require('@fastify/multipart'), {
-    limits: {
-      fileSize: 5 * 1024 * 1024 // 5MB limit
-    },
-    attachFieldsToBody: true // optional: auto attach text fields/files to request.body
-  })
-  if (!fs.existsSync(UPLOAD_FOLDER)) {
-  fs.mkdirSync(UPLOAD_FOLDER, { recursive: true })
-}
-
-await fastify.decorate('UPLOAD_FOLDER', UPLOAD_FOLDER)
-await fastify.decorate('allowedFile', filename => {
-  if (!filename.includes('.')) return false
-  const ext = filename.split('.').pop().toLowerCase()
-  return ALLOWED_EXTENSIONS.has(ext)
-})
-})
-```
-#### Configure Upload Settings
-In this plugin, we start by defining constants and ensuring that the `public/avatars` directory exists. Next, we create a set of allowed file extensions called `ALLOWED_EXTENSIONS` and implement a helper function that checks whether a file has a valid extension. We then register the `@fastify/multipart` plugin with appropriate configuration options, such as file size limits and upload behavior. Finally, we add the helper function as a Fastify decorator (`fastify.allowedFile`) so it can be easily accessed and reused in other routes throughout the application.
-
-### Creating utils.js 
-Since multiple routes use the collectMessages function, we can refactor our code to avoid repetition. Instead of declaring the function in every route file, we create a separate file called utils.js where we define the function once. Then, whenever we need it in a route, we simply import it using const collectMessages = require('../utils'). This approach keeps the code cleaner, more modular, and easier to maintain.   
-**`utils.js`**  
-```javascript
-function collectMessages(reply) {
-    const categories = ['danger', 'success', 'info']
-    const messages = []
-
-    for (const category of categories) {
-      const msgs = reply.flash(category) || []
-      for (const msg of msgs) {
-        messages.push({ category, message: msg })
-      }
-    }
-
-    return messages
-}
-
-module.exports = collectMessages
-```
-### Create Profile Route
-We add a profile route to handle avatar uploads.
-
-**`routes/profile.js`:**
-
-```javascript
-const fs = require('fs');
-const path = require('path');
-const collectMessages = require('../utils')
-
-module.exports = async (fastify, opts) => {
-  fastify.get('/profile', async (request, reply) => {
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to view your profile.')
-      return reply.redirect('/login')
-    }
-    const user = fastify.dataStore.users[request.session.get('username')]
-    messages = collectMessages(reply)
-    return reply.view('profile', { user, messages: messages })
-  })
-
-
-  fastify.post('/profile', async (request, reply) => {
-    if (!request.session.get('username')) {
-      request.flash('danger', 'You must be logged in to upload an avatar.')
-      return reply.redirect('/login')
-    }
-
-    const file = await request.body.avatar
-    
-    if (!file) {
-      request.flash('danger', 'No file selected.')
-      return reply.redirect('/profile')
-    }
-
-    if (!fastify.allowedFile(file.filename)) {
-      request.flash('danger', 'Invalid file type. Allowed: png, jpg, jpeg, gif.')
-      return reply.redirect('/profile')
-    }
-
-    const filename = `${Date.now()}_${file.filename}`
-    const filepath = path.join(fastify.UPLOAD_FOLDER, filename)
-    await fs.promises.writeFile(filepath, file._buf);
-       
-
-    fastify.dataStore.users[request.session.get('username')].avatar = filename
-    request.flash('success', 'Avatar updated!')
-    return reply.redirect('/profile')
-  })
-}
-```
-**GET /profile**  
-When a user visits /profile, the server checks if they are logged in by verifying the username in the session.  
-
-- If the user is not logged in, a danger flash message is set ("You must be logged in to view your profile.") and the user is redirected to the login page.
-
-- If the user is logged in, their profile data is loaded from fastify.dataStore.users and rendered with the profile template, including any flash messages.
-
-**POST /profile**
-When the user submits the avatar upload form, the server processes the uploaded file.
-
-- First, it checks if the user is logged in. If not, a danger flash message is set and the user is redirected to ``/login``.
-- Then load the file using `const file = await request.body.avatar` avatar is the name we provided in the input field.  
-- If a file was not provided, a danger message is set and the user is redirected back to ``/profile``.
-
-- If a file was provided but its extension is not allowed, a danger message is set and the user is redirected back to ``/profile``.
-
-- If the file is valid, a new filename is generated with a timestamp prefix, and the file is moved from its temporary path to ``fastify.UPLOAD_FOLDER``.
-
-- The user’s avatar in ``fastify.dataStore.users`` is updated with the new filename, and a success flash message is set.
-
-- Finally, the user is redirected back to ``/profile``.
-
-
-### Create Profile Template
-We create a template to display the user profile and add a form that allows updating the profile avatar.   
-**`views/profile.hbs`:**
-
-```html
-{{#> _layout}}
-<div class="container">
-  <h1 class="page-title">Welcome, {{user.username}}</h1>
-  <div class="avatar-section">
-    {{#if user.avatar}}
-      <img src="/static/avatars/{{user.avatar}}" alt="User Avatar" class="avatar">
-    {{else}}
-      <p>No avatar uploaded yet.</p>
-    {{/if}}
-  </div>
-  <form action="/profile" method="POST" enctype="multipart/form-data" class="form-card">
-    <label for="avatar">Upload new avatar:</label>
-    <input type="file" id="avatar" name="avatar" accept="image/*"  required>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Upload</button>
-    </div>
-  </form>
-</div>
-{{/ _layout}}
-```
-
-### Update CSS for Avatars
-We update the ``style.css`` file and style the avatar image.  
-**`public/css/style.css` (updated snippet):**
-
-```css
-.avatar-section { margin: 20px 0; }
-.avatar { max-width: 150px; border-radius: 10px; }
-```
-
-### Register Profile Plugin and Ensure Directory
-We update `app.js` and create the `public/avatars` directory.
-
-**`app.js` (updated):**
-
-```javascript
-const fastify = require('fastify')({ logger: true })
-
-
-// Plugins
-fastify.register(require('./plugins/multipart'))
-fastify.register(require('@fastify/formbody'))
-fastify.register(require('./plugins/templates'))
-fastify.register(require('./plugins/static'))
-fastify.register(require('./plugins/session'))
-fastify.register(require('./plugins/db-plugin')); 
-fastify.register(require('./plugins/quill'))
-
-// Routes
-fastify.register(require('./routes/auth'), { prefix: '/' })
-fastify.register(require('./routes/wiki'), { prefix: '/' })
-fastify.register(require('./routes/profile'), { prefix: '/' })
-fastify.get('/', async (request, reply) => {
-  return reply.view('home')
-})
-
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000 })
-    console.log('Server running at http://127.0.0.1:3000')
-  } catch (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
-}
-start()
-```
-
-We visit `/profile`, upload an image (e.g., `.png`), and see it displayed. Invalid files trigger flash messages.
-
-Fastify’s `@fastify/multipart` provide robust file handling. We validate file extensions and use unique filenames to prevent conflicts. The plugin-based approach keeps file upload logic modular, aligning with Fastify’s architecture.  
-
-## Handling Unknown Routes
-
-What if the user try to visit random or non existing route (like /does-not-exist) by default Fastify will return a JSON 404 response:
-```json
-{
-  "statusCode": 404,
-  "error": "Not Found",
-  "message": "Route GET:/does-not-exist not found"
-}
-```
-
-This is useful for APIs, but in a web app we usually want to show a user-friendly 404 page instead. We can override the default behavior with setNotFoundHandler() and serve a custom Handlebars view (404.hbs), we create a 404.js plugin
-
-**`plugins/404.js`**
-```javascript
-const fp = require('fastify-plugin')
-
-module.exports = fp(async (fastify, opts) => {
-    await fastify.setNotFoundHandler((request, reply) => {
-        reply.code(404).view('404', {
-            title: 'Page Not Found',
-            url: request.raw.url
-        })
-    })
-})
-```
-We add it to ``app.js``
-```javascript
-fastify.register(require('./plugins/404'))
-```
-With this in place, visiting a non-existent page like ``/random-url`` will render our custom 404.hbs template instead of showing raw JSON. This improves the user experience and keeps the app consistent with other views.
-## A Journey Through CSS Styling
-
-### Act I: The Specific Approach (Class-per-Element)
-
-When we first begin styling our web pages, the natural instinct is to give each element its own class and style it directly. For example:
-
-**Example CSS (not used in our app):**
-
-```css
-.login-page-button {
-  background-color: blue;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 5px;
-}
-```
-
-**HTML:**
-
-```html
-<button class="login-page-button">Login</button>
-```
-At first, this feels simple and organized every element gets its own “label,” and we know exactly where its style lives.
-
-But very quickly, a problem appears:
-
-- The Register button will need almost the same styles as the Login button.
-
-- Input fields across different pages also share similar styling.
-
-- Suddenly, we’re copying and pasting the same rules over and over.
-
-This creates duplication and makes our CSS harder to maintain. Imagine having 5 different button classes scattered around your project if you want to change the padding, you’d need to edit all of them.
-
-To fix this, we need to step back and notice patterns. Many elements aren’t unique snowflakes they belong to the same component family. Buttons share common traits, inputs share common traits. Instead of treating them as separate cases, we can extract those shared features and place them into special reusable classes.
-
-This shift in thinking is what leads us toward the reusable component approach in Act II.  
-
-
-### Act II: The Reusable Component (Shared Classes)
-
-To fix the duplication problem from Act I, we need to change how we see our elements. Instead of thinking about each button or input as a one-off element, we treat them as components.  
-A component is simply a reusable piece of UI like a button, an input box, or a card. Each component has a base style that defines its common features. For example, all buttons might share padding, border-radius, and font weight.  
-On top of that, we can add variations (or modifiers) that adjust the base style like giving one button a blue background (.btn-primary) and another a gray background (.btn-secondary).  
-This way, our CSS is not about styling individual elements, but about describing what type of component the element is. When we create new elements in our HTML, we don’t invent a new class each time we simply apply the right combination of existing component classes.  
-Here’s what that looks like in practice:  
-
-**Our `style.css` (already implemented):**
-
-```css
-.btn {
-  padding: 9px 14px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.btn-primary {
-  background: var(--accent);
-  color: white;
-  border-color: rgba(43,124,255,0.1);
-}
-```
-
-**HTML in Templates:**
-
-```html
-<button class="btn btn-primary">Register</button>
-```
-This is exactly the approach that **Bootstrap** and other frameworks popularized. They provide base classes (`.btn`, `.form-control`, `.card`) and variations (`.btn-primary`, `.btn-danger`, `.btn-outline`), letting developers build entire UIs just by combining classes.
-
-### Act III: The Utility-First Revolution
-
-The component approach from Act II is a big improvement over one-class-per-element, but it isn’t perfect. Components come with predefined styles for things like padding, margin, and borders.  
-But what if you need a button with slightly less padding? Or an input field with a custom margin? Suddenly, we’re stuck. we either:
-
-- Override the existing class (which feels messy), or
-
-- Create a brand-new variation (like .btn-small or .btn-wide) amnd before long, we’re back to the duplication problem from Act I.
-
-To solve this, a new idea emerged: instead of making classes for components, why not make classes for single styling functions?
+In this workshop, we will learn how to connect our Fastify application to a PostgreSQL database and manage persistent data using Prisma ORM.
+
+We will learn how to:
+
+- Understand persistent data storage and why applications need databases.
+- Understand relational databases and the fundamental concepts of PostgreSQL.
+- Understand Object-Relational Mapping (ORM) and the role of Prisma.
+- Configure PostgreSQL and connect it to our Node.js application.
+- Define database models using the Prisma Schema Language.
+- Understand database migrations and schema management.
+- Configure Prisma Client with Fastify using a reusable plugin.
+- Perform Create, Read, Update, and Delete (CRUD) operations.
+- Query, filter, sort, and count database records.
+- Replace temporary in-memory storage with persistent database storage.
+- Integrate PostgreSQL and Prisma into our Quote Sharing application.
+
+## Introduction to Persistent Data Storage
+
+In our previous workshop, we built a Quote Sharing application that allowed visitors to submit quotes, browse existing ones, and search for quotes by their original authors.
+
+However, we used an in-memory array to store the submitted information.
 
 For example:
 
-- p-4 → padding
-
-- m-10 → margin
-
-- text-lg → font size
-
-- bg-blue-500 → background color
-
-With this approach, we’re not writing CSS to describe components—we’re building components directly in the HTML by stacking utility classes together.
-
-This is the philosophy behind utility-first frameworks like Tailwind CSS.
-
-**Example with Tailwind (hypothetical):**
-
-```html
-<button class="bg-blue-500 text-white p-4 rounded-md">Register</button>
+```typescript
+const quotes = [
+    {
+        id: 1,
+        author: 'Albert Einstein',
+        text: 'Imagination is more important than knowledge.'
+    },
+    {
+        id: 2,
+        author: 'Marcus Aurelius',
+        text: 'The happiness of your life depends upon the quality of your thoughts.'
+    }
+]
 ```
-Here, every class is doing one small job: background, text color, padding, border radius. Together, they form a complete button. It’s like snapping LEGO bricks together each brick is tiny and simple, but combined, they make something powerful.  
 
-This approach has huge benefits:
+This approach is perfectly acceptable for demonstrating how routes, forms, and templates work together. However, it has an important limitation: **the information exists only while the application is running.**
 
-- No need for CSS overrides we control spacing, sizing, and colors directly in the markup.
-- Less CSS file bloat → most styles come from the framework.
+Every time we restart our server, the array is recreated, and all previously submitted quotes are lost.
 
-- Faster prototyping we can build and tweak designs instantly without creating new CSS classes.
+This is not suitable for real applications. Imagine building an online store where every product, customer, and order disappears whenever the server restarts.
 
-However, it does come with one small drawback: your HTML can look crowded with classes. A single element may end up with 6–10 classes, which feels like “class spam.” Some developers love this tradeoff, others find it messy.
+To solve this problem, applications use persistent storage.
 
+**Persistent data storage** is the process of saving information in a storage system that retains it beyond the lifetime of the application.
 
+Instead of keeping information only in the application's memory, we store it in a database. The backend can then retrieve, insert, update, and delete records whenever necessary.
 
+The communication can be represented as follows:
+
+```text
+             CLIENT
+                |
+                | HTTP Request
+                |
+                v
+             FASTIFY
+           (Backend App)
+                |
+                v
+           Route Handler
+                |
+                v
+            PRISMA ORM
+                |
+                v
+           PostgreSQL
+            DATABASE
+                |
+                v
+          Query Results
+                |
+                v
+             PRISMA
+                |
+                v
+           Route Handler
+                |
+                v
+         HTML / JSON Response
+                |
+                v
+             CLIENT
+```
+
+Notice that our application no longer needs to maintain its own collection of records in memory. Instead, it communicates with the database whenever it needs to access or modify information.
+
+This is the foundation of persistent backend applications.
+
+## Understanding Databases and PostgreSQL
+
+Before connecting our application to a database, we need to understand what a database is and how it organizes information.
+
+A **database** is an organized collection of data that can be stored, retrieved, and modified efficiently.
+
+Applications use databases because they need a reliable way to manage information that must remain available across different requests and application restarts.
+
+There are different types of databases, but one of the most widely used categories is relational databases.
+
+### Relational Databases
+
+A relational database organizes information into tables, where each table represents a particular type of entity.
+
+For example, an online store might have separate tables for users, products, and orders.
+
+Each table contains columns that describe the properties of the information and rows that represent individual records.
+
+Consider a table containing information about quotes:
+
+| id | author | text |
+|---|---|---|
+| 1 | Albert Einstein | Imagination is more important than knowledge. |
+| 2 | Marcus Aurelius | The happiness of your life depends upon the quality of your thoughts. |
+| 3 | Seneca | Difficulties strengthen the mind. |
+
+Here, the table is called `Quote`, and each row represents an individual quote.
+
+The columns describe the information stored in each record:
+
+- `id`: Identifies the quote.
+- `author`: Stores the original author's name.
+- `text`: Stores the quote itself.
+
+Unlike an in-memory array, the records in a database are stored persistently and remain available after the application stops.
+
+### Primary Keys
+
+When a table contains many records, we need a reliable way to identify each one.
+
+A **primary key** is a column, or combination of columns, that uniquely identifies a record within a table.
+
+For example, our quotes table uses the `id` column:
+
+| id | author | text |
+|---|---|---|
+| 1 | Albert Einstein | Imagination is more important than knowledge. |
+| 2 | Marcus Aurelius | The happiness of your life depends upon the quality of your thoughts. |
+| 3 | Seneca | Difficulties strengthen the mind. |
+
+Each record has a unique identifier, allowing us to retrieve or modify a specific quote without relying on its text or author.
+
+Primary keys are important because multiple records can contain identical information.
+
+For example, two different quotes might have the same author, but they must still be distinguishable.
+
+### Constraints and Data Integrity
+
+Databases also provide mechanisms for enforcing rules about the information they store.
+
+These rules are called **constraints**.
+
+For example, we might want to ensure that:
+
+- Every quote has an identifier.
+- The author field cannot be empty.
+- The quote text cannot be missing.
+- An email address is unique within a users table.
+
+These rules help protect the integrity of our data.
+
+Although we can validate information inside our backend application, database constraints provide another layer of protection. They ensure that invalid records cannot be inserted into the database even when information comes from different parts of the system.
+
+### PostgreSQL
+
+For this workshop, we will use **PostgreSQL**, an open-source relational database management system.
+
+PostgreSQL stores information in tables and provides a powerful system for managing structured data.
+
+It supports SQL (Structured Query Language), which allows us to create tables, retrieve records, insert information, update existing data, and perform many other database operations.
+
+For example, the following SQL statement retrieves all quotes:
+
+```sql
+SELECT * FROM "Quote";
+```
+
+To insert a new record:
+
+```sql
+INSERT INTO "Quote" (author, text)
+VALUES (
+    'Albert Einstein',
+    'Imagination is more important than knowledge.'
+);
+```
+
+And to retrieve a specific quote:
+
+```sql
+SELECT *
+FROM "Quote"
+WHERE id = 1;
+```
+
+SQL is the language used to communicate with relational databases.
+
+However, writing SQL statements manually throughout a large application can become repetitive and difficult to maintain.
+
+This is where database abstraction tools become useful.
+
+## Introduction to ORM and Prisma
+
+When building a backend application, we frequently need to translate information between two different representations.
+
+In our TypeScript application, we work with objects and properties:
+
+```typescript
+const quote = {
+    author: 'Albert Einstein',
+    text: 'Imagination is more important than knowledge.'
+}
+```
+
+In PostgreSQL, the same information is represented as a row inside a table.
+
+The application needs a way to translate between these representations and execute the corresponding database operations.
+
+One approach is to write SQL queries manually. Another approach is to use an **Object-Relational Mapping (ORM)** tool.
+
+### What is an ORM?
+
+An Object-Relational Mapper is a tool that allows developers to interact with a relational database through programming language objects and methods rather than writing SQL statements for every operation.
+
+For example, instead of manually writing:
+
+```sql
+SELECT * FROM "Quote";
+```
+
+we can use a TypeScript method:
+
+```typescript
+const quotes = await prisma.quote.findMany()
+```
+
+The ORM translates the operation into the appropriate database query and returns the results as JavaScript objects.
+
+This allows us to work with database records using familiar programming language structures.
+
+However, an ORM does not eliminate SQL or replace the database. PostgreSQL still performs the actual database operations. The ORM simply provides an abstraction that makes database interactions easier to express and maintain.
+
+### Prisma ORM
+
+**Prisma** is a modern ORM designed for TypeScript and Node.js applications.
+
+It provides tools for defining database models, generating type-safe database queries, managing schema changes, and inspecting stored information.
+
+Prisma consists of three important components:
+
+**1. Prisma Schema**
+
+The Prisma Schema is where we describe the structure of our database.
+
+We define models and their properties, specify data types, and establish relationships between different models.
+
+Prisma uses this information to understand how our application data should be structured.
+
+**2. Prisma Client**
+
+Prisma Client is an automatically generated, type-safe database client based on our schema.
+
+It provides methods for creating, retrieving, updating, and deleting database records.
+
+For example:
+
+```typescript
+const quotes = await prisma.quote.findMany()
+```
+
+The available methods and their accepted properties are generated from our database models.
+
+This provides autocomplete and compile-time type checking when interacting with database records.
+
+**3. Prisma Migrate**
+
+Prisma Migrate manages changes to the database structure.
+
+As our application develops, we might need to add new tables, introduce columns, or modify existing models.
+
+Instead of manually changing the database every time, Prisma Migrate generates migration files that describe these changes and applies them to PostgreSQL.
+
+This allows us to keep our database structure synchronized with the application's data models.
+
+Prisma also provides **Prisma Studio**, a graphical interface that allows us to inspect and manage database records.
+
+These components work together to provide a complete workflow for managing application data.
+
+### Understanding the Relationship Between Fastify, Prisma, and PostgreSQL
+
+Now that we understand the responsibilities of each technology, let's connect them.
+
+Fastify handles incoming HTTP requests and executes our application logic. When a route needs information from the database, it uses Prisma Client to perform the required operation.
+
+Prisma translates that operation into database queries and communicates with PostgreSQL through its database driver.
+
+PostgreSQL executes the query and returns the result, which Prisma converts into a JavaScript object that our application can use.
+
+The relationship can be represented as follows:
+
+```text
+           CLIENT
+              |
+              v
+           FASTIFY
+        (Web Framework)
+              |
+              v
+         ROUTE HANDLER
+              |
+              v
+          PRISMA ORM
+         (Prisma Client)
+              |
+              v
+      POSTGRESQL DRIVER
+              |
+              v
+          POSTGRESQL
+           DATABASE
+```
+
+Our application does not need to construct SQL statements manually for every operation. Instead, we use Prisma Client to interact with the database through a type-safe interface.
+
+In this workshop, we will use this architecture to replace the in-memory storage of our Quote Sharing application with a PostgreSQL database.
+
+## Setting Up PostgreSQL
+
+Before connecting Prisma to our application, we need a PostgreSQL database.
+
+Make sure PostgreSQL is installed and running on your system.
+
+You can verify the installation using:
+
+```bash
+psql --version
+```
+
+If PostgreSQL is already installed, we can create a dedicated database for our project.
+
+### Creating the Database and User
+
+Open your terminal and connect to PostgreSQL using the administrative account.
+
+On Ubuntu, you can use:
+
+```bash
+sudo -u postgres psql
+```
+
+This opens the PostgreSQL interactive terminal.
+
+Create a dedicated database user:
+
+```sql
+CREATE ROLE quote_app_user
+WITH LOGIN PASSWORD 'replace_with_a_strong_password';
+```
+
+Next, create a database and assign ownership to this user:
+
+```sql
+CREATE DATABASE quote_sharing
+OWNER quote_app_user;
+```
+
+We now have a database named `quote_sharing` and a user named `quote_app_user`.
+
+To leave the PostgreSQL terminal, execute:
+
+```sql
+\q
+```
+
+The important idea is that our application should connect using its own database account rather than relying on the PostgreSQL administrative account.
+
+This gives the application a separate identity and allows us to control its database permissions.
+
+For this introductory setup, the database user owns the project database. In production environments, database permissions should follow the principle of least privilege.
+
+### Understanding the Database Connection String
+
+To communicate with PostgreSQL, our application needs connection information.
+
+This information is commonly provided through a **database connection string**.
+
+A PostgreSQL connection string follows this structure:
+
+```text
+postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=SCHEMA
+```
+
+Let's understand its components:
+
+- `USER`: The PostgreSQL username.
+- `PASSWORD`: The password associated with that user.
+- `HOST`: The address of the PostgreSQL server.
+- `PORT`: The port on which PostgreSQL listens, usually `5432`.
+- `DATABASE`: The name of the database we want to access.
+- `SCHEMA`: The PostgreSQL schema containing our tables, usually `public`.
+
+For our project, the connection string will look similar to:
+
+```text
+postgresql://quote_app_user:replace_with_a_strong_password@localhost:5432/quote_sharing?schema=public
+```
+
+We will store this information in an environment variable rather than writing database credentials directly inside our application code.
+
+### Configuring Environment Variables
+
+Create a `.env` file in the project's root directory:
+
+**`.env`:**
+
+```env
+DATABASE_URL="postgresql://quote_app_user:replace_with_a_strong_password@localhost:5432/quote_sharing?schema=public"
+```
+
+Replace the credentials with the actual values created for your PostgreSQL database.
+
+It is important to remember that the connection string contains sensitive information. We should never commit real database credentials to a public Git repository.
+
+Make sure the root `.gitignore` includes:
+
+```gitignore
+.env
+```
+
+We can also create a `.env.example` file containing a placeholder connection string so that other developers understand which environment variables are required.
+
+One detail worth remembering is that special characters in database passwords must be URL-encoded when included in a connection string.
+
+With PostgreSQL configured, we can now integrate Prisma into our existing Fastify project.
+
+## Setting Up Prisma
+
+We will continue using the project created in our previous workshops.
+
+Therefore, we will keep our existing TypeScript configuration, ECMAScript Modules, and application structure.
+
+For this workshop, we will use Prisma ORM 7 with the PostgreSQL driver adapter. The examples follow the Prisma 7 stable API and its ESM-first generated client.
+
+### Installing Prisma Dependencies
+
+Navigate to your project directory and install the required packages.
+
+First, install Prisma CLI and the PostgreSQL type definitions as development dependencies:
+
+```bash
+npm install -D prisma@7 @types/pg
+```
+
+Next, install the packages required by our application:
+
+```bash
+npm install @prisma/client@7 @prisma/adapter-pg@7 pg dotenv
+```
+
+Let's understand their responsibilities.
+
+**`prisma`** provides the command-line interface used to initialize Prisma, generate migrations, and manage the database schema.
+
+**`@prisma/client`** provides the Prisma Client runtime package used by our application.
+
+**`@prisma/adapter-pg`** provides the driver adapter that connects Prisma Client to PostgreSQL through the `pg` driver.
+
+**`pg`** is the Node.js PostgreSQL driver, also known as `node-postgres`.
+
+**`@types/pg`** provides TypeScript definitions for the PostgreSQL driver.
+
+Finally, **`dotenv`** allows our Node.js application and Prisma configuration to load environment variables from the `.env` file.
+
+Prisma 7 uses driver adapters for database connections. This means we explicitly configure the PostgreSQL adapter when creating the Prisma Client instance.
+
+### Initializing Prisma
+
+After installing the dependencies, initialize Prisma using:
+
+```bash
+npx prisma init --datasource-provider postgresql --output ../src/generated/prisma
+```
+
+This command initializes the Prisma environment inside our project.
+
+It creates a `prisma` directory containing the Prisma schema, generates a configuration file, and prepares the environment variables file.
+
+We specify:
+
+```text
+--datasource-provider postgresql
+```
+
+to indicate that PostgreSQL is our database provider.
+
+We also specify:
+
+```text
+--output ../src/generated/prisma
+```
+
+to tell Prisma where to generate our client.
+
+We place the generated client inside `src` because our previous TypeScript configuration uses `src` as its root directory. This keeps the generated files within the existing TypeScript project structure.
+
+After initialization, our project will look similar to:
+
+```text
+my_fastify_project/
+│
+├── prisma/
+│   └── schema.prisma
+│
+├── src/
+│   ├── generated/
+│   │   └── prisma/
+│   │
+│   ├── plugins/
+│   ├── routes/
+│   ├── app.ts
+│   └── server.ts
+│
+├── prisma7.config.ts
+├── .env
+├── package.json
+└── tsconfig.json
+```
+
+Depending on the Prisma 7 CLI version, the configuration file may be named `prisma7.config.ts` or `prisma.config.ts`. Prisma 7.10 and later use the `prisma7.config.ts` name to distinguish it from the Prisma 8 configuration. Use the configuration file generated by your installed CLI rather than creating both.
+
+### Configuring Prisma
+
+Open the generated configuration file.
+
+**`prisma7.config.ts`:**
+
+```typescript
+import 'dotenv/config'
+
+import { defineConfig, env } from 'prisma/config'
+
+export default defineConfig({
+
+    schema: 'prisma/schema.prisma',
+
+    migrations: {
+        path: 'prisma/migrations'
+    },
+
+    datasource: {
+        url: env('DATABASE_URL')
+    }
+
+})
+```
+
+This file tells Prisma where to find our schema, where to store migration files, and how to connect to the database when executing database-management commands.
+
+The `dotenv/config` import loads the environment variables from `.env`.
+
+We use:
+
+```typescript
+env('DATABASE_URL')
+```
+
+to retrieve the database connection string.
+
+This keeps the connection credentials outside the Prisma schema and allows us to use different connection strings in development and production.
+
+### Understanding the Prisma Schema
+
+Now open:
+
+```text
+prisma/schema.prisma
+```
+
+This file is where we define the structure of our database.
+
+The initialization command creates the basic configuration, but we need to adapt it to our project.
+
+Replace its contents with:
+
+**`prisma/schema.prisma`:**
+
+```prisma
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+```
+
+Let's understand the configuration.
+
+The `generator` block defines how Prisma generates the client.
+
+We use:
+
+```prisma
+provider = "prisma-client"
+```
+
+to select the ESM-first Prisma Client generator.
+
+The `output` property specifies where the generated client should be placed.
+
+The `datasource` block describes the database provider.
+
+Here, we specify PostgreSQL:
+
+```prisma
+provider = "postgresql"
+```
+
+Notice that we do not define the connection URL inside this block. In Prisma 7, the connection URL used by the CLI is configured in the separate Prisma configuration file.
+
+This separates database connection configuration from the data model itself.
+
+## Defining Database Models
+
+Now that Prisma is configured, we can define the structure of our application data.
+
+In Prisma, we describe database entities using **models**.
+
+A model represents a database table, while its properties represent the columns of that table.
+
+For example, our Quote Sharing application needs to store the original author's name and the quote text.
+
+We will also need an identifier and timestamps to keep track of when records were created and modified.
+
+### Creating the Quote Model
+
+Add the following model to `schema.prisma`:
+
+```prisma
+model Quote {
+
+    id        Int      @id @default(autoincrement())
+
+    author    String   @db.VarChar(50)
+
+    text      String   @db.VarChar(300)
+
+    createdAt DateTime @default(now())
+
+    updatedAt DateTime @updatedAt
+
+    @@index([author])
+    @@index([createdAt])
+
+}
+```
+
+Let's understand how this model is defined.
+
+**The ID field**
+
+```prisma
+id Int @id @default(autoincrement())
+```
+
+The `id` property represents the primary key of our table.
+
+We use the `Int` type because the identifier will be an integer.
+
+The `@id` attribute tells Prisma that this field is the primary key, while `@default(autoincrement())` instructs PostgreSQL to generate an incrementing identifier whenever a new quote is inserted.
+
+This means that we don't need to generate IDs manually inside our application.
+
+**The Author field**
+
+```prisma
+author String @db.VarChar(50)
+```
+
+This field stores the original author's name.
+
+The `String` type represents textual information, while `@db.VarChar(50)` specifies that PostgreSQL should use a variable-length character column with a maximum length of 50 characters.
+
+**The Text field**
+
+```prisma
+text String @db.VarChar(300)
+```
+
+This field contains the quote itself.
+
+We use `VarChar(300)` to limit the maximum length of the stored text to 300 characters.
+
+**The Created At field**
+
+```prisma
+createdAt DateTime @default(now())
+```
+
+This field stores when the quote was created.
+
+The `@default(now())` attribute automatically assigns the current timestamp when a new record is inserted.
+
+**The Updated At field**
+
+```prisma
+updatedAt DateTime @updatedAt
+```
+
+This field tracks when the record was last modified.
+
+Prisma automatically updates this value whenever the record is changed through Prisma Client.
+
+Finally, we define two indexes:
+
+```prisma
+@@index([author])
+@@index([createdAt])
+```
+
+An index is a database structure that helps PostgreSQL locate records more efficiently when performing certain queries.
+
+Since our application frequently searches for quotes by author and orders them by creation date, these indexes are useful for those access patterns.
+
+Indexes also introduce some storage and write overhead, so we should create them based on actual query requirements rather than indexing every column.
+
+### Understanding Prisma Attributes
+
+You might have noticed that we used expressions such as:
+
+```prisma
+@id
+@default()
+@updatedAt
+@db.VarChar(50)
+```
+
+These are called Prisma attributes.
+
+They allow us to describe additional behavior and constraints associated with models and their fields.
+
+Some attributes apply directly to fields, while others apply to entire models.
+
+For example:
+
+- `@id` defines a primary key.
+- `@unique` enforces uniqueness.
+- `@default()` defines a default value.
+- `@updatedAt` automatically updates a timestamp through Prisma Client.
+- `@db.VarChar(50)` maps a field to a specific PostgreSQL column type.
+- `@@index()` defines a database index.
+- `@@map()` allows us to map a Prisma model to a differently named database table.
+
+These attributes make it possible to describe important database behavior directly inside our schema.
+
+### Understanding the Generated Database Structure
+
+Our Prisma model is not the database table itself.
+
+It is a description of the table that Prisma will use to generate the corresponding database structure.
+
+For example, our Quote model describes a table similar to:
+
+```sql
+CREATE TABLE "Quote" (
+    id SERIAL PRIMARY KEY,
+    author VARCHAR(50) NOT NULL,
+    text VARCHAR(300) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL
+);
+```
+
+Prisma generates the appropriate SQL when we create a migration.
+
+This is an important distinction:
+
+**The Prisma schema describes the intended database structure, while PostgreSQL stores the actual data.**
+
+We will now use Prisma Migrate to create the corresponding table.
+
+## Understanding Database Migrations
+
+As our application develops, its data requirements will change.
+
+For example, we might initially store only the author's name and quote text. Later, we may want to add categories, approval status, or additional information.
+
+Whenever the database structure changes, we need a controlled way to apply those changes.
+
+This is where **database migrations** become useful.
+
+A migration is a versioned set of database changes that describes how the database structure should evolve.
+
+Instead of manually creating or modifying tables, we describe the desired structure through our Prisma schema and let Prisma Migrate generate the necessary SQL changes.
+
+This provides a history of database modifications that can be tracked using Git.
+
+### Creating Our First Migration
+
+After defining the Quote model, make sure your PostgreSQL database exists and your `.env` file contains the correct connection string.
+
+Now run:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+The `migrate dev` command compares our Prisma schema with the current migration history and database state.
+
+It then generates a migration containing the SQL required to create the Quote table and applies that migration to our development database.
+
+The `--name init` argument gives the migration a descriptive name.
+
+After execution, our project should contain:
+
+```text
+prisma/
+│
+├── migrations/
+│   ├── 20261115000000_init/
+│   │   └── migration.sql
+│   │
+│   └── migration_lock.toml
+│
+└── schema.prisma
+```
+
+The timestamp in the directory name is generated by Prisma.
+
+The `migration.sql` file contains the SQL statements used to modify the database.
+
+We should commit migration files to Git because they represent the history of database structure changes.
+
+### Generating Prisma Client
+
+After creating the migration, we need to generate Prisma Client.
+
+Run:
+
+```bash
+npx prisma generate
+```
+
+This command reads our Prisma schema and generates a TypeScript client based on the models we defined.
+
+The generated client provides methods for querying our database and types that describe the available models and operations.
+
+It will be placed inside:
+
+```text
+src/generated/prisma/
+```
+
+An important detail in Prisma 7 is that we should run `prisma generate` explicitly after changing the schema. The migration command should not be relied upon to generate the client automatically.
+
+### Understanding the Migration Workflow
+
+We now have two important commands:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+Creates and applies a migration based on changes to our Prisma schema.
+
+```bash
+npx prisma generate
+```
+
+Generates the Prisma Client from the current schema.
+
+Whenever we modify the database models, we repeat this workflow.
+
+For example, suppose we decide to add a category to our quotes:
+
+```prisma
+category String?
+```
+
+We update the model, then run:
+
+```bash
+npx prisma migrate dev --name add_quote_category
+npx prisma generate
+```
+
+Prisma creates another migration that modifies the existing table without requiring us to recreate the entire database.
+
+This is important because real applications evolve over time, and we need a reliable way to manage database structure changes without losing existing information.
+
+### Development vs Production Migrations
+
+There is an important distinction between development and production environments.
+
+During development, we use:
+
+```bash
+npx prisma migrate dev
+```
+
+This command is designed for developing and testing schema changes.
+
+In production, we use:
+
+```bash
+npx prisma migrate deploy
+```
+
+This command applies pending migrations that have already been created and committed to the project.
+
+We should never use `migrate dev` as the production migration command. Production environments should apply the reviewed migration history rather than generate new migrations automatically.
+
+## Connecting Prisma to Fastify
+
+We have now configured PostgreSQL, defined our Quote model, and created the corresponding database table.
+
+The next step is to make Prisma available inside our Fastify application.
+
+We could create a new Prisma Client instance in every route, but that would be a poor design.
+
+Instead, we should create a single shared instance and expose it through a Fastify plugin.
+
+This follows the same architectural approach we used in the previous workshops for templates, static files, and security functionality.
+
+### Creating the Prisma Plugin
+
+First, create a new file:
+
+```bash
+touch src/plugins/prisma.ts
+```
+
+Inside this file:
+
+**`src/plugins/prisma.ts`:**
+
+```typescript
+import 'dotenv/config'
+
+import fp from 'fastify-plugin'
+
+import { PrismaPg } from '@prisma/adapter-pg'
+
+import { PrismaClient } from '../generated/prisma/client.js'
+
+import type { FastifyPluginAsync } from 'fastify'
+
+const prismaPlugin: FastifyPluginAsync = async (fastify) => {
+
+    const connectionString = process.env.DATABASE_URL
+
+    if (!connectionString) {
+        throw new Error('DATABASE_URL is not configured')
+    }
+
+    // Create the PostgreSQL driver adapter
+    const adapter = new PrismaPg({
+        connectionString
+    })
+
+    // Create a single Prisma Client instance
+    const prisma = new PrismaClient({
+        adapter
+    })
+
+    // Establish the database connection
+    await prisma.$connect()
+
+    // Make Prisma available throughout the application
+    fastify.decorate('prisma', prisma)
+
+    // Close the database connection when Fastify shuts down
+    fastify.addHook('onClose', async () => {
+        await prisma.$disconnect()
+    })
+
+}
+
+export default fp(prismaPlugin)
+```
+
+Let's understand how this plugin works.
+
+First, we import `dotenv/config` to load the environment variables from our `.env` file.
+
+Next, we create a PostgreSQL adapter:
+
+```typescript
+const adapter = new PrismaPg({
+    connectionString
+})
+```
+
+The adapter connects Prisma Client to PostgreSQL using the `pg` driver.
+
+We then create a Prisma Client instance:
+
+```typescript
+const prisma = new PrismaClient({
+    adapter
+})
+```
+
+This client provides the methods we will use throughout the application to access and modify database records.
+
+We establish the connection using:
+
+```typescript
+await prisma.$connect()
+```
+
+This ensures that the database connection is initialized when the plugin is loaded.
+
+We then use:
+
+```typescript
+fastify.decorate('prisma', prisma)
+```
+
+to attach the Prisma instance to the Fastify application.
+
+This makes it possible to access Prisma from our routes through:
+
+```typescript
+fastify.prisma
+```
+
+Finally, we register an `onClose` hook that disconnects Prisma when the Fastify application shuts down.
+
+This is important because database connections consume resources. We should release them when the application is no longer running.
+
+Using a single shared client also avoids unnecessarily creating multiple database connection pools.
+
+### Extending Fastify's Type Definitions
+
+There is one TypeScript detail we need to handle.
+
+Fastify does not automatically know that we added a property called `prisma` to its instance.
+
+Although:
+
+```typescript
+fastify.decorate('prisma', prisma)
+```
+
+adds the property at runtime, TypeScript also needs to understand that this property exists.
+
+We can achieve this through **module augmentation**.
+
+Create a directory named `types` inside `src`, then create:
+
+```bash
+mkdir -p src/types
+touch src/types/fastify.d.ts
+```
+
+**`src/types/fastify.d.ts`:**
+
+```typescript
+import type { PrismaClient } from '../generated/prisma/client.js'
+
+declare module 'fastify' {
+
+    interface FastifyInstance {
+        prisma: PrismaClient
+    }
+
+}
+```
+
+Here, we extend Fastify's existing `FastifyInstance` interface by adding the `prisma` property.
+
+We use `PrismaClient` as its type, allowing TypeScript to understand the available database methods.
+
+Now, when we access:
+
+```typescript
+fastify.prisma
+```
+
+TypeScript recognizes the property and provides autocomplete for our database operations.
+
+This is useful because we preserve type safety even when extending Fastify with our own application functionality.
+
+### Registering the Prisma Plugin
+
+Now we update `app.ts`.
+
+**`src/app.ts`:**
+
+```typescript
+import Fastify from 'fastify'
+import formbody from '@fastify/formbody'
+
+import viewsPlugin from './plugins/views.js'
+import staticPlugin from './plugins/static.js'
+import securityPlugin from './plugins/security.js'
+import prismaPlugin from './plugins/prisma.js'
+
+import homeRoutes from './routes/home.js'
+import quoteRoutes from './routes/quotes.js'
+
+export function buildApp() {
+
+    const fastify = Fastify({
+        logger: true
+    })
+
+    // Configure views
+    fastify.register(viewsPlugin)
+
+    // Serve static files
+    fastify.register(staticPlugin)
+
+    // Parse HTML form submissions
+    fastify.register(formbody)
+
+    // Configure CSRF protection
+    fastify.register(securityPlugin)
+
+    // Connect to PostgreSQL
+    fastify.register(prismaPlugin)
+
+    // Register application routes
+    fastify.register(homeRoutes)
+    fastify.register(quoteRoutes)
+
+    return fastify
+}
+```
+
+Notice that the Prisma plugin is registered before the route plugins that depend on it.
+
+This ensures that the database functionality is available when those routes are initialized.
+
+We have now integrated PostgreSQL into our existing Fastify architecture without placing database configuration directly inside our route handlers.
+
+## Working with Prisma Client
+
+Now that Prisma is available through Fastify, we can start performing database operations.
+
+Prisma Client provides a collection of methods that correspond to the common operations performed on database records.
+
+These operations are commonly grouped under the term **CRUD**:
+
+- Create: Insert new records.
+- Read: Retrieve existing records.
+- Update: Modify existing records.
+- Delete: Remove records.
+
+Let's understand each operation using our Quote model.
+
+### Creating Records
+
+The first operation is creating a new record in the database.
+
+Prisma provides the `create()` method for this purpose.
+
+For example:
+
+```typescript
+const quote = await fastify.prisma.quote.create({
+
+    data: {
+        author: 'Albert Einstein',
+        text: 'Imagination is more important than knowledge.'
+    }
+
+})
+```
+
+Here, we use:
+
+```typescript
+fastify.prisma.quote.create()
+```
+
+The `quote` property represents our Quote model, while `create()` inserts a new record.
+
+Inside `data`, we provide the values that should be stored.
+
+Notice that we do not provide an ID or creation timestamp.
+
+PostgreSQL generates the ID automatically, while the `createdAt` field receives its default value from the database.
+
+The `updatedAt` field is also managed automatically by Prisma.
+
+The method returns the newly created record as a JavaScript object.
+
+We can use this returned object to display confirmation information or perform additional application logic.
+
+### Reading Records
+
+After storing information, we need to retrieve it.
+
+Prisma provides several methods for querying records.
+
+**Retrieving all records**
+
+We can use `findMany()` to retrieve multiple records:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany()
+```
+
+This returns an array containing all quotes.
+
+If there are no records, the result is an empty array.
+
+**Retrieving a specific record**
+
+If we already know the ID of a quote, we can use `findUnique()`:
+
+```typescript
+const quote = await fastify.prisma.quote.findUnique({
+
+    where: {
+        id: 1
+    }
+
+})
+```
+
+The `where` option specifies the condition used to identify the record.
+
+Because `id` is the primary key, Prisma can use it to retrieve a unique quote.
+
+If the record exists, Prisma returns the corresponding object. Otherwise, it returns `null`.
+
+This is useful when building pages that display or modify a specific record.
+
+### Updating Records
+
+Sometimes we need to modify information that is already stored.
+
+For example, a user might want to correct the text of a quote or change its original author name.
+
+Prisma provides the `update()` method:
+
+```typescript
+const updatedQuote = await fastify.prisma.quote.update({
+
+    where: {
+        id: 1
+    },
+
+    data: {
+        text: 'A new version of the quote.'
+    }
+
+})
+```
+
+The `where` property identifies the record we want to update.
+
+The `data` property contains the fields that should be modified.
+
+Notice that we only provide the `text` field. The other properties remain unchanged.
+
+Prisma returns the updated record after the operation succeeds.
+
+If the record does not exist, Prisma throws a known request error with code `P2025`.
+
+Therefore, our application should handle that case and return an appropriate response rather than exposing an internal database error.
+
+### Deleting Records
+
+The final CRUD operation is deleting an existing record.
+
+We use the `delete()` method:
+
+```typescript
+const deletedQuote = await fastify.prisma.quote.delete({
+
+    where: {
+        id: 1
+    }
+
+})
+```
+
+The `where` property identifies the record to remove.
+
+If the operation succeeds, Prisma returns the deleted record.
+
+If the requested record does not exist, Prisma throws an error with code `P2025`.
+
+Deletion is an irreversible operation unless we have an appropriate backup or recovery mechanism. Real applications should therefore perform additional checks and authorization before allowing users to delete important records.
+
+### Summary of CRUD Operations
+
+The four operations can be represented as follows:
+
+| Operation | Prisma Method | Purpose |
+|---|---|---|
+| Create | `create()` | Insert a new record. |
+| Read | `findMany()`, `findUnique()` | Retrieve records. |
+| Update | `update()` | Modify an existing record. |
+| Delete | `delete()` | Remove an existing record. |
+
+These methods form the foundation of database-backed applications.
+
+Prisma also provides additional methods for handling multiple records, combining operations, and performing more advanced queries.
+
+## Querying, Filtering, and Sorting Records
+
+Retrieving every record is not always what an application needs.
+
+For example, our Quote Sharing application should display the most recent quotes first rather than returning records in an arbitrary order.
+
+We might also want to search for quotes belonging to a particular author or limit the number of results displayed on a page.
+
+Prisma provides query options that allow us to control which records are retrieved and how they are returned.
+
+### Filtering Records
+
+The `where` option allows us to retrieve records that satisfy specific conditions.
+
+For example, to retrieve quotes belonging to Albert Einstein:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    where: {
+        author: 'Albert Einstein'
+    }
+
+})
+```
+
+We can also use filtering operators for more complex conditions.
+
+For example:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    where: {
+        author: {
+            contains: 'Einstein'
+        }
+    }
+
+})
+```
+
+This retrieves quotes whose author field contains the specified text.
+
+For PostgreSQL, Prisma also supports case-insensitive filtering through:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    where: {
+        author: {
+            equals: 'albert einstein',
+            mode: 'insensitive'
+        }
+    }
+
+})
+```
+
+This is particularly useful for search functionality because it allows us to find matching records without requiring the user to enter the exact capitalization used when the record was stored.
+
+### Sorting Records
+
+Sometimes we need to control the order in which records are returned.
+
+Prisma provides the `orderBy` option.
+
+For example, to retrieve quotes from newest to oldest:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    orderBy: {
+        createdAt: 'desc'
+    }
+
+})
+```
+
+The `desc` value means descending order, while `asc` means ascending order.
+
+Because the `createdAt` field stores when each quote was submitted, descending order places the newest records first.
+
+We can also combine filtering and sorting:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    where: {
+        author: {
+            equals: 'Albert Einstein',
+            mode: 'insensitive'
+        }
+    },
+
+    orderBy: {
+        createdAt: 'desc'
+    }
+
+})
+```
+
+This retrieves matching quotes and orders them from newest to oldest.
+
+### Limiting Results
+
+As an application grows, retrieving every record can become inefficient.
+
+Imagine a website containing thousands of quotes. Displaying all of them on the homepage would consume unnecessary resources and make the page difficult to navigate.
+
+Prisma provides the `take` option to limit the number of returned records.
+
+For example:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    orderBy: {
+        createdAt: 'desc'
+    },
+
+    take: 10
+
+})
+```
+
+This retrieves only the ten most recent quotes.
+
+Prisma also supports pagination through `skip` and `take`, allowing us to retrieve specific sections of a larger collection.
+
+For example:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    orderBy: {
+        createdAt: 'desc'
+    },
+
+    skip: 10,
+    take: 10
+
+})
+```
+
+Here, we skip the first ten records and retrieve the next ten.
+
+This is called offset pagination. It is convenient for numbered pages, while cursor-based pagination is often more suitable for large datasets and continuously growing feeds.
+
+## Integrating PostgreSQL into the Quote Sharing Application
+
+Now that we understand how Prisma Client works, we can apply it to the application we created in Workshop 2.
+
+Previously, our Quote Sharing application stored information inside an in-memory array.
+
+We will now replace that array with PostgreSQL so that submitted quotes remain available even after the server restarts.
+
+### Understanding the Changes
+
+Previously, our application might have contained:
+
+```typescript
+const quotes = [
+    {
+        id: 1,
+        author: 'Albert Einstein',
+        text: 'Imagination is more important than knowledge.'
+    }
+]
+```
+
+Whenever someone submitted a new quote, we added it to this array.
+
+Now, instead of modifying an in-memory collection, we will use:
+
+```typescript
+await fastify.prisma.quote.create({
+    data: {
+        author,
+        text
+    }
+})
+```
+
+The record is stored in PostgreSQL and remains available to the application in future requests.
+
+Similarly, when displaying quotes, we will retrieve them using:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany()
+```
+
+This is the main architectural change in this workshop.
+
+Our routes and Handlebars templates remain responsible for handling requests and rendering pages. The difference is that database operations are now performed through Prisma rather than manipulating temporary arrays.
+
+### Creating the Quotes Route Plugin
+
+Create a file named `quotes.ts` inside `src/routes`:
+
+```bash
+touch src/routes/quotes.ts
+```
+
+Inside this file, we will implement the main functionality of our Quote Sharing application.
+
+**`src/routes/quotes.ts`:**
+
+```typescript
+import type { FastifyPluginAsync } from 'fastify'
+
+type QuoteBody = {
+    author: string
+    text: string
+    _csrf: string
+}
+
+const quoteSchema = {
+
+    type: 'object',
+
+    required: ['author', 'text', '_csrf'],
+
+    properties: {
+
+        author: {
+            type: 'string',
+            minLength: 3,
+            maxLength: 50,
+            pattern: '\\S'
+        },
+
+        text: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 300,
+            pattern: '\\S'
+        },
+
+        _csrf: {
+            type: 'string',
+            minLength: 1
+        }
+
+    },
+
+    additionalProperties: false
+
+} as const
+
+const quoteRoutes: FastifyPluginAsync = async (fastify) => {
+
+    // Homepage: Display recent quotes
+    fastify.get('/', async (request, reply) => {
+
+        const quotes = await fastify.prisma.quote.findMany({
+
+            orderBy: {
+                createdAt: 'desc'
+            },
+
+            take: 10
+
+        })
+
+        return reply.viewAsync('index', {
+            title: 'Quote Sharing',
+            quotes
+        })
+
+    })
+
+    // Display the quote submission form
+    fastify.get<{ Querystring: { created?: string } }>(
+        '/share',
+        async (request, reply) => {
+
+            const csrfToken = await reply.generateCsrf()
+
+            return reply.viewAsync('share', {
+
+                title: 'Share a Quote',
+
+                csrfToken,
+
+                submitted: request.query.created === '1',
+
+                values: {
+                    author: '',
+                    text: ''
+                }
+
+            })
+
+        }
+    )
+
+    // Process a submitted quote
+    fastify.post<{ Body: QuoteBody }>(
+        '/share',
+        {
+            schema: {
+                body: {
+                    content: {
+                        'application/x-www-form-urlencoded': {
+                            schema: quoteSchema
+                        }
+                    }
+                }
+            },
+
+            attachValidation: true,
+
+            preValidation: async (request) => {
+
+                const body = request.body as Record<string, unknown>
+
+                if (typeof body.author === 'string') {
+                    body.author = body.author.trim()
+                }
+
+                if (typeof body.text === 'string') {
+                    body.text = body.text.trim()
+                }
+
+            },
+
+            preHandler: fastify.csrfProtection
+        },
+
+        async (request, reply) => {
+
+            // Handle invalid input
+            if (request.validationError) {
+
+                const csrfToken = await reply.generateCsrf()
+
+                const body = request.body as Partial<QuoteBody>
+
+                return reply.code(400).viewAsync('share', {
+
+                    title: 'Share a Quote',
+
+                    csrfToken,
+
+                    error: 'Please check the author and quote text.',
+
+                    values: {
+                        author: body.author ?? '',
+                        text: body.text ?? ''
+                    }
+
+                })
+
+            }
+
+            const { author, text } = request.body
+
+            // Store the quote in PostgreSQL
+            await fastify.prisma.quote.create({
+
+                data: {
+                    author,
+                    text
+                }
+
+            })
+
+            // Redirect after successful submission
+            return reply.redirect('/share?created=1', 303)
+
+        }
+    )
+
+    // Search for quotes by author
+    fastify.get<{ Querystring: { author?: string } }>(
+        '/search',
+        {
+            schema: {
+                querystring: {
+                    type: 'object',
+                    properties: {
+                        author: {
+                            type: 'string',
+                            maxLength: 50
+                        }
+                    },
+                    additionalProperties: false
+                }
+            }
+        },
+
+        async (request, reply) => {
+
+            const author = request.query.author?.trim() ?? ''
+
+            const quotes = author
+                ? await fastify.prisma.quote.findMany({
+
+                    where: {
+                        author: {
+                            equals: author,
+                            mode: 'insensitive'
+                        }
+                    },
+
+                    orderBy: {
+                        createdAt: 'desc'
+                    }
+
+                })
+                : []
+
+            return reply.viewAsync('search', {
+
+                title: 'Search Quotes',
+
+                author,
+
+                quotes,
+
+                searched: author.length > 0
+
+            })
+
+        }
+    )
+
+    // Dashboard statistics
+    fastify.get('/dashboard', async (request, reply) => {
+
+        const [totalQuotes, authors] = await Promise.all([
+
+            fastify.prisma.quote.count(),
+
+            fastify.prisma.quote.findMany({
+
+                distinct: ['author'],
+
+                select: {
+                    author: true
+                }
+
+            })
+
+        ])
+
+        return reply.viewAsync('dashboard', {
+
+            title: 'Dashboard',
+
+            totalQuotes,
+
+            totalAuthors: authors.length
+
+        })
+
+    })
+
+}
+
+export default quoteRoutes
+```
+
+Let's understand the implementation.
+
+### Displaying Quotes from PostgreSQL
+
+Previously, we passed an array directly from our route to the homepage template.
+
+Now we retrieve the information from PostgreSQL:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    orderBy: {
+        createdAt: 'desc'
+    },
+
+    take: 10
+
+})
+```
+
+The `findMany()` method retrieves multiple records from the Quote table.
+
+We use `orderBy` to display the newest quotes first and `take` to limit the homepage to ten records.
+
+The returned array is then passed to the template:
+
+```typescript
+return reply.viewAsync('index', {
+    title: 'Quote Sharing',
+    quotes
+})
+```
+
+Notice that Handlebars does not need to know whether the information comes from an array, PostgreSQL, or another storage system.
+
+It simply receives an array of quote objects and renders them.
+
+This is an important architectural advantage: the data source can change without requiring us to completely rewrite the presentation layer.
+
+### Storing Submitted Quotes
+
+The POST route follows the same form-handling approach we introduced in Workshop 2.
+
+It validates the submitted information using JSON Schema and checks the CSRF token before executing the route handler.
+
+The important difference is what happens after validation succeeds.
+
+Instead of adding information to an array, we execute:
+
+```typescript
+await fastify.prisma.quote.create({
+
+    data: {
+        author,
+        text
+    }
+
+})
+```
+
+Prisma inserts the new record into PostgreSQL.
+
+The database generates its identifier and creation timestamp according to the model configuration.
+
+The application then redirects the browser to the submission page using the Post/Redirect/Get pattern.
+
+The information is now stored persistently and can be retrieved by subsequent requests.
+
+### Searching for Quotes
+
+Our search route retrieves information directly from PostgreSQL.
+
+We first obtain the author name from the query string:
+
+```typescript
+const author = request.query.author?.trim() ?? ''
+```
+
+Then we execute a filtered query:
+
+```typescript
+const quotes = await fastify.prisma.quote.findMany({
+
+    where: {
+        author: {
+            equals: author,
+            mode: 'insensitive'
+        }
+    },
+
+    orderBy: {
+        createdAt: 'desc'
+    }
+
+})
+```
+
+We use case-insensitive comparison so that searching for `albert einstein` also finds records stored as `Albert Einstein`.
+
+The results are passed to the search template, where Handlebars displays the matching quotes.
+
+This demonstrates how Prisma filtering allows us to perform database searches without manually constructing SQL statements.
+
+### Generating Dashboard Statistics
+
+The dashboard needs information about the total number of quotes and the number of distinct authors.
+
+We could retrieve all records and calculate these values manually in JavaScript, but this would be inefficient for large datasets.
+
+Instead, we use database queries.
+
+To calculate the total number of quotes:
+
+```typescript
+const totalQuotes = await fastify.prisma.quote.count()
+```
+
+To retrieve distinct authors:
+
+```typescript
+const authors = await fastify.prisma.quote.findMany({
+
+    distinct: ['author'],
+
+    select: {
+        author: true
+    }
+
+})
+```
+
+The `distinct` option ensures that each author appears only once in the returned results.
+
+We then calculate:
+
+```typescript
+const totalAuthors = authors.length
+```
+
+Finally, we execute both queries using:
+
+```typescript
+await Promise.all([...])
+```
+
+This allows independent database operations to run concurrently instead of waiting for one to complete before starting the other.
+
+The results are passed to our dashboard template.
+
+### Updating the Templates
+
+Our previous Handlebars templates already used dynamic data, so we only need to make sure they display the database results correctly.
+
+For example:
+
+**`views/index.hbs`:**
+
+```handlebars
+<section class="hero">
+
+    <h1>Welcome to Quote Sharing</h1>
+
+    <p>Discover and share meaningful quotes.</p>
+
+</section>
+
+<section class="quotes">
+
+    <h2>Recent Quotes</h2>
+
+    {{#each quotes}}
+
+        <article class="quote-card">
+
+            <blockquote>
+                {{text}}
+            </blockquote>
+
+            <p class="quote-author">
+                — {{author}}
+            </p>
+
+        </article>
+
+    {{else}}
+
+        <p>No quotes have been submitted yet.</p>
+
+    {{/each}}
+
+</section>
+```
+
+The `{{#each}}` helper iterates over the quotes retrieved from PostgreSQL.
+
+For each record, Handlebars displays its text and author.
+
+If the database contains no quotes, the `else` block displays an appropriate empty-state message.
+
+Notice that we continue using normal Handlebars expressions for user-generated information. This ensures that submitted quote text and author names are HTML-escaped.
+
+**`views/share.hbs`:**
+
+```handlebars
+<section class="share">
+
+    <h1>Share a Quote</h1>
+
+    {{#if submitted}}
+
+        <p class="success">
+            Your quote has been submitted successfully.
+        </p>
+
+    {{/if}}
+
+    {{#if error}}
+
+        <p class="error">
+            {{error}}
+        </p>
+
+    {{/if}}
+
+    <form action="/share" method="POST">
+
+        <input
+            type="hidden"
+            name="_csrf"
+            value="{{csrfToken}}"
+        >
+
+        <label for="author">Original Author:</label>
+
+        <input
+            type="text"
+            id="author"
+            name="author"
+            value="{{values.author}}"
+            required
+        >
+
+        <label for="text">Quote:</label>
+
+        <textarea
+            id="text"
+            name="text"
+            required
+        >{{values.text}}</textarea>
+
+        <button type="submit">
+            Share Quote
+        </button>
+
+    </form>
+
+</section>
+```
+
+The form includes the CSRF token, and the route provides the values and validation feedback when necessary.
+
+**`views/search.hbs`:**
+
+```handlebars
+<section class="search">
+
+    <h1>Search Quotes</h1>
+
+    <form action="/search" method="GET">
+
+        <label for="author">Author Name:</label>
+
+        <input
+            type="text"
+            id="author"
+            name="author"
+            value="{{author}}"
+            required
+        >
+
+        <button type="submit">
+            Search
+        </button>
+
+    </form>
+
+    {{#if searched}}
+
+        <h2>Search Results</h2>
+
+        {{#each quotes}}
+
+            <article class="quote-card">
+
+                <blockquote>
+                    {{text}}
+                </blockquote>
+
+                <p>— {{author}}</p>
+
+            </article>
+
+        {{else}}
+
+            <p>No quotes found for author.</p>
+
+        {{/each}}
+
+    {{/if}}
+
+</section>
+```
+
+This template displays the search form and any matching results returned by the backend.
+
+Because we use GET, the search term appears in the URL as a query parameter.
+
+**`views/dashboard.hbs`:**
+
+```handlebars
+<section class="dashboard">
+
+    <h1>Application Dashboard</h1>
+
+    <div class="statistics">
+
+        <article class="stat-card">
+
+            <h2>Total Quotes</h2>
+
+            <p>{{totalQuotes}}</p>
+
+        </article>
+
+        <article class="stat-card">
+
+            <h2>Unique Authors</h2>
+
+            <p>{{totalAuthors}}</p>
+
+        </article>
+
+    </div>
+
+</section>
+```
+
+The dashboard displays statistics calculated from PostgreSQL.
+
+### Registering the Quotes Plugin
+
+Our application now has a route plugin responsible for the main Quote Sharing functionality.
+
+Register it inside `app.ts`:
+
+```typescript
+import quoteRoutes from './routes/quotes.js'
+
+// Inside buildApp()
+
+fastify.register(quoteRoutes)
+```
+
+We also need to remove the previous homepage route if it defines the same `/` endpoint.
+
+The database-backed route now replaces the earlier implementation.
+
+Our application exposes the following endpoints:
+
+```text
+GET  /
+GET  /share
+POST /share
+GET  /search
+GET  /dashboard
+```
+
+All these pages use the same Handlebars layout and static resources introduced in Workshop 2.
+
+## Updating and Deleting Existing Quotes
+
+Our application can now create and retrieve persistent records.
+
+However, complete data management also requires the ability to modify and remove existing records.
+
+We already introduced these operations through Prisma Client, so let's see how they can be applied to individual quotes.
+
+### Updating a Quote
+
+Imagine that a quote contains a spelling mistake and needs to be corrected.
+
+We can retrieve its identifier from the URL and update the corresponding record.
+
+The database operation looks like this:
+
+```typescript
+const updatedQuote = await fastify.prisma.quote.update({
+
+    where: {
+        id: quoteId
+    },
+
+    data: {
+        author,
+        text
+    }
+
+})
+```
+
+The `where` condition identifies the quote, while `data` contains the new information.
+
+For server-rendered applications, we can create an edit form that submits a POST request:
+
+```text
+GET  /quotes/:id/edit
+POST /quotes/:id/edit
+```
+
+The GET route displays the existing quote information, while the POST route validates the submitted values and updates the record.
+
+Since native HTML forms primarily support GET and POST methods, using POST for these form submissions is a straightforward approach for our workshop.
+
+### Deleting a Quote
+
+Deleting a quote uses Prisma's `delete()` method:
+
+```typescript
+await fastify.prisma.quote.delete({
+
+    where: {
+        id: quoteId
+    }
+
+})
+```
+
+We can expose this operation through another form endpoint:
+
+```text
+POST /quotes/:id/delete
+```
+
+The form should include a CSRF token because deleting a record changes application data.
+
+We should also require appropriate authorization before allowing deletion in a real application.
+
+Remember that CSRF protection does not determine whether someone is authorized to delete a quote. It only helps verify that the request contains a valid CSRF token.
+
+### Handling Records That Do Not Exist
+
+Both `update()` and `delete()` throw a Prisma error with code `P2025` when the requested record does not exist.
+
+We can handle this using Prisma's error types.
+
+For example:
+
+```typescript
+import { Prisma } from '../generated/prisma/client.js'
+
+try {
+
+    const updatedQuote = await fastify.prisma.quote.update({
+
+        where: {
+            id: quoteId
+        },
+
+        data: {
+            author,
+            text
+        }
+
+    })
+
+    return updatedQuote
+
+} catch (error) {
+
+    if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+    ) {
+
+        return reply.code(404).send({
+            error: 'Quote not found'
+        })
+
+    }
+
+    throw error
+
+}
+```
+
+Here, we distinguish between a known database error and an unexpected failure.
+
+If the record does not exist, we return a `404 Not Found` response.
+
+For other errors, we rethrow the exception so Fastify's error-handling mechanism can process it.
+
+We should not expose internal database errors directly to users because they may reveal implementation details or sensitive information.
+
+This is an important part of designing reliable database-backed applications.
+
+## Inspecting Database Records with Prisma Studio
+
+One of the useful tools included in Prisma is **Prisma Studio**.
+
+Prisma Studio provides a graphical interface that allows us to inspect and manage the records stored in our database.
+
+Instead of writing SQL queries every time we want to examine the data, we can open a visual interface and browse the available tables.
+
+To start Prisma Studio, execute:
+
+```bash
+npx prisma studio
+```
+
+Prisma Studio opens in your browser.
+
+You should see our `Quote` model and the records currently stored inside it.
+
+We can inspect the author, quote text, identifiers, and timestamps.
+
+We can also create, modify, or delete records through the interface.
+
+This is particularly useful during development because it allows us to verify that our backend is interacting with the database correctly.
+
+## Testing Persistent Storage
+
+Now comes an important part of the workshop: verifying that our data is actually persistent.
+
+First, make sure PostgreSQL is running and start our Fastify application:
+
+```bash
+npm run dev
+```
+
+Visit:
+
+```text
+http://127.0.0.1:3000/share
+```
+
+Submit a new quote.
+
+The server should validate the information and store it in PostgreSQL through Prisma Client.
+
+Now visit:
+
+```text
+http://127.0.0.1:3000
+```
+
+The homepage should display the newly submitted quote.
+
+We can also inspect the database using Prisma Studio:
+
+```bash
+npx prisma studio
+```
+
+The submitted record should appear inside the Quote table.
+
+Now stop the Fastify application:
+
+```text
+Ctrl + C
+```
+
+Start it again:
+
+```bash
+npm run dev
+```
+
+Return to the homepage.
+
+The previously submitted quote should still be available.
+
+This is the fundamental difference between temporary in-memory storage and persistent database storage.
+
+The information is no longer dependent on the lifetime of our Node.js process. It is stored in PostgreSQL and can be retrieved whenever the application connects to the database.
+
+## Understanding Database Backups and Data Safety
+
+There is one final concept worth understanding when working with persistent storage.
+
+Although PostgreSQL provides reliable mechanisms for managing data, this does not mean that information is automatically protected against every possible failure.
+
+For example, databases can be affected by hardware failures, accidental deletion, incorrect migrations, or administrative mistakes.
+
+This is why production applications need a backup strategy.
+
+PostgreSQL provides tools such as `pg_dump` for creating database backups.
+
+For example:
+
+```bash
+pg_dump -U quote_app_user -d quote_sharing -F c -f quote_sharing.backup
+```
+
+This creates a backup file containing the database contents and structure.
+
+We can restore a custom-format backup using:
+
+```bash
+pg_restore -U quote_app_user -d quote_sharing quote_sharing.backup
+```
+
+These commands are useful for understanding how database recovery works.
+
+However, backups should be performed regularly, stored securely, and tested periodically. A backup that has never been tested is not a reliable recovery strategy.
+
+Database backups and recovery planning become increasingly important as applications begin handling valuable information.
+
+## Tasks
+
+Now that we understand how PostgreSQL and Prisma work together, let's extend the Quote Sharing application from our previous workshop.
+
+### Task 1: Make the Quote Sharing Application Persistent
+
+In this task, we will replace the temporary in-memory storage with PostgreSQL and Prisma.
+
+The goal is to ensure that all submitted quotes remain available even after the server restarts.
+
+**Database Requirements**
+
+Create a Prisma model named `Quote` containing:
+
+- An automatically generated integer ID.
+- The original author's name.
+- The quote text.
+- A creation timestamp.
+- An update timestamp.
+
+Use appropriate PostgreSQL data types and constraints.
+
+**Functional Requirements**
+
+The application should provide the following functionality:
+
+**Homepage (`/`)**
+
+Display the ten most recently submitted quotes.
+
+Retrieve the information from PostgreSQL using Prisma Client rather than an in-memory array.
+
+**Quote Submission (`/share`)**
+
+Allow visitors to submit new quotes.
+
+Validate the author name and quote text using JSON Schema.
+
+Include CSRF protection and store valid submissions in PostgreSQL.
+
+**Search (`/search`)**
+
+Allow visitors to search for quotes by their original author's name.
+
+The search should be case-insensitive and retrieve matching records directly from PostgreSQL.
+
+**Dashboard (`/dashboard`)**
+
+Display the total number of quotes and distinct authors.
+
+Calculate these statistics using Prisma Client rather than manually maintaining counters.
+
+**Persistence**
+
+Restart the server and verify that previously submitted quotes remain available.
+
+Use Prisma Studio to inspect the database and confirm that records are being stored correctly.
+
+### Task 2: Implement Quote Management (CRUD)
+
+Extend the application to support managing existing quotes.
+
+Add the following operations:
+
+**Update a Quote**
+
+Create an edit page that allows users to modify an existing quote.
+
+The form should display the current information and submit the updated values.
+
+Validate the submitted information before applying the changes.
+
+**Delete a Quote**
+
+Add a delete operation that allows an existing quote to be removed.
+
+Require confirmation before deletion and include CSRF protection.
+
+**Additional Requirements**
+
+- Use URL parameters to identify individual quotes.
+- Handle records that do not exist.
+- Return appropriate HTTP status codes or render appropriate error pages.
+- Use Post/Redirect/Get after successful form submissions.
+- Do not expose internal database errors to users.
+
+For this educational project, management operations can be implemented without authentication. However, remember that a real application must enforce authorization before allowing users to modify or delete records.
+
+### Task 3: Improve the Application
+
+Once the core functionality is complete, extend the application with additional features.
+
+You can introduce:
+
+- Pagination for the homepage.
+- Filtering quotes by submission date.
+- Sorting quotes by author or creation date.
+- Searching using partial author names.
+- Displaying the date each quote was submitted.
+- Adding a category field to each quote.
+
+If you introduce a new field or modify the existing database model, remember to create and apply a migration, then regenerate Prisma Client.
+
+The objective of these tasks is to become comfortable building applications that maintain and manage persistent information using PostgreSQL and Prisma.
+
+## Conclusion
+
+In this workshop, we extended our Fastify application by introducing persistent data storage using PostgreSQL and Prisma ORM.
+
+We started by understanding why applications need databases and how relational databases organize information into tables, rows, and columns. We then explored the role of an ORM and how Prisma provides a type-safe interface for interacting with PostgreSQL.
+
+After configuring our database connection, we defined our first Prisma model and used Prisma Migrate to create the corresponding database table.
+
+We then integrated Prisma Client into Fastify through a reusable plugin, making database functionality available throughout our application.
+
+Finally, we applied these concepts to our Quote Sharing application by replacing temporary in-memory storage with persistent database operations. We learned how to create, retrieve, update, delete, filter, and sort records using Prisma Client.
+
+Our application can now retain information across server restarts, which is an important step toward building complete backend systems.
+
+In the next workshop, we will build on these foundations by exploring more advanced backend functionality, including application architecture, authentication, and authorization. This will allow us to move beyond publicly accessible operations and start building applications that manage users, permissions, and protected resources.
+
+## References
+
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [PostgreSQL Tutorial](https://www.postgresql.org/docs/current/tutorial.html)
+- [Prisma ORM Documentation](https://www.prisma.io/docs/orm/v7)
+- [Prisma ORM PostgreSQL Quickstart](https://www.prisma.io/docs/v7/prisma-orm/quickstart/postgresql)
+- [Prisma ORM: Adding Prisma to an Existing Project](https://www.prisma.io/docs/v7/prisma-orm/add-to-existing-project/postgresql)
+- [Prisma Schema Reference](https://www.prisma.io/docs/orm/v7/reference/prisma-schema-reference)
+- [Prisma Client Documentation](https://www.prisma.io/docs/orm/v7/prisma-client)
+- [Prisma CRUD Operations](https://www.prisma.io/docs/orm/v7/prisma-client/queries/crud)
+- [Prisma Filtering and Sorting](https://www.prisma.io/docs/orm/v7/prisma-client/queries/filtering-and-sorting)
+- [Prisma Pagination](https://www.prisma.io/docs/orm/v7/prisma-client/queries/pagination)
+- [Prisma Migrate](https://www.prisma.io/docs/orm/v7/prisma-migrate)
+- [Prisma Development and Production Migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production)
+- [Prisma Studio](https://www.prisma.io/studio)
+- [Fastify Documentation](https://fastify.dev/docs/latest/)
+- [Node.js Documentation](https://nodejs.org/docs/latest/api/)
