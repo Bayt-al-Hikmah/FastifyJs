@@ -44,8 +44,7 @@ npm install
 **2. Create the Database and Role**
 
 ```bash
-sudo -i -u postgres
-psql
+sudo -i -u postgres psql
 ```
 
 Create a dedicated role and database:
@@ -117,7 +116,7 @@ First, register and log in to get your `TOKEN`:
 ```bash
 curl -X POST http://127.0.0.1:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "alice@example.com", "password": "Password123"}'
+  -d '{"email": "alice@example.com", "password": "Password123Password123"}'
 ```
 
 Create two sample files:
@@ -159,15 +158,6 @@ Response:
 }
 ```
 
-**3. Download an Attachment**
-
-```bash
-curl -X GET http://127.0.0.1:3000/api/attachments/1 \
-  -H "Authorization: Bearer $TOKEN" \
-  -O -J
-```
-
-The file is saved with its original name `doc1.txt`.
 
 ### Workshop Objective
 

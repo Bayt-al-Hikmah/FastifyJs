@@ -37,8 +37,6 @@ This example demonstrates **Node.js stream-based file uploads** in Fastify using
 npm install
 ```
 
-*(Note: This example stores file metadata in-memory and binary files in `var/uploads`; no database setup is required).*
-
 **2. Start the Development Server**
 
 ```bash

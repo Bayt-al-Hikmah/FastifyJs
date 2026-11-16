@@ -78,7 +78,8 @@ sudo -u postgres psql
 
 ```sql
 CREATE ROLE w3_task2_quotes_user
-WITH LOGIN PASSWORD 'change_me';
+WITH LOGIN PASSWORD 'change_me'
+CREATEDB;
 
 CREATE DATABASE w3_task2_quotes
 OWNER w3_task2_quotes_user;

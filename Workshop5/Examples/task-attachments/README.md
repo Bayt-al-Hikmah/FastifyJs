@@ -45,8 +45,7 @@ npm install
 **2. Create the Database and Role**
 
 ```bash
-sudo -i -u postgres
-psql
+sudo -i -u postgres psql
 ```
 
 Create a dedicated role and database:
@@ -132,11 +131,10 @@ curl -X POST http://127.0.0.1:3000/api/tasks \
 Upload an attachment to Task ID 1:
 
 ```bash
-echo "Invoice payment details" > invoice.txt
 
 curl -X POST http://127.0.0.1:3000/api/tasks/1/attachments \
   -H "Authorization: Bearer $TOKEN" \
-  -F "file=@invoice.txt"
+  -F "file=@image.png"
 ```
 
 Response:

@@ -82,7 +82,8 @@ Create a dedicated role and database:
 
 ```sql
 CREATE ROLE w3_quotes_crud_user
-WITH LOGIN PASSWORD 'change_me';
+WITH LOGIN PASSWORD 'change_me'
+CREATEDB;
 
 CREATE DATABASE w3_quotes_crud
 OWNER w3_quotes_crud_user;

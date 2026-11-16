@@ -41,8 +41,7 @@ npm install
 **2. Create the Database and Role**
 
 ```bash
-sudo -i -u postgres
-psql
+sudo -i -u postgres psql
 ```
 
 Create a dedicated role and database:
@@ -97,78 +96,6 @@ npm run dev
 ```
 
 Visit the dashboard in your browser: `http://127.0.0.1:3000/app/`.
-
-### Exploring the Solution
-
-**1. Inspect Quota Status (`GET /api/users/me/storage-quota`)**
-
-Log in and obtain a JWT `TOKEN`:
-
-```bash
-curl -X GET http://127.0.0.1:3000/api/users/me/storage-quota \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Response:
-```json
-{
-  "usedBytes": 0,
-  "usedMb": 0,
-  "quotaBytes": 104857600,
-  "quotaMb": 100,
-  "remainingBytes": 104857600,
-  "attachmentCount": 0,
-  "maxAttachmentsPerTask": 10
-}
-```
-
-**2. Upload Attachments within Quota**
-
-Upload a 5 MB file:
-
-```bash
-truncate -s 5M sample_5mb.bin
-# (Rename or upload as an allowed format like sample.pdf)
-
-curl -X POST http://127.0.0.1:3000/api/tasks/1/attachments \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "files=@document.pdf"
-```
-
-Check the quota again to verify that `usedBytes` increased by the file size and `remainingBytes` decreased accordingly.
-
-**3. Test Quota Exceeded Rejection**
-
-If an upload would push the user's total stored bytes past 100 MB, the server immediately rejects the request with HTTP `413 Payload Too Large`:
-
-```json
-{
-  "error": "This upload would exceed your 100 MB storage quota. Current usage: 98.2 MB"
-}
-```
-
-No partial files are left on disk.
-
-**4. Test Per-Task Limit Rejection**
-
-Attempting to upload an 11th attachment to a single task returns HTTP `409 Conflict`:
-
-```json
-{
-  "error": "Maximum attachments per task (10) reached"
-}
-```
-
-**5. Delete an Attachment and Verify Reclaimed Space**
-
-Delete attachment ID 1:
-
-```bash
-curl -X DELETE http://127.0.0.1:3000/api/attachments/1 \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Query `GET /api/users/me/storage-quota`. The deleted file's size is subtracted from `usedBytes` and restored to `remainingBytes`.
 
 ### Workshop Objective
 

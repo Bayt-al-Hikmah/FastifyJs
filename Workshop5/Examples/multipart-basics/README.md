@@ -26,13 +26,9 @@ The stored objects remain under `var/uploads`, outside the public web root.
   the declared type.
 - **Generate server-controlled storage keys.** Save every object under a random
   UUID, so the original filename can never influence a filesystem path.
-- **Keep uploads private.** Store content in `var/uploads` and serve it only
-  through a download route with `Content-Disposition`, `nosniff`, and no-store
-  cache headers.
-- **Clean up after failure.** Remove partial staging files and orphaned objects
-  when validation, streaming, or persistence fails.
-- **Give feedback without exposing internals.** Redirect back to the page with a
-  short error code and map it to a safe message in the view.
+- **Keep uploads private.** Store content in `var/uploads` and serve it only through a download route with `Content-Disposition`, `nosniff`, and no-store cache headers.
+- **Clean up after failure.** Remove partial staging files and orphaned objects when validation, streaming, or persistence fails.
+- **Give feedback without exposing internals.** Redirect back to the page with a short error code and map it to a safe message in the view.
 
 ### Project Structure
 
@@ -57,27 +53,25 @@ The stored objects remain under `var/uploads`, outside the public web root.
 
 1. Install the dependencies:
 
-    ```bash
-    npm install
-    ```
+```bash
+npm install
+```
 
 2. Start the development server:
 
-    ```bash
-    npm run dev
-    ```
+```bash
+npm run dev
+```
 
 3. Open <http://127.0.0.1:3000> in a browser. The cabinet starts empty.
 
-4. Upload a PNG, JPEG, PDF, or TXT file smaller than 2 MB. The new file appears
-   in the cabinet with its detected MIME type, size, and creation time.
+4. Upload a PNG, JPEG, PDF, or TXT file smaller than 2 MB. The new file appears in the cabinet with its detected MIME type, size, and creation time.
 
-5. Stop the server with `Ctrl+C`. The `var/uploads` directory remains on disk;
-   delete it if you want a completely clean filesystem for the next run:
+5. Stop the server with `Ctrl+C`. The `var/uploads` directory remains on disk; delete it if you want a completely clean filesystem for the next run:
 
-    ```bash
-    rm -rf var/uploads
-    ```
+```bash
+rm -rf var/uploads
+```
 
 ### Exploring the Example
 
@@ -99,8 +93,7 @@ curl -i -X POST http://127.0.0.1:3000/upload \
     -F "file=@./screenshot.png"
 ```
 
-`curl -i` shows the `303 See Other` redirect and the feedback code in the
-`Location` header. A successful upload redirects to `/?notice=uploaded`; a
+`curl -i` shows the `303 See Other` redirect and the feedback code in the `Location` header. A successful upload redirects to `/?notice=uploaded`; a
 rejected upload redirects to a URL such as `/?error=too-large`.
 
 Try an invalid file and an oversized file:
@@ -117,14 +110,7 @@ curl -i -X POST http://127.0.0.1:3000/upload \
     -F "file=@./oversized.png;type=image/png"
 ```
 
-Deleting through the API mirrors the browser form:
-
-```bash
-# Replace the UUID with one shown on the page.
-curl -i -X POST http://127.0.0.1:3000/files/<file-id>/delete
-```
-
-Allowed types and checks:
+#### Allowed types and checks:
 
 | Extension | Detected MIME type | Validation |
 |---|---|---|
@@ -133,17 +119,8 @@ Allowed types and checks:
 | `.pdf` | `application/pdf` | Signature must start with a PDF header and match the declared type. |
 | `.txt` | `text/plain` | Must have no binary signature, contain no NUL bytes, and decode as valid UTF-8. |
 
-Files are rejected with a `303` redirect back to the page so the browser can
-show a safe message. The underlying rejection reasons are kept in
-`src/lib/upload-errors.ts`; the raw client filename and filesystem path are never
-placed into a response header.
+Files are rejected with a `303` redirect back to the page so the browser can show a safe message. The underlying rejection reasons are kept in `src/lib/upload-errors.ts`; the raw client filename and filesystem path are never placed into a response header.
 
 ### Workshop Objective
 
-The objective of this example is to practise the first secure upload workflow
-in the workshop: receive one multipart stream, enforce a hard size limit, verify
-the actual file format, generate a storage identifier on the server, and expose
-the content only through a controlled download route. Once this pipeline feels
-natural, the streaming example adds metering and hashing without changing the
-security model, and the task attachment project adds authentication, ownership,
-and PostgreSQL metadata.
+The objective of this example is to practise the first secure upload workflow in the workshop: receive one multipart stream, enforce a hard size limit, verify the actual file format, generate a storage identifier on the server, and expose the content only through a controlled download route. Once this pipeline feels natural, the streaming example adds metering and hashing without changing the  security model, and the task attachment project adds authentication, ownership, and PostgreSQL metadata.

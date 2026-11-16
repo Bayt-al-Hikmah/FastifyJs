@@ -68,7 +68,8 @@ sudo -u postgres psql
 
 ```sql
 CREATE ROLE w4_jwt_authentication_user
-WITH LOGIN PASSWORD 'change_me';
+WITH LOGIN PASSWORD 'change_me'
+CREATEDB;
 
 CREATE DATABASE w4_jwt_authentication
 OWNER w4_jwt_authentication_user;

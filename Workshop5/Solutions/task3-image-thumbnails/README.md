@@ -41,8 +41,7 @@ npm install
 **2. Create the Database and Role**
 
 ```bash
-sudo -i -u postgres
-psql
+sudo -i -u postgres psql
 ```
 
 Create a dedicated role and database:

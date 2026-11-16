@@ -2,14 +2,9 @@
 
 ## Workshop Objective
 
-This example introduces the core of Workshop 3: modelling relational data with
-Prisma 7 and PostgreSQL. You will define related `User`, `Project`, and `Task`
-models, apply a migration, create nested records, load a project with
-`include()`, and verify that `onDelete: Cascade` removes dependent rows.
+This example introduces the core of Workshop 3: modelling relational data with Prisma 7 and PostgreSQL. You will define related `User`, `Project`, and `Task` models, apply a migration, create nested records, load a project with `include()`, and verify that `onDelete: Cascade` removes dependent rows.
 
-The project is a command-line demo rather than a web application. It focuses on
-the database layer that every Fastify application in the rest of the workshop
-uses.
+The project is a command-line demo rather than a web application. It focuses on the database layer that every Fastify application in the rest of the workshop uses.
 
 ## What This Example Demonstrates
 
@@ -52,13 +47,13 @@ prisma-basics/
 
 ## Setup
 
-### 1. Install dependencies
+### Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Create the PostgreSQL role and database
+### Create the PostgreSQL role and database
 
 Open the PostgreSQL administrative shell:
 
@@ -70,7 +65,8 @@ Create a dedicated role and database, then exit:
 
 ```sql
 CREATE ROLE w3_prisma_basics_user
-WITH LOGIN PASSWORD 'change_me';
+WITH LOGIN PASSWORD 'change_me'
+CREATEDB;
 
 CREATE DATABASE w3_prisma_basics
 OWNER w3_prisma_basics_user;
@@ -78,10 +74,9 @@ OWNER w3_prisma_basics_user;
 \q
 ```
 
-Use a stronger password outside this educational project. If your password
-contains special characters, URL-encode it inside the connection string.
+Use a stronger password outside this educational project. If your password contains special characters, URL-encode it inside the connection string.
 
-### 3. Configure environment variables
+### Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -93,7 +88,7 @@ Edit `.env` so that it matches the role and database you created:
 DATABASE_URL="postgresql://w3_prisma_basics_user:change_me@localhost:5432/w3_prisma_basics?schema=public"
 ```
 
-### 4. Apply the migration and generate Prisma Client
+### Apply the migration and generate Prisma Client
 
 The repository already contains the initial migration. Apply it with:
 
@@ -107,18 +102,16 @@ Then generate the ESM Prisma Client explicitly:
 npx prisma generate
 ```
 
-The generated client is written to `src/generated/prisma/`. It is excluded from
-Git because it can always be recreated from the schema.
+The generated client is written to `src/generated/prisma/`. It is excluded from Git because it can always be recreated from the schema.
 
-If you change `prisma/schema.prisma` later, create another migration and
-regenerate the client:
+If you change `prisma/schema.prisma` later, create another migration and regenerate the client:
 
 ```bash
 npx prisma migrate dev --name describe_your_change
 npx prisma generate
 ```
 
-### 5. Run the demo
+###  Run the demo
 
 ```bash
 npm run demo
@@ -132,8 +125,7 @@ npm run dev
 
 ## Endpoints
 
-This example does not expose HTTP endpoints. It is a database-only demonstration
-driven by the following commands:
+This example does not expose HTTP endpoints. It is a database-only demonstration driven by the following commands:
 
 | Command | Purpose |
 |---|---|
@@ -153,12 +145,10 @@ User 1 ─── * Project 1 ─── * Task
 - `User.email` is unique and stored as `email_address`.
 - `Project.ownerId` stores `owner_id` and references `User.id`.
 - `Task.projectId` stores `project_id` and references `Project.id`.
-- Deleting a `User` cascades to their projects, and deleting a project cascades
-  to its tasks.
+- Deleting a `User` cascades to their projects, and deleting a project cascades to its tasks.
 - Table names are mapped to lowercase plural names with `@@map`.
 
-The database also has indexes on `Project.ownerId` and `Task.projectId`, which
-speed up relation lookups and cascading deletes.
+The database also has indexes on `Project.ownerId` and `Task.projectId`, which speed up relation lookups and cascading deletes.
 
 ## Exploration Walkthrough
 
@@ -186,9 +176,7 @@ Prisma Studio provides a browser-based view of the database:
 npx prisma studio
 ```
 
-Open the URL printed by the command (usually <http://localhost:5555>), select the
-`users`, `projects`, or `tasks` table, and inspect or edit records. Stop Studio
-with `Ctrl+C` when you are finished.
+Open the URL printed by the command (usually <http://localhost:5555>), select the `users`, `projects`, or `tasks` table, and inspect or edit records. Stop Studio with `Ctrl+C` when you are finished.
 
 ## Available Scripts
 

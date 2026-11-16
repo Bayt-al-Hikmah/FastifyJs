@@ -68,7 +68,8 @@ sudo -u postgres psql
 
 ```sql
 CREATE ROLE w4_protected_task_api_user
-WITH LOGIN PASSWORD 'change_me';
+WITH LOGIN PASSWORD 'change_me'
+CREATEDB;
 
 CREATE DATABASE w4_protected_task_api
 OWNER w4_protected_task_api_user;

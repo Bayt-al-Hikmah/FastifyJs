@@ -31,7 +31,6 @@ This solution implements **Task 4** of Workshop 4. It demonstrates the execution
 npm install
 ```
 
-*(Note: No database or `.env` configuration is required for this lifecycle demonstration).*
 
 **2. Start the Server**
 
