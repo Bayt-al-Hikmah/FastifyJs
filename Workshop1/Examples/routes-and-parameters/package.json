@@ -1,0 +1,24 @@
+{
+    "name": "routes-and-parameters",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Fastify route plugins for URL parameters, query strings, and JSON Schema validation (Workshop 1 example)",
+    "type": "module",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fastify": "^5.12.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

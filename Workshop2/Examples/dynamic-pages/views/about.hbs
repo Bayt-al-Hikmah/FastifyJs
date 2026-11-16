@@ -1,0 +1,38 @@
+<section class="page-intro">
+    <p class="eyebrow">About the notebook</p>
+    <h1>A demonstration,<br><em>not a publication.</em></h1>
+    <p class="lead">
+        Field Notes exists to show how a Fastify route can hand data to a
+        Handlebars template and let the template decide how to present it.
+    </p>
+</section>
+
+<section class="content-section">
+    <div class="dashboard-grid">
+        <article class="panel">
+            <p class="eyebrow">What is rendered</p>
+            <h2>Dynamic values</h2>
+            <ul class="panel-list">
+                <li><code>{{totalNotes}}</code> style values come from route data.</li>
+                <li>Conditionals hide the featured section when no note is featured.</li>
+                <li>Loops render the topic chips and note cards.</li>
+                <li>A partial keeps the note card markup in one place.</li>
+            </ul>
+        </article>
+
+        <article class="panel">
+            <p class="eyebrow">What is escaped</p>
+            <h2>Safe by default</h2>
+            <p>
+                All note text uses normal Handlebars expressions. If a note
+                contained <code>&lt;script&gt;</code>, Handlebars would display
+                it as text instead of executing it.
+            </p>
+            <p>
+                The layout is the only place that uses a triple-brace
+                expression, because <code>body</code> contains trusted template
+                output rather than visitor input.
+            </p>
+        </article>
+    </div>
+</section>

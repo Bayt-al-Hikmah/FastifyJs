@@ -1,0 +1,22 @@
+<header class="site-header">
+    <div class="navbar">
+        <a class="brand" href="/" aria-label="Field Notes home">
+            <img class="brand-logo" src="/static/images/logo.svg" alt="" width="44" height="44">
+            <span class="brand-text">
+                <span class="brand-name">Field Notes</span>
+                <span class="brand-tagline">Workshop 2 · Handlebars</span>
+            </span>
+        </a>
+
+        <nav aria-label="Main navigation">
+            <ul class="nav-links">
+                <li>
+                    <a class="nav-link{{#if isHome}} is-active{{/if}}" href="/"{{#if isHome}} aria-current="page"{{/if}}>Notebook</a>
+                </li>
+                <li>
+                    <a class="nav-link{{#if isAbout}} is-active{{/if}}" href="/about"{{#if isAbout}} aria-current="page"{{/if}}>About</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</header>

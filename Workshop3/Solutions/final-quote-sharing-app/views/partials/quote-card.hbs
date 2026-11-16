@@ -1,0 +1,29 @@
+<article class="quote-card">
+    <div class="quote-topline">
+        {{#if category}}
+            <span class="badge badge-{{slug category}}">{{category}}</span>
+        {{else}}
+            <span class="badge badge-muted">Uncategorised</span>
+        {{/if}}
+    </div>
+
+    <span class="quote-mark" aria-hidden="true">“</span>
+
+    <blockquote class="quote-text">
+        {{text}}
+    </blockquote>
+
+    <footer class="quote-meta">
+        <div class="quote-meta-stack">
+            <span class="quote-author">— {{author}}</span>
+            <time class="quote-date" datetime="{{dateISO createdAt}}">
+                {{formatDate createdAt}}
+            </time>
+        </div>
+
+        <div class="quote-actions">
+            <a href="/quotes/{{id}}/edit">Edit</a>
+            <a class="danger-link" href="/quotes/{{id}}/delete">Delete</a>
+        </div>
+    </footer>
+</article>

@@ -1,0 +1,51 @@
+# Dependencies
+**/node_modules/
+
+# Build output
+**/dist/
+**/build/
+**/.turbo/
+**/.vite/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Test and coverage output
+**/coverage/
+**/.nyc_output/
+
+# Runtime uploads and locally stored files
+**/uploads/**
+**/private-uploads/**
+**/private_uploads/**
+
+# Local databases (keep Prisma schema and migrations tracked)
+*.db
+*.sqlite
+*.sqlite3
+
+# Tool and cache directories
+**/.cache/
+**/.eslintcache
+**/.tsbuildinfo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+**/test

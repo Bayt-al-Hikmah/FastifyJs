@@ -1,0 +1,25 @@
+{
+    "name": "w4-task4-fastify-hooks",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Workshop 4 Task 4 solution: observable Fastify lifecycle hooks and plugin encapsulation",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fastify": "^5.12.8",
+        "fastify-plugin": "^6.0.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

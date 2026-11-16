@@ -1,0 +1,77 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Role {
+    USER
+    ADMIN
+}
+
+enum TaskStatus {
+    TODO
+    IN_PROGRESS
+    DONE
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    name         String   @db.VarChar(80)
+    email        String   @unique @db.VarChar(254)
+    passwordHash String
+    role         Role     @default(USER)
+
+    createdTasks  Task[] @relation("TaskCreator")
+    assignedTasks Task[] @relation("TaskAssignee")
+
+    uploadedAttachments Attachment[] @relation("AttachmentUploader")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Task {
+    id          Int        @id @default(autoincrement())
+    title       String     @db.VarChar(120)
+    description String?    @db.VarChar(1000)
+    status      TaskStatus @default(TODO)
+
+    createdById Int
+    createdBy   User @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+    assigneeId Int?
+    assignee   User? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+    attachments Attachment[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([createdById, createdAt])
+    @@index([assigneeId, createdAt])
+}
+
+model Attachment {
+    id Int @id @default(autoincrement())
+
+    taskId Int
+    task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+    uploadedById Int
+    uploadedBy   User @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+    originalName String @db.VarChar(255)
+    storageKey   String @unique @db.VarChar(36)
+    mimeType     String @db.VarChar(100)
+    extension    String @db.VarChar(10)
+    size         Int
+
+    createdAt DateTime @default(now())
+
+    @@index([taskId, createdAt])
+    @@index([uploadedById, createdAt])
+}

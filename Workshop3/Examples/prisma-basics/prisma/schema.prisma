@@ -1,0 +1,44 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id        Int       @id @default(autoincrement())
+    email     String    @unique @map("email_address") @db.VarChar(120)
+    name      String    @db.VarChar(80)
+    createdAt DateTime  @default(now()) @map("created_at")
+    projects  Project[]
+
+    @@map("users")
+}
+
+model Project {
+    id        Int      @id @default(autoincrement())
+    name      String   @db.VarChar(120)
+    ownerId   Int      @map("owner_id")
+    createdAt DateTime @default(now()) @map("created_at")
+
+    owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    tasks Task[]
+
+    @@index([ownerId])
+    @@map("projects")
+}
+
+model Task {
+    id          Int      @id @default(autoincrement())
+    title       String   @db.VarChar(160)
+    completed   Boolean  @default(false)
+    projectId   Int      @map("project_id")
+    createdAt   DateTime @default(now()) @map("created_at")
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+    @@index([projectId])
+    @@map("tasks")
+}

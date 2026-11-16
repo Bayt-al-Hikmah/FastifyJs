@@ -1,0 +1,86 @@
+<section class="page-intro">
+    <p class="eyebrow">Find a voice</p>
+    <h1>Search by author</h1>
+    <p class="lead">
+        Enter an author's name to see every quote credited to them. Matching is
+        case-insensitive but otherwise exact, so spelling matters.
+    </p>
+</section>
+
+<section class="search-card" aria-labelledby="search-form-heading">
+    <h2 class="form-heading" id="search-form-heading">Author lookup</h2>
+
+    <form action="/search" method="GET" class="search-form">
+        <div class="form-field search-field">
+            <label for="author">Author name</label>
+            <div class="search-controls">
+                <input
+                    type="search"
+                    id="author"
+                    name="author"
+                    value="{{authorQuery}}"
+                    maxlength="50"
+                    autocomplete="off"
+                    placeholder="e.g. Rumi"
+                    required
+                    aria-describedby="search-hint search-error"
+                    aria-invalid="{{#if queryError}}true{{else}}false{{/if}}"
+                >
+                <button class="btn btn-primary" type="submit">Search</button>
+            </div>
+            <p class="field-hint" id="search-hint">Exact author name, case-insensitive. Up to 50 characters.</p>
+            <p class="field-error" id="search-error" role="alert">{{#if queryError}}{{queryError}}{{/if}}</p>
+        </div>
+    </form>
+
+    {{#if suggestions}}
+        <div class="suggestion-row">
+            <span class="suggestion-label">Try an author</span>
+            <div class="chip-row">
+                {{#each suggestions}}
+                    <a class="chip" href="{{url}}">{{name}}</a>
+                {{/each}}
+            </div>
+        </div>
+    {{/if}}
+</section>
+
+{{#if searched}}
+    <section class="content-section" aria-labelledby="results-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Search results</p>
+                <h2 id="results-heading">Quotes by {{authorQuery}}</h2>
+            </div>
+
+            <span class="badge">{{resultCount}} found</span>
+        </div>
+
+        <div class="quote-grid">
+            {{#each results}}
+                {{> quote-card}}
+            {{else}}
+                <div class="empty-state">
+                    <span class="empty-icon" aria-hidden="true">?</span>
+                    <h3 class="empty-title">No quotes found for author.</h3>
+                    <p class="empty-copy">
+                        No quotes are credited to that exact name yet. Check the spelling,
+                        or try one of the suggested authors above.
+                    </p>
+                    <a class="btn btn-primary" href="/share">Share a quote by them</a>
+                </div>
+            {{/each}}
+        </div>
+    </section>
+{{else}}
+    <div class="prompt-card">
+        <div class="prompt-mark" aria-hidden="true">&ldquo;</div>
+        <div>
+            <h2 class="prompt-title">A name is enough to begin.</h2>
+            <p class="prompt-copy">
+                The collection is organised by the people who said the words.
+                Choose a suggested author or type a name above.
+            </p>
+        </div>
+    </div>
+{{/if}}

@@ -1,0 +1,60 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Workshop 3 · Task 1 + Task 2</p>
+        <h1>Words worth keeping.</h1>
+        <p class="lede">
+            Collect the quotes that stay with you. Every submission is validated,
+            stored in PostgreSQL, and still here after the server restarts.
+            Existing quotes can now be edited or deleted safely.
+        </p>
+
+        <div class="hero-actions">
+            <a class="button" href="/share">Share a quote</a>
+            <a class="button button-ghost" href="/search">Find an author</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="How persistence works">
+        <p class="panel-label">Under the hood</p>
+        <ol class="flow-list">
+            <li><span>1</span> Fastify validates the form</li>
+            <li><span>2</span> Prisma writes the record</li>
+            <li><span>3</span> PostgreSQL keeps it safe</li>
+        </ol>
+        <p class="panel-note">
+            Edit and delete actions use the quote ID, CSRF protection, and
+            Post/Redirect/Get.
+        </p>
+    </aside>
+</section>
+
+{{#if deleted}}
+    <div class="alert alert-success" role="status">
+        <strong>Deleted.</strong> The quote was permanently removed from PostgreSQL.
+    </div>
+{{/if}}
+
+<section class="section" aria-labelledby="recent-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Fresh from the database</p>
+            <h2 id="recent-heading">Recent quotes</h2>
+        </div>
+        <p class="section-note">The ten newest submissions. Use Edit or Delete to manage a record.</p>
+    </div>
+
+    {{#if quotes}}
+        <div class="quote-grid">
+            {{#each quotes}}
+                {{> quote-card}}
+            {{/each}}
+        </div>
+    {{else}}
+        <div class="empty-state">
+            <span class="empty-mark" aria-hidden="true">“</span>
+            <h3>No quotes yet</h3>
+            <p>Be the first to add a line worth remembering.</p>
+            <a class="button" href="/share">Share the first quote</a>
+        </div>
+    {{/if}}
+</section>

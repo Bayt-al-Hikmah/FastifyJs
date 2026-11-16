@@ -1,0 +1,153 @@
+<section class="hero guestbook-hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Open studio · autumn 2026</p>
+        <h1>Leave a line<br><em>in the book.</em></h1>
+        <p class="lead">
+            A guestbook is the simplest form there is: a name, a note, and a
+            server willing to remember both. Sign it below and see your words
+            join the page.
+        </p>
+
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="#sign">Sign the guestbook</a>
+            <a class="btn btn-secondary" href="#entries">Read recent entries</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="Guestbook summary">
+        <p class="panel-kicker">In this book</p>
+        <p class="panel-number">{{totalEntries}}</p>
+        <p class="panel-label">entries, held in memory while the server runs</p>
+
+        <ul class="panel-list">
+            <li>Names: 3–25 characters</li>
+            <li>Notes: up to 200 characters</li>
+            <li>Validated by hand on the server</li>
+        </ul>
+    </aside>
+</section>
+
+{{#if submitted}}
+    <div class="alert alert-success" role="status">
+        <span class="alert-icon" aria-hidden="true">✓</span>
+        <div>
+            <strong>Your note is in the book.</strong>
+            <p>It appears with the newest entries below. Refreshing this page will not submit it again.</p>
+        </div>
+    </div>
+{{/if}}
+
+{{#if formError}}
+    <div class="alert alert-error" role="alert">
+        <span class="alert-icon" aria-hidden="true">!</span>
+        <div>
+            <strong>We could not add that note.</strong>
+            <p>{{formError}}</p>
+        </div>
+    </div>
+{{/if}}
+
+<div class="guestbook-layout">
+    <section class="form-card guestbook-form" id="sign" aria-labelledby="sign-heading">
+        <p class="eyebrow">Add your name</p>
+        <h2 class="form-heading" id="sign-heading">Sign the book</h2>
+
+        <form action="/" method="POST">
+            <div class="form-field">
+                <label for="name">Your name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value="{{values.name}}"
+                    minlength="3"
+                    maxlength="25"
+                    autocomplete="name"
+                    required
+                    aria-describedby="name-hint name-error"
+                    aria-invalid="{{#if errors.name}}true{{else}}false{{/if}}"
+                >
+                <p class="field-hint" id="name-hint">3–25 characters, as you would like it to appear.</p>
+                <p class="field-error" id="name-error" role="alert">{{#if errors.name}}{{errors.name}}{{/if}}</p>
+            </div>
+
+            <div class="form-field">
+                <label for="message">Your note</label>
+                <textarea
+                    id="message"
+                    name="message"
+                    rows="5"
+                    maxlength="200"
+                    required
+                    aria-describedby="message-hint message-error"
+                    aria-invalid="{{#if errors.message}}true{{else}}false{{/if}}"
+                >{{values.message}}</textarea>
+                <p class="field-hint" id="message-hint">Up to 200 characters. Blank notes are rejected.</p>
+                <p class="field-error" id="message-error" role="alert">{{#if errors.message}}{{errors.message}}{{/if}}</p>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Add my note</button>
+                <span class="form-note">Submitted to <code>POST /</code></span>
+            </div>
+        </form>
+    </section>
+
+    <aside class="guestbook-aside" aria-labelledby="how-heading">
+        <p class="eyebrow">Under the hood</p>
+        <h2 id="how-heading">What happens on submit</h2>
+
+        <ol class="steps">
+            <li>
+                <span class="step-number">1</span>
+                <div>
+                    <strong>The browser posts a form.</strong>
+                    <p>Fields are sent as <code>application/x-www-form-urlencoded</code>.</p>
+                </div>
+            </li>
+            <li>
+                <span class="step-number">2</span>
+                <div>
+                    <strong>Fastify parses the body.</strong>
+                    <p><code>@fastify/formbody</code> turns the encoded fields into <code>request.body</code>.</p>
+                </div>
+            </li>
+            <li>
+                <span class="step-number">3</span>
+                <div>
+                    <strong>The route validates.</strong>
+                    <p>Values are trimmed and checked by hand; errors are collected per field.</p>
+                </div>
+            </li>
+            <li>
+                <span class="step-number">4</span>
+                <div>
+                    <strong>The server redirects.</strong>
+                    <p>A valid note is stored and the visitor is sent to <code>/?submitted=1</code>.</p>
+                </div>
+            </li>
+        </ol>
+    </aside>
+</div>
+
+<section class="content-section" id="entries" aria-labelledby="entries-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Recent signatures</p>
+            <h2 id="entries-heading">From the book</h2>
+        </div>
+        <span class="badge">{{totalEntries}} entries</span>
+    </div>
+
+    <div class="guest-list">
+        {{#each entries}}
+            {{> message-card}}
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-icon" aria-hidden="true">✎</span>
+                <h3 class="empty-title">The first page is waiting.</h3>
+                <p class="empty-copy">Sign the book and start the collection.</p>
+            </div>
+        {{/each}}
+    </div>
+</section>

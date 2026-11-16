@@ -1,0 +1,75 @@
+<section class="page-heading">
+    <p class="eyebrow">Manage · record #{{quoteId}}</p>
+    <h1>Edit quote</h1>
+    <p class="lede">
+        Correct the author or the quote text. The update is validated and written
+        through <code>prisma.quote.update()</code>.
+    </p>
+</section>
+
+<div class="form-layout">
+    <form class="card form-card" action="/quotes/{{quoteId}}/edit" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}">
+
+        {{#if updated}}
+            <div class="alert alert-success" role="status">
+                <strong>Updated.</strong> Your changes were saved to PostgreSQL.
+            </div>
+        {{/if}}
+
+        {{#if error}}
+            <div class="alert alert-error" role="alert">
+                <strong>Please check the form.</strong> {{error}}
+            </div>
+        {{/if}}
+
+        <div class="field">
+            <label for="author">Original author</label>
+            <input
+                type="text"
+                id="author"
+                name="author"
+                value="{{values.author}}"
+                minlength="3"
+                maxlength="50"
+                autocomplete="off"
+                required
+            >
+            <p class="field-hint">3–50 characters. Whitespace-only names are rejected.</p>
+        </div>
+
+        <div class="field">
+            <label for="text">Quote</label>
+            <textarea
+                id="text"
+                name="text"
+                rows="7"
+                minlength="1"
+                maxlength="300"
+                required
+            >{{values.text}}</textarea>
+            <p class="field-hint">1–300 characters. Handlebars escapes the text when it is displayed.</p>
+        </div>
+
+        <div class="form-actions">
+            <button class="button" type="submit">Save changes</button>
+            <a class="button button-ghost" href="/">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-panel">
+        <h2>Safe updates</h2>
+        <ul class="check-list">
+            <li>The CSRF token is verified before the write.</li>
+            <li>Invalid input redisplays the form with the entered values.</li>
+            <li>A missing row returns a 404 page, not a database error.</li>
+            <li>Successful updates redirect with status 303.</li>
+        </ul>
+
+        <div class="danger-zone">
+            <h3>Delete this quote</h3>
+            <p>Deletion opens a confirmation page before anything is removed.</p>
+            <a class="button button-danger button-full" href="/quotes/{{quoteId}}/delete">Review deletion</a>
+        </div>
+    </aside>
+</div>

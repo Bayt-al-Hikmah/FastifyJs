@@ -1,0 +1,43 @@
+{
+    "name": "w3-task2-quote-management",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Workshop 3 Task 2: quote management with edit, delete, and 404 handling",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit",
+        "db:generate": "prisma generate",
+        "db:migrate": "prisma migrate dev",
+        "db:deploy": "prisma migrate deploy",
+        "db:studio": "prisma studio"
+    },
+    "dependencies": {
+        "@fastify/cookie": "^11.1.5",
+        "@fastify/csrf-protection": "^8.0.2",
+        "@fastify/formbody": "^9.0.2",
+        "@fastify/static": "^10.1.11",
+        "@fastify/view": "^12.0.1",
+        "@prisma/adapter-pg": "^7.10.1",
+        "@prisma/client": "^7.10.1",
+        "dotenv": "^18.0.10",
+        "fastify": "^5.12.8",
+        "fastify-plugin": "^6.0.1",
+        "handlebars": "^4.7.10",
+        "pg": "^8.23.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "@types/pg": "^8.23.1",
+        "prisma": "^7.10.1",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    },
+    "allowScripts": {
+        "prisma@7.10.1": true,
+        "@prisma/engines@7.10.1": true,
+        "esbuild@0.28.2": true
+    }
+}

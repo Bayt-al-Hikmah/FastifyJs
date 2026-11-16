@@ -1,0 +1,31 @@
+<nav class="pagination" aria-label="Quote pages">
+    {{#if pagination.previousUrl}}
+        <a class="page-link" href="{{pagination.previousUrl}}" rel="prev">Previous</a>
+    {{else}}
+        <span class="page-link is-disabled" aria-disabled="true">Previous</span>
+    {{/if}}
+
+    {{#if pagination.showFirst}}
+        <a class="page-link" href="{{pagination.firstUrl}}">1</a>
+        <span class="page-ellipsis" aria-hidden="true">…</span>
+    {{/if}}
+
+    {{#each pagination.pages}}
+        <a
+            class="page-link{{#if active}} is-active{{/if}}"
+            href="{{url}}"
+            {{#if active}}aria-current="page"{{/if}}
+        >{{number}}</a>
+    {{/each}}
+
+    {{#if pagination.showLast}}
+        <span class="page-ellipsis" aria-hidden="true">…</span>
+        <a class="page-link" href="{{pagination.lastUrl}}">{{pagination.totalPages}}</a>
+    {{/if}}
+
+    {{#if pagination.nextUrl}}
+        <a class="page-link" href="{{pagination.nextUrl}}" rel="next">Next</a>
+    {{else}}
+        <span class="page-link is-disabled" aria-disabled="true">Next</span>
+    {{/if}}
+</nav>

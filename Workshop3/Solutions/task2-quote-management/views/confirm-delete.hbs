@@ -1,0 +1,31 @@
+<p class="breadcrumb"><a href="/">Recent quotes</a> <span aria-hidden="true">/</span> Delete quote #{{quote.id}}</p>
+
+<section class="detail-grid">
+    <article class="card detail-card">
+        <span class="quote-mark" aria-hidden="true">“</span>
+        <blockquote class="detail-quote">{{quote.text}}</blockquote>
+        <p class="quote-author">— {{quote.author}}</p>
+
+        <p class="muted">
+            Submitted {{formatDate quote.createdAt}}. Last updated
+            {{formatDate quote.updatedAt}}.
+        </p>
+    </article>
+
+    <aside class="card side-panel">
+        <h2>Confirm deletion</h2>
+        <p>
+            This permanently removes quote #{{quote.id}} from PostgreSQL. The
+            action cannot be undone.
+        </p>
+
+        <form action="/quotes/{{quote.id}}/delete" method="POST">
+            <input type="hidden" name="_csrf" value="{{csrfToken}}">
+            <button class="button button-danger button-full" type="submit">Yes, delete this quote</button>
+        </form>
+
+        <div class="hero-actions">
+            <a class="button button-ghost" href="/">Keep the quote</a>
+        </div>
+    </aside>
+</section>

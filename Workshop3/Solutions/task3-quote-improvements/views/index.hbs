@@ -1,0 +1,131 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Workshop 3 · Task 3</p>
+        <h1>A living library of lasting words.</h1>
+        <p class="lede">
+            Browse a growing collection with pagination, date filters, category
+            badges, and flexible sorting. Every view is powered directly by
+            PostgreSQL through Prisma.
+        </p>
+
+        <div class="hero-actions">
+            <a class="button" href="/share">Share a quote</a>
+            <a class="button button-ghost" href="/search">Search authors</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="Task 3 improvements">
+        <p class="panel-label">What is new</p>
+        <ul class="check-list">
+            <li>Offset pagination with preserved filters</li>
+            <li>Submission-date range filtering</li>
+            <li>Sorting by author or date</li>
+            <li>Partial, case-insensitive author search</li>
+            <li>A category column with its own migration</li>
+        </ul>
+    </aside>
+</section>
+
+{{#if deleted}}
+    <div class="alert alert-success" role="status">
+        <strong>Deleted.</strong> The quote was permanently removed from PostgreSQL.
+    </div>
+{{/if}}
+
+<section class="section" aria-labelledby="collection-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Browse</p>
+            <h2 id="collection-heading">The collection</h2>
+        </div>
+        <p class="section-note">
+            {{pagination.totalQuotes}} quote(s) match · page {{pagination.page}} of {{pagination.totalPages}}
+        </p>
+    </div>
+
+    <form class="card filter-bar filter-bar-wide" action="/" method="GET">
+        <div class="field field-inline">
+            <label for="author-filter">Author contains</label>
+            <input
+                type="text"
+                id="author-filter"
+                name="author"
+                value="{{filters.author}}"
+                maxlength="50"
+                placeholder="e.g. Aurel"
+                autocomplete="off"
+            >
+        </div>
+
+        <div class="field field-inline">
+            <label for="category-filter">Category</label>
+            <select id="category-filter" name="category">
+                <option value="">All categories</option>
+                {{#each categories}}
+                    <option value="{{this}}" {{#if (eq this ../filters.category)}}selected{{/if}}>{{this}}</option>
+                {{/each}}
+            </select>
+        </div>
+
+        <div class="field field-inline">
+            <label for="from-filter">Submitted from</label>
+            <input type="date" id="from-filter" name="from" value="{{filters.from}}">
+        </div>
+
+        <div class="field field-inline">
+            <label for="to-filter">Submitted to</label>
+            <input type="date" id="to-filter" name="to" value="{{filters.to}}">
+        </div>
+
+        <div class="field field-inline">
+            <label for="sort-filter">Sort by</label>
+            <select id="sort-filter" name="sort">
+                <option value="newest" {{#if (eq filters.sort "newest")}}selected{{/if}}>Newest first</option>
+                <option value="oldest" {{#if (eq filters.sort "oldest")}}selected{{/if}}>Oldest first</option>
+                <option value="author-asc" {{#if (eq filters.sort "author-asc")}}selected{{/if}}>Author A–Z</option>
+                <option value="author-desc" {{#if (eq filters.sort "author-desc")}}selected{{/if}}>Author Z–A</option>
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button class="button" type="submit">Apply filters</button>
+            <a class="button button-ghost" href="/">Reset</a>
+        </div>
+    </form>
+
+    {{#if filtered}}
+        <div class="result-summary">
+            <strong>Active filters:</strong>
+            {{#if filters.author}}<span class="badge">Author: {{filters.author}}</span>{{/if}}
+            {{#if filters.category}}<span class="badge">Category: {{filters.category}}</span>{{/if}}
+            {{#if filters.from}}<span class="badge">From: {{filters.from}}</span>{{/if}}
+            {{#if filters.to}}<span class="badge">To: {{filters.to}}</span>{{/if}}
+            {{#if (eq filters.sort "oldest")}}<span class="badge">Oldest first</span>{{/if}}
+            {{#if (eq filters.sort "author-asc")}}<span class="badge">Author A–Z</span>{{/if}}
+            {{#if (eq filters.sort "author-desc")}}<span class="badge">Author Z–A</span>{{/if}}
+        </div>
+    {{/if}}
+
+    {{#if quotes}}
+        <div class="quote-grid">
+            {{#each quotes}}
+                {{> quote-card}}
+            {{/each}}
+        </div>
+
+        {{> pagination}}
+    {{else}}
+        <div class="empty-state">
+            <span class="empty-mark" aria-hidden="true">“</span>
+            {{#if filtered}}
+                <h3>No quotes match these filters</h3>
+                <p>Try a shorter author fragment, a wider date range, or another category.</p>
+                <a class="button button-ghost" href="/">Clear all filters</a>
+            {{else}}
+                <h3>The library is empty</h3>
+                <p>Share the first quote and it will appear here immediately.</p>
+                <a class="button" href="/share">Share a quote</a>
+            {{/if}}
+        </div>
+    {{/if}}
+</section>

@@ -1,0 +1,25 @@
+<article class="article-shell">
+    <header class="article-header">
+        <a class="text-link" href="/">← Back to the notebook</a>
+        <p class="eyebrow article-topic">{{note.topic}}</p>
+        <h1>{{note.title}}</h1>
+        <p class="lead">{{note.excerpt}}</p>
+
+        <div class="article-meta">
+            <span class="note-date">{{note.publishedAt}}</span>
+            <span class="meta-dot" aria-hidden="true">·</span>
+            <span class="note-time">{{note.readMinutes}} min read</span>
+        </div>
+    </header>
+
+    <div class="article-body">
+        {{#each note.body}}
+            <p>{{this}}</p>
+        {{/each}}
+    </div>
+
+    <footer class="article-footer">
+        <p>If this note was useful, keep the sentence that stayed with you.</p>
+        <a class="btn btn-secondary" href="/">Return to the notebook</a>
+    </footer>
+</article>

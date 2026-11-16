@@ -1,0 +1,97 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Role {
+    USER
+    ADMIN
+}
+
+enum EventCategory {
+    TECHNOLOGY
+    EDUCATION
+    ART
+    COMMUNITY
+    SPORTS
+    OTHER
+}
+
+enum EventStatus {
+    DRAFT
+    PUBLISHED
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    username     String   @unique @db.VarChar(40)
+    email        String   @unique @db.VarChar(254)
+    passwordHash String   @map("password_hash") @db.VarChar(255)
+    role         Role     @default(USER)
+
+    events        Event[]             @relation("EventOrganizer")
+    registrations EventRegistration[]
+
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    @@map("users")
+}
+
+model Event {
+    id              Int           @id @default(autoincrement())
+    title           String        @db.VarChar(120)
+    description     String        @db.Text
+    location        String        @db.VarChar(160)
+    startsAt        DateTime      @map("starts_at") @db.Timestamptz(6)
+    capacity        Int
+    registeredCount Int           @default(0) @map("registered_count")
+    category        EventCategory @default(OTHER)
+    status          EventStatus   @default(DRAFT)
+
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    organizerId Int   @map("organizer_id")
+    organizer   User  @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+
+    registrations EventRegistration[]
+    cover         EventCover?
+
+    @@index([organizerId])
+    @@index([status, startsAt])
+    @@map("events")
+}
+
+model EventRegistration {
+    userId Int @map("user_id")
+    eventId Int @map("event_id")
+
+    registeredAt DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
+
+    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+    event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+    @@id([userId, eventId])
+    @@index([eventId])
+    @@map("event_registrations")
+}
+
+model EventCover {
+    id           Int      @id @default(autoincrement())
+    storageName  String   @unique @map("storage_name") @db.VarChar(255)
+    originalName String   @map("original_name") @db.VarChar(180)
+    mimeType     String   @map("mime_type") @db.VarChar(100)
+    sizeBytes    Int      @map("size_bytes")
+
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+    eventId Int   @unique @map("event_id")
+    event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+    @@map("event_covers")
+}

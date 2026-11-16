@@ -1,0 +1,59 @@
+<p class="breadcrumb"><a href="/">Library</a> <span aria-hidden="true">/</span> Quote #{{quote.id}}</p>
+
+{{#if created}}
+    <div class="alert alert-success" role="status">
+        <strong>Created.</strong> The new quote is stored in PostgreSQL.
+    </div>
+{{/if}}
+
+{{#if updated}}
+    <div class="alert alert-success" role="status">
+        <strong>Updated.</strong> Your changes were saved.
+    </div>
+{{/if}}
+
+<section class="detail-grid">
+    <article class="card detail-card">
+        <span class="quote-mark" aria-hidden="true">“</span>
+        <blockquote class="detail-quote">{{quote.text}}</blockquote>
+        <p class="quote-author">— {{quote.author}}</p>
+
+        <div class="hero-actions">
+            <a class="button" href="/quotes/{{quote.id}}/edit">Edit quote</a>
+            <a class="button button-ghost" href="/">Back to library</a>
+        </div>
+    </article>
+
+    <aside class="card side-panel">
+        <h2>Record details</h2>
+
+        <dl class="meta-list">
+            <div>
+                <dt>ID</dt>
+                <dd>{{quote.id}}</dd>
+            </div>
+            <div>
+                <dt>Created</dt>
+                <dd>{{formatDate quote.createdAt}}</dd>
+            </div>
+            <div>
+                <dt>Last updated</dt>
+                <dd>{{formatDate quote.updatedAt}}</dd>
+            </div>
+        </dl>
+
+        <div class="danger-zone">
+            <h3>Delete this quote</h3>
+            <p>This permanently removes the row. The action cannot be undone.</p>
+
+            <form
+                action="/quotes/{{quote.id}}/delete"
+                method="POST"
+                onsubmit="return confirm('Delete this quote permanently?');"
+            >
+                <input type="hidden" name="_csrf" value="{{csrfToken}}">
+                <button class="button button-danger button-full" type="submit">Delete quote</button>
+            </form>
+        </div>
+    </aside>
+</section>

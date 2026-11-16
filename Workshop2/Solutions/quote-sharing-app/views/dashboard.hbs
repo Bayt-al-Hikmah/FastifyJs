@@ -1,0 +1,106 @@
+<section class="page-intro">
+    <p class="eyebrow">Live overview</p>
+    <h1>Dashboard</h1>
+    <p class="lead">
+        A quick look at the quote collection. Because everything lives in memory,
+        the current-run counter starts again whenever the server restarts.
+    </p>
+</section>
+
+<section class="stats-grid" aria-label="Collection statistics">
+    <article class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path>
+            </svg>
+        </span>
+        <p class="stat-value">{{stats.totalQuotes}}</p>
+        <h2 class="stat-label">Total quotes</h2>
+        <p class="stat-note">Every quote currently held in memory.</p>
+    </article>
+
+    <article class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        </span>
+        <p class="stat-value">{{stats.distinctAuthors}}</p>
+        <h2 class="stat-label">Distinct authors</h2>
+        <p class="stat-note">Names are compared without regard to case.</p>
+    </article>
+
+    <article class="stat-card stat-card-accent">
+        <span class="stat-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v4"></path>
+                <path d="m16.2 7.8 2.9-2.9"></path>
+                <path d="M18 12h4"></path>
+                <path d="m16.2 16.2 2.9 2.9"></path>
+                <path d="M12 18v4"></path>
+                <path d="m4.9 19.1 2.9-2.9"></path>
+                <path d="M2 12h4"></path>
+                <path d="m4.9 4.9 2.9 2.9"></path>
+            </svg>
+        </span>
+        <p class="stat-value">{{stats.submittedThisRun}}</p>
+        <h2 class="stat-label">This server run</h2>
+        <p class="stat-note">Quotes submitted since the process started.</p>
+    </article>
+</section>
+
+<div class="dashboard-grid">
+    <section class="panel" aria-labelledby="leaderboard-heading">
+        <div class="section-heading section-heading-compact">
+            <div>
+                <p class="eyebrow">Most quoted</p>
+                <h2 id="leaderboard-heading">Author leaderboard</h2>
+            </div>
+        </div>
+
+        {{#if leaderboard}}
+            <ol class="leaderboard">
+                {{#each leaderboard}}
+                    <li class="leaderboard-item">
+                        <span class="leader-name">{{name}}</span>
+                        <span class="badge badge-muted">{{count}} {{countLabel}}</span>
+                    </li>
+                {{/each}}
+            </ol>
+        {{else}}
+            <div class="mini-empty">
+                <p>No authors yet. The leaderboard appears after the first quote.</p>
+            </div>
+        {{/if}}
+    </section>
+
+    <section class="panel" aria-labelledby="recent-heading">
+        <div class="section-heading section-heading-compact">
+            <div>
+                <p class="eyebrow">Most recent</p>
+                <h2 id="recent-heading">Latest activity</h2>
+            </div>
+
+            <a class="text-link" href="/">View all</a>
+        </div>
+
+        {{#if hasQuotes}}
+            <div class="mini-quote-list">
+                {{#each latestQuotes}}
+                    <article class="mini-quote">
+                        <p class="mini-quote-text">{{text}}</p>
+                        <p class="mini-quote-meta">{{author}} · {{submittedAt}}</p>
+                    </article>
+                {{/each}}
+            </div>
+        {{else}}
+            <div class="mini-empty">
+                <p>Nothing here yet. <a class="text-link" href="/share">Share the first quote</a>.</p>
+            </div>
+        {{/if}}
+    </section>
+</div>

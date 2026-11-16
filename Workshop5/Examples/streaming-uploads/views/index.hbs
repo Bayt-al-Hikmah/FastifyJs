@@ -1,0 +1,213 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Workshop 5 · Node.js streams</p>
+        <h1>Watch every byte<br><em>arrive.</em></h1>
+        <p class="lead">
+            The browser reports upload progress while the server pipes the
+            multipart stream through a metering Transform, updates a SHA-256
+            hash, and writes the file to private storage. Nothing is buffered in
+            memory.
+        </p>
+
+        <div class="pipeline-flow" aria-label="Upload pipeline">
+            <span>multipart</span>
+            <i aria-hidden="true">→</i>
+            <span>meter</span>
+            <i aria-hidden="true">→</i>
+            <span>sha-256</span>
+            <i aria-hidden="true">→</i>
+            <span>signature</span>
+            <i aria-hidden="true">→</i>
+            <span>object</span>
+        </div>
+    </div>
+
+    <aside class="stat-panel" aria-label="Stream lab summary">
+        <div class="stat-grid">
+            <div class="stat">
+                <p class="stat-label">Objects</p>
+                <p class="stat-value" id="stat-count">{{stats.count}}</p>
+            </div>
+
+            <div class="stat">
+                <p class="stat-label">Stored</p>
+                <p class="stat-value stat-value-small" id="stat-size">{{stats.totalSize}}</p>
+            </div>
+
+            <div class="stat">
+                <p class="stat-label">Limit</p>
+                <p class="stat-value stat-value-small">10 MB</p>
+            </div>
+
+            <div class="stat">
+                <p class="stat-label">Digest</p>
+                <p class="stat-value stat-value-small">SHA-256</p>
+            </div>
+        </div>
+
+        <p class="panel-note">
+            Metadata lives in memory. The binary objects live in
+            <code>var/uploads/objects</code> and are never served statically.
+        </p>
+    </aside>
+</section>
+
+<section class="lab-grid" id="upload" aria-labelledby="upload-heading">
+    <div class="card upload-console">
+        <header class="card-header">
+            <div>
+                <p class="eyebrow">New stream</p>
+                <h2 id="upload-heading">Send a file through the meter</h2>
+            </div>
+            <span class="card-tag">POST /api/uploads</span>
+        </header>
+
+        <div class="dropzone" id="dropzone">
+            <input
+                class="file-input"
+                id="file-input"
+                type="file"
+                accept=".png,.jpg,.jpeg,.pdf,.txt"
+            >
+
+            <span class="dropzone-icon" aria-hidden="true">
+                <span class="ring"></span>
+                <span class="arrow">↑</span>
+            </span>
+
+            <span class="dropzone-title" id="dropzone-title">
+                Drop a file or click to browse
+            </span>
+            <span class="dropzone-hint">
+                PNG, JPEG, PDF, or TXT · maximum 10 MB
+            </span>
+        </div>
+
+        <div class="selection" id="selection" hidden>
+            <span class="selection-dot" aria-hidden="true"></span>
+            <span class="selection-name" id="selection-name"></span>
+            <span class="selection-size" id="selection-size"></span>
+        </div>
+
+        <div class="progress-panel" id="progress-panel" hidden>
+            <div class="progress-top">
+                <span id="progress-label">Uploading</span>
+                <span class="progress-percent" id="progress-percent">0%</span>
+            </div>
+
+            <div
+                class="progress-track"
+                id="progress-track"
+                role="progressbar"
+                aria-label="Upload progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+            >
+                <span class="progress-bar" id="progress-bar"></span>
+            </div>
+
+            <p class="progress-meta" id="progress-meta">0 B of 0 B</p>
+        </div>
+
+        <div class="result-panel" id="result-panel" hidden>
+            <div class="result-head">
+                <span class="result-check" aria-hidden="true">✓</span>
+                <div>
+                    <strong id="result-title">Upload verified</strong>
+                    <p id="result-meta"></p>
+                </div>
+            </div>
+
+            <div class="result-checksum">
+                <span class="checksum-label">SHA-256</span>
+                <code id="result-checksum"></code>
+                <button
+                    class="copy-button"
+                    id="result-copy"
+                    type="button"
+                    data-copy-label="digest"
+                >Copy</button>
+            </div>
+        </div>
+
+        <p class="upload-error" id="upload-error" role="alert" hidden></p>
+
+        <div class="console-footer">
+            <p class="console-note">
+                The meter aborts the pipeline the moment the byte counter crosses
+                10 MB. The partial file is removed before the response is sent.
+            </p>
+
+            <button class="btn btn-primary" id="upload-button" type="button" disabled>
+                Stream upload
+            </button>
+        </div>
+    </div>
+
+    <aside class="card pipeline-card" aria-labelledby="pipeline-heading">
+        <p class="eyebrow">Under the hood</p>
+        <h2 id="pipeline-heading">One pass, four jobs</h2>
+
+        <ol class="step-list">
+            <li>
+                <strong>Parse</strong>
+                <span><code>request.file()</code> exposes the file as a readable stream.</span>
+            </li>
+            <li>
+                <strong>Meter</strong>
+                <span>A Transform counts bytes and throws at 10 MB + 1.</span>
+            </li>
+            <li>
+                <strong>Hash</strong>
+                <span>The same Transform updates a SHA-256 digest chunk by chunk.</span>
+            </li>
+            <li>
+                <strong>Verify</strong>
+                <span><code>file-type</code> reads the stored signature before the object is kept.</span>
+            </li>
+            <li>
+                <strong>Finalise</strong>
+                <span>A UUID-named object is moved into private storage and its metadata saved.</span>
+            </li>
+        </ol>
+
+        <div class="aside-note">
+            <p class="aside-note-title">Streaming vs buffering</p>
+            <p>
+                <code>toBuffer()</code> would hold the whole file in memory.
+                <code>pipeline()</code> keeps only the current chunk in flight,
+                which is what makes concurrent large uploads survivable.
+            </p>
+        </div>
+    </aside>
+</section>
+
+<section class="uploads-section" id="uploads" aria-labelledby="uploads-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Stored objects</p>
+            <h2 id="uploads-heading">Recent streams</h2>
+        </div>
+
+        <p class="section-count" id="list-count">
+            {{stats.count}} objects · {{stats.totalSize}}
+        </p>
+    </div>
+
+    <div class="upload-list" id="upload-list">
+        {{#each uploads}}
+            {{> upload-card}}
+        {{else}}
+            <div class="empty-state" id="empty-state">
+                <span class="empty-icon" aria-hidden="true">∅</span>
+                <h3>No objects yet</h3>
+                <p>
+                    Send a small image, PDF, or text file. The checksum and byte
+                    count appear here as soon as the stream finishes.
+                </p>
+                <a class="btn btn-secondary" href="#upload">Start the first stream</a>
+            </div>
+        {{/each}}
+    </div>
+</section>

@@ -1,0 +1,74 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">A small commonplace book</p>
+        <h1>Notes worth<br><em>returning to.</em></h1>
+        <p class="lead">
+            Short observations on design, engineering, and the craft of paying
+            attention. Every note is rendered by Handlebars from an in-memory
+            collection.
+        </p>
+
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="#notes">Browse the notebook</a>
+            <a class="btn btn-secondary" href="/about">What is this?</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="Notebook summary">
+        <p class="panel-kicker">The notebook</p>
+        <p class="panel-number">{{totalNotes}}</p>
+        <p class="panel-label">notes across {{topics.length}} topics</p>
+
+        <ul class="panel-list">
+            <li>{{totalMinutes}} minutes of reading in total</li>
+            <li>Newest note first</li>
+            <li>Rendered with layouts, partials, and loops</li>
+        </ul>
+    </aside>
+</section>
+
+{{#if featuredNote}}
+    <section class="featured-note" aria-labelledby="featured-heading">
+        <div class="featured-copy">
+            <p class="eyebrow">Featured note</p>
+            <h2 id="featured-heading">{{featuredNote.title}}</h2>
+            <p class="lead">{{featuredNote.excerpt}}</p>
+
+            <div class="featured-meta">
+                <span class="topic-chip">{{featuredNote.topic}}</span>
+                <span class="note-date">{{featuredNote.publishedAt}} · {{featuredNote.readMinutes}} min read</span>
+            </div>
+
+            <a class="btn btn-primary" href="/notes/{{featuredNote.id}}">Read the note</a>
+        </div>
+
+        <div class="featured-mark" aria-hidden="true">“</div>
+    </section>
+{{/if}}
+
+<section class="content-section" id="notes" aria-labelledby="notes-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Recent entries</p>
+            <h2 id="notes-heading">From the notebook</h2>
+        </div>
+
+        <div class="chip-row">
+            {{#each topics}}
+                <span class="chip">{{this}}</span>
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="note-grid">
+        {{#each notes}}
+            {{> note-card}}
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-icon" aria-hidden="true">✎</span>
+                <h3 class="empty-title">The notebook is empty.</h3>
+                <p class="empty-copy">There are no notes to show yet.</p>
+            </div>
+        {{/each}}
+    </div>
+</section>

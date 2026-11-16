@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="A complete quote CRUD example built with Fastify, Prisma, and Handlebars.">
+        <title>{{title}} · {{appName}}</title>
+        <link rel="stylesheet" href="/assets/styles.css">
+    </head>
+    <body>
+        <a class="skip-link" href="#main-content">Skip to content</a>
+
+        <header class="site-header">
+            <div class="shell header-inner">
+                <a class="brand" href="/" aria-label="Quote Library home">
+                    <span class="brand-mark" aria-hidden="true">“</span>
+                    <span>{{appName}}</span>
+                </a>
+
+                <nav class="site-nav" aria-label="Main navigation">
+                    <a href="/">Library</a>
+                    <a class="button button-small" href="/quotes/new">New quote</a>
+                </nav>
+            </div>
+        </header>
+
+        <main id="main-content" class="shell page">
+            {{{body}}}
+        </main>
+
+        <footer class="site-footer">
+            <div class="shell footer-inner">
+                <p>Workshop 3 example · Fastify 5 · Prisma 7 · PostgreSQL</p>
+                <p>&copy; {{currentYear}} Quote Library</p>
+            </div>
+        </footer>
+    </body>
+</html>

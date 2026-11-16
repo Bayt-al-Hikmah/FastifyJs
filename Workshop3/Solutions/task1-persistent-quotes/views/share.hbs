@@ -1,0 +1,70 @@
+<section class="page-heading">
+    <p class="eyebrow">Add to the collection</p>
+    <h1>Share a quote</h1>
+    <p class="lede">
+        Credit the original author and keep the wording intact. Both fields are
+        validated on the server before anything is written to the database.
+    </p>
+</section>
+
+<div class="form-layout">
+    <form class="card form-card" action="/share" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}">
+
+        {{#if submitted}}
+            <div class="alert alert-success" role="status">
+                <strong>Saved.</strong> Your quote is now stored in PostgreSQL.
+            </div>
+        {{/if}}
+
+        {{#if error}}
+            <div class="alert alert-error" role="alert">
+                <strong>Please check the form.</strong> {{error}}
+            </div>
+        {{/if}}
+
+        <div class="field">
+            <label for="author">Original author</label>
+            <input
+                type="text"
+                id="author"
+                name="author"
+                value="{{values.author}}"
+                minlength="3"
+                maxlength="50"
+                autocomplete="off"
+                required
+            >
+            <p class="field-hint">Between 3 and 50 characters. Whitespace-only names are rejected.</p>
+        </div>
+
+        <div class="field">
+            <label for="text">Quote</label>
+            <textarea
+                id="text"
+                name="text"
+                rows="7"
+                minlength="1"
+                maxlength="300"
+                required
+            >{{values.text}}</textarea>
+            <p class="field-hint">Between 1 and 300 characters. The text is HTML-escaped when displayed.</p>
+        </div>
+
+        <button class="button button-full" type="submit">Store quote</button>
+    </form>
+
+    <aside class="card side-panel">
+        <h2>What happens next?</h2>
+        <ul class="check-list">
+            <li>The CSRF token is verified.</li>
+            <li>Author and quote text are trimmed and validated.</li>
+            <li>Prisma inserts one row into the <code>Quote</code> table.</li>
+            <li>The browser is redirected with Post/Redirect/Get.</li>
+        </ul>
+        <p class="muted">
+            Try submitting only spaces: the JSON Schema pattern rejects it before
+            the database is touched.
+        </p>
+    </aside>
+</div>

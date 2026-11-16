@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Workshop 5 task 3: private image attachments with sharp-generated thumbnails.">
+    <title>Thumbnail Studio · Workshop 5</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+
+<body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+        <div class="topbar">
+            <a class="brand" href="/app/" aria-label="Thumbnail Studio home">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" role="img">
+                        <rect x="3" y="3" width="26" height="26" rx="8" fill="currentColor"></rect>
+                        <circle cx="11" cy="11" r="3.2" fill="#f7faf6"></circle>
+                        <path d="M7 23l6.5-7 4.2 4.4 3.1-3.2L25 23z" fill="#f7faf6"></path>
+                    </svg>
+                </span>
+                <span class="brand-text">
+                    <span class="brand-name">Thumbnail Studio</span>
+                    <span class="brand-tagline">Workshop 5 · Task 3</span>
+                </span>
+            </a>
+
+            <div class="header-actions">
+                <span class="user-chip" id="user-chip" hidden>
+                    <span class="user-dot" aria-hidden="true"></span>
+                    <span id="user-name">Signed in</span>
+                </span>
+                <button class="btn btn-ghost" id="logout-button" type="button" hidden>
+                    Sign out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="page" id="main-content">
+
+        <section class="auth-view" id="auth-view">
+            <div class="auth-copy">
+                <p class="eyebrow">Private image pipeline</p>
+                <h1>Originals stay safe.<br><em>Previews stay small.</em></h1>
+                <p class="lead">
+                    Upload a JPEG or PNG to a task. The server validates the real file signature,
+                    stores the original behind authentication, and generates a metadata-free
+                    thumbnail that is never larger than 300 pixels wide.
+                </p>
+
+                <div class="auth-facts">
+                    <article class="fact">
+                        <span class="fact-number">300 px</span>
+                        <span class="fact-label">maximum thumbnail width</span>
+                    </article>
+                    <article class="fact">
+                        <span class="fact-number">24 MP</span>
+                        <span class="fact-label">decoder pixel ceiling</span>
+                    </article>
+                    <article class="fact">
+                        <span class="fact-number">10 MB</span>
+                        <span class="fact-label">per-file upload limit</span>
+                    </article>
+                </div>
+
+                <p class="fine-print">
+                    Files are written to private directories under <code>var/uploads</code>.
+                    Nothing in the upload tree is served statically.
+                </p>
+            </div>
+
+            <div class="auth-card panel">
+                <div class="auth-tabs" role="tablist" aria-label="Account access">
+                    <button class="auth-tab is-active" type="button" role="tab" aria-selected="true" data-auth-tab="login">
+                        Sign in
+                    </button>
+                    <button class="auth-tab" type="button" role="tab" aria-selected="false" data-auth-tab="register">
+                        Create account
+                    </button>
+                </div>
+
+                <form class="stack" id="login-form">
+                    <div class="field">
+                        <label for="login-email">Email address</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="Your password">
+                    </div>
+                    <button class="btn btn-primary btn-block" type="submit">Enter the studio</button>
+                    <p class="form-note">Access tokens last 15 minutes and are held in this browser.</p>
+                </form>
+
+                <form class="stack" id="register-form" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" placeholder="Ada Lovelace">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email address</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" required minlength="15" maxlength="128" placeholder="At least 15 characters">
+                        <span class="field-hint">Use at least 15 characters. This is enforced by the API.</span>
+                    </div>
+                    <button class="btn btn-primary btn-block" type="submit">Create account</button>
+                    <p class="form-note">You will be signed in automatically after registration.</p>
+                </form>
+            </div>
+        </section>
+
+        <section class="dashboard-view" id="dashboard-view" hidden>
+            <div class="dashboard-grid">
+                <aside class="sidebar">
+                    <section class="panel create-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">Workbench</p>
+                                <h2>New task</h2>
+                            </div>
+                        </div>
+                        <form class="stack" id="create-task-form">
+                            <div class="field">
+                                <label for="task-title">Title</label>
+                                <input id="task-title" name="title" type="text" required minlength="1" maxlength="120" placeholder="Design review screenshots">
+                            </div>
+                            <div class="field">
+                                <label for="task-description">Description <span class="optional">optional</span></label>
+                                <textarea id="task-description" name="description" rows="3" maxlength="1000" placeholder="What are these files for?"></textarea>
+                            </div>
+                            <button class="btn btn-primary btn-block" type="submit">Create task</button>
+                        </form>
+                    </section>
+
+                    <section class="panel task-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">Library</p>
+                                <h2>Your tasks</h2>
+                            </div>
+                            <span class="count" id="task-count">0</span>
+                        </div>
+                        <ul class="task-list" id="task-list"></ul>
+                        <p class="empty-note" id="no-tasks" hidden>No tasks yet. Create one to start uploading images.</p>
+                    </section>
+                </aside>
+
+                <div class="workspace">
+                    <section class="panel empty-workspace" id="empty-workspace">
+                        <span class="empty-icon" aria-hidden="true">⌁</span>
+                        <h2>Select a task</h2>
+                        <p>Choose a task from the library, or create a new one, to upload and preview image attachments.</p>
+                    </section>
+
+                    <section class="task-workspace" id="task-workspace" hidden>
+                        <header class="panel task-header">
+                            <div class="task-header-main">
+                                <p class="eyebrow">Task workspace</p>
+                                <h2 id="task-title"></h2>
+                                <p class="task-description" id="task-description"></p>
+                                <div class="task-meta">
+                                    <span class="badge" id="task-status"></span>
+                                    <span id="task-created"></span>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger-ghost" id="delete-task-button" type="button">
+                                Delete task
+                            </button>
+                        </header>
+
+                        <div class="feature-grid">
+                            <article class="feature-card">
+                                <span class="feature-label">Thumbnail</span>
+                                <strong>300 px max</strong>
+                                <p>Aspect ratio is preserved and smaller images are never enlarged.</p>
+                            </article>
+                            <article class="feature-card">
+                                <span class="feature-label">Decoder guard</span>
+                                <strong>24 MP</strong>
+                                <p>Oversized images are rejected before a full decode is allowed.</p>
+                            </article>
+                            <article class="feature-card">
+                                <span class="feature-label">Metadata</span>
+                                <strong>Stripped</strong>
+                                <p>Thumbnails are re-encoded, dropping EXIF and other ancillary data.</p>
+                            </article>
+                        </div>
+
+                        <section class="panel upload-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">Add image</p>
+                                    <h2>Upload an original</h2>
+                                </div>
+                                <span class="pill">JPEG · PNG</span>
+                            </div>
+
+                            <form class="upload-form" id="upload-form">
+                                <label class="dropzone" id="dropzone" for="file-input">
+                                    <span class="dropzone-icon" aria-hidden="true">＋</span>
+                                    <span class="dropzone-title" id="dropzone-title">Drop a JPEG or PNG here</span>
+                                    <span class="dropzone-hint" id="dropzone-hint">or browse your device · maximum 10 MB</span>
+                                    <input class="visually-hidden" id="file-input" name="file" type="file" accept="image/jpeg,image/png">
+                                </label>
+                                <div class="upload-actions">
+                                    <button class="btn btn-primary" id="upload-button" type="submit" disabled>
+                                        Upload and generate thumbnail
+                                    </button>
+                                    <p class="upload-status" id="upload-status" hidden></p>
+                                </div>
+                            </form>
+                        </section>
+
+                        <section class="panel attachments-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">Stored privately</p>
+                                    <h2>Attachments</h2>
+                                </div>
+                                <span class="count" id="attachment-count">0</span>
+                            </div>
+
+                            <div class="attachment-grid" id="attachment-grid"></div>
+                            <p class="empty-note" id="no-attachments" hidden>
+                                No images yet. Upload one to see its generated thumbnail and metadata.
+                            </p>
+                        </section>
+                    </section>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 5 · Task 3 · sharp image processing</span>
+        <span>Originals and thumbnails live outside the web root.</span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+
+</html>

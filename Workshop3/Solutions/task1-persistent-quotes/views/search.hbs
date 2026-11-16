@@ -1,0 +1,53 @@
+<section class="page-heading">
+    <p class="eyebrow">Find an original voice</p>
+    <h1>Search by author</h1>
+    <p class="lede">
+        Matching is case-insensitive and exact, so “albert einstein” finds quotes
+        stored under “Albert Einstein”.
+    </p>
+</section>
+
+<form class="card search-bar" action="/search" method="GET">
+    <div class="field field-inline">
+        <label for="author">Author name</label>
+        <input
+            type="text"
+            id="author"
+            name="author"
+            value="{{author}}"
+            maxlength="50"
+            autocomplete="off"
+            placeholder="e.g. Marcus Aurelius"
+            required
+        >
+    </div>
+
+    <button class="button" type="submit">Search database</button>
+</form>
+
+{{#if searched}}
+    <section class="section" aria-labelledby="results-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Query results</p>
+                <h2 id="results-heading">Quotes by {{author}}</h2>
+            </div>
+            <p class="section-note">{{quotes.length}} matching quote(s)</p>
+        </div>
+
+        {{#if quotes}}
+            <div class="quote-grid">
+                {{#each quotes}}
+                    {{> quote-card}}
+                {{/each}}
+            </div>
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-mark" aria-hidden="true">?</span>
+                <h3>No quotes found</h3>
+                <p>No author in the database matches “{{author}}”. The search is exact, not partial.</p>
+                <a class="button button-ghost" href="/">Back to recent quotes</a>
+            </div>
+        {{/if}}
+    </section>
+{{/if}}

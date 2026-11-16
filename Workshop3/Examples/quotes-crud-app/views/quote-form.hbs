@@ -1,0 +1,60 @@
+<section class="page-heading">
+    <p class="eyebrow">{{#if quoteId}}Update · record #{{quoteId}}{{else}}Create · new record{{/if}}</p>
+    <h1>{{heading}}</h1>
+    <p class="lede">{{subheading}}</p>
+</section>
+
+<div class="form-layout">
+    <form class="card form-card" action="{{formAction}}" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}">
+
+        {{#if error}}
+            <div class="alert alert-error" role="alert">
+                <strong>Please check the form.</strong> {{error}}
+            </div>
+        {{/if}}
+
+        <div class="field">
+            <label for="author">Original author</label>
+            <input
+                type="text"
+                id="author"
+                name="author"
+                value="{{values.author}}"
+                minlength="3"
+                maxlength="50"
+                autocomplete="off"
+                required
+            >
+            <p class="field-hint">3–50 characters. The server trims and validates this value.</p>
+        </div>
+
+        <div class="field">
+            <label for="text">Quote text</label>
+            <textarea
+                id="text"
+                name="text"
+                rows="7"
+                minlength="1"
+                maxlength="300"
+                required
+            >{{values.text}}</textarea>
+            <p class="field-hint">1–300 characters. Whitespace-only submissions are rejected.</p>
+        </div>
+
+        <div class="form-actions">
+            <button class="button" type="submit">{{submitLabel}}</button>
+            <a class="button button-ghost" href="{{#if quoteId}}/quotes/{{quoteId}}{{else}}/{{/if}}">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-panel">
+        <h2>Validation and safety</h2>
+        <ul class="check-list">
+            <li>JSON Schema validates both text fields.</li>
+            <li>The CSRF token is checked before the write.</li>
+            <li>Handlebars escapes user-generated content.</li>
+            <li>Missing records return a 404 page, not a database error.</li>
+        </ul>
+    </aside>
+</div>

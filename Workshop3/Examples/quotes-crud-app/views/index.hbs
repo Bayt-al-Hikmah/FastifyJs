@@ -1,0 +1,98 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Workshop 3 · CRUD example</p>
+        <h1>A small library of lasting words.</h1>
+        <p class="lede">
+            Create, read, update, and delete quotes backed by PostgreSQL. Filter
+            the collection by author, change the sort order, and inspect every
+            record through Prisma.
+        </p>
+
+        <div class="hero-actions">
+            <a class="button" href="/quotes/new">Create a quote</a>
+            <a class="button button-ghost" href="#collection">Browse the library</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="CRUD operations">
+        <p class="panel-label">Four operations, one table</p>
+        <ol class="flow-list">
+            <li><span>C</span> Create with <code>quote.create()</code></li>
+            <li><span>R</span> Read with <code>findMany()</code></li>
+            <li><span>U</span> Update with <code>quote.update()</code></li>
+            <li><span>D</span> Delete with <code>quote.delete()</code></li>
+        </ol>
+    </aside>
+</section>
+
+{{#if deleted}}
+    <div class="alert alert-success" role="status">
+        <strong>Deleted.</strong> The quote was removed from PostgreSQL.
+    </div>
+{{/if}}
+
+<section id="collection" class="section" aria-labelledby="collection-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Read</p>
+            <h2 id="collection-heading">
+                {{#if filtered}}
+                    Quotes by {{author}}
+                {{else}}
+                    The collection
+                {{/if}}
+            </h2>
+        </div>
+        <p class="section-note">{{quoteCount}} quote(s) in this view</p>
+    </div>
+
+    <form class="card filter-bar" action="/" method="GET">
+        <div class="field field-inline">
+            <label for="author-filter">Filter by author</label>
+            <input
+                type="text"
+                id="author-filter"
+                name="author"
+                value="{{author}}"
+                maxlength="50"
+                placeholder="Partial names are supported"
+                autocomplete="off"
+            >
+        </div>
+
+        <div class="field field-inline">
+            <label for="sort">Sort by</label>
+            <select id="sort" name="sort">
+                <option value="newest" {{#if (eq sort "newest")}}selected{{/if}}>Newest first</option>
+                <option value="oldest" {{#if (eq sort "oldest")}}selected{{/if}}>Oldest first</option>
+                <option value="author" {{#if (eq sort "author")}}selected{{/if}}>Author A–Z</option>
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button class="button" type="submit">Apply</button>
+            <a class="button button-ghost" href="/">Reset</a>
+        </div>
+    </form>
+
+    {{#if quotes}}
+        <div class="quote-grid">
+            {{#each quotes}}
+                {{> quote-card}}
+            {{/each}}
+        </div>
+    {{else}}
+        <div class="empty-state">
+            <span class="empty-mark" aria-hidden="true">“</span>
+            {{#if filtered}}
+                <h3>No matching authors</h3>
+                <p>No quote author contains “{{author}}”. Try a shorter fragment.</p>
+                <a class="button button-ghost" href="/">Clear the filter</a>
+            {{else}}
+                <h3>The library is empty</h3>
+                <p>Create the first quote to see the CRUD workflow in action.</p>
+                <a class="button" href="/quotes/new">Create a quote</a>
+            {{/if}}
+        </div>
+    {{/if}}
+</section>

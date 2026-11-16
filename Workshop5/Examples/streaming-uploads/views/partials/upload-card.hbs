@@ -1,0 +1,36 @@
+<article class="upload-card" data-upload-id="{{id}}">
+    <div class="upload-type {{typeClass}}" aria-hidden="true">{{typeLabel}}</div>
+
+    <div class="upload-body">
+        <h3 class="upload-name" title="{{originalName}}">{{originalName}}</h3>
+
+        <p class="upload-meta">
+            <span>{{displaySize}}</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span>{{displayDate}}</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span class="upload-mime">{{mimeType}}</span>
+        </p>
+
+        <div class="checksum-row">
+            <span class="checksum-label">SHA-256</span>
+            <code title="{{sha256}}">{{shortSha256}}</code>
+            <button
+                class="copy-button"
+                type="button"
+                data-copy="{{sha256}}"
+                data-copy-label="checksum"
+            >Copy</button>
+        </div>
+    </div>
+
+    <div class="upload-actions">
+        <a class="btn btn-secondary btn-sm" href="{{downloadUrl}}">Download</a>
+        <button
+            class="btn btn-danger btn-sm"
+            type="button"
+            data-delete="{{id}}"
+            data-name="{{originalName}}"
+        >Delete</button>
+    </div>
+</article>

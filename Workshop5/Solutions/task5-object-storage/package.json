@@ -1,0 +1,47 @@
+{
+    "name": "w5-task5-object-storage",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Workshop 5 Task 5 solution: private S3/MinIO object storage with presigned upload/download URLs and object verification",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit",
+        "db:generate": "prisma generate",
+        "db:migrate": "prisma migrate dev",
+        "db:deploy": "prisma migrate deploy",
+        "db:studio": "prisma studio"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.758.0",
+        "@aws-sdk/s3-request-presigner": "^3.758.0",
+        "@fastify/jwt": "^10.2.8",
+        "@fastify/rate-limit": "^11.2.2",
+        "@fastify/static": "^10.1.11",
+        "@prisma/adapter-pg": "^7.10.1",
+        "@prisma/client": "^7.10.1",
+        "argon2": "^0.45.2",
+        "dotenv": "^18.0.10",
+        "fastify": "^5.12.8",
+        "fastify-plugin": "^6.0.1",
+        "pg": "^8.23.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "@types/pg": "^8.23.1",
+        "prisma": "^7.10.1",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    },
+    "allowScripts": {
+        "prisma@7.10.1": true,
+        "@prisma/engines@7.10.1": true,
+        "argon2@0.45.2": true,
+        "esbuild@0.28.2": true
+    }
+}

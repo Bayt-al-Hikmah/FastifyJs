@@ -1,0 +1,214 @@
+<section class="hero">
+    <div class="shell hero-grid">
+        <div class="hero-copy">
+            <p class="eyebrow">Northwind Studio · open for commissions</p>
+            <h1>Tell us what you<br><em>want to make.</em></h1>
+            <p class="lead">
+                Books, posters, identities, and quiet pieces of print. Send a note and we
+                will reply with a time to talk, a rough scope, and an honest answer about
+                whether we are the right studio for the work.
+            </p>
+
+            <dl class="hero-facts">
+                <div>
+                    <dt>Replies</dt>
+                    <dd>Within two working days</dd>
+                </div>
+                <div>
+                    <dt>Studio</dt>
+                    <dd>North side, by appointment</dd>
+                </div>
+                <div>
+                    <dt>Notes received</dt>
+                    <dd>{{totalInquiries}} this session</dd>
+                </div>
+            </dl>
+        </div>
+
+        <aside class="hero-card" aria-label="Studio hours">
+            <p class="card-kicker">Studio hours</p>
+
+            <ul class="hours-list">
+                <li><span>Monday–Thursday</span><strong>09:00–17:30</strong></li>
+                <li><span>Friday</span><strong>09:00–15:00</strong></li>
+                <li><span>Weekend</span><strong>By appointment</strong></li>
+            </ul>
+
+            <div class="card-note">
+                <span class="status-dot" aria-hidden="true"></span>
+                Taking new projects for early next year
+            </div>
+        </aside>
+    </div>
+</section>
+
+<section class="shell contact-layout" aria-labelledby="contact-heading">
+    <div class="form-card">
+        <div class="form-intro">
+            <p class="eyebrow">Start a conversation</p>
+            <h2 id="contact-heading">Send a note</h2>
+            <p>All fields are required. Values are trimmed and validated on the server.</p>
+        </div>
+
+        {{#if submitted}}
+            <div class="alert alert-success" role="status">
+                <span class="alert-icon" aria-hidden="true">✓</span>
+                <div>
+                    <strong>Your note is on its way.</strong>
+                    <p>We have recorded it and will reply within two working days.</p>
+                </div>
+            </div>
+        {{/if}}
+
+        {{#if formError}}
+            <div class="alert alert-error" role="alert">
+                <span class="alert-icon" aria-hidden="true">!</span>
+                <div>
+                    <strong>The note was not sent.</strong>
+                    <p>{{formError}}</p>
+                </div>
+            </div>
+        {{/if}}
+
+        <form action="/" method="POST" novalidate>
+            <div class="field-grid">
+                <div class="form-field">
+                    <label for="name">Your name</label>
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value="{{values.name}}"
+                        minlength="3"
+                        maxlength="60"
+                        autocomplete="name"
+                        placeholder="Ada Lovelace"
+                        aria-describedby="name-hint name-error"
+                        aria-invalid="{{#if errors.name}}true{{else}}false{{/if}}"
+                    >
+                    <p class="field-hint" id="name-hint">3–60 characters.</p>
+                    <p class="field-error" id="name-error" role="alert">{{#if errors.name}}{{errors.name}}{{/if}}</p>
+                </div>
+
+                <div class="form-field">
+                    <label for="email">Email address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="{{values.email}}"
+                        maxlength="254"
+                        autocomplete="email"
+                        placeholder="ada@example.com"
+                        aria-describedby="email-hint email-error"
+                        aria-invalid="{{#if errors.email}}true{{else}}false{{/if}}"
+                    >
+                    <p class="field-hint" id="email-hint">We only use this to reply.</p>
+                    <p class="field-error" id="email-error" role="alert">{{#if errors.email}}{{errors.email}}{{/if}}</p>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label for="subject">Subject</label>
+                <input
+                    type="text"
+                    id="subject"
+                    name="subject"
+                    value="{{values.subject}}"
+                    minlength="4"
+                    maxlength="100"
+                    placeholder="A book cover, a poster, a small identity"
+                    aria-describedby="subject-hint subject-error"
+                    aria-invalid="{{#if errors.subject}}true{{else}}false{{/if}}"
+                >
+                <p class="field-hint" id="subject-hint">4–100 characters.</p>
+                <p class="field-error" id="subject-error" role="alert">{{#if errors.subject}}{{errors.subject}}{{/if}}</p>
+            </div>
+
+            <div class="form-field">
+                <label for="message">Your note</label>
+                <textarea
+                    id="message"
+                    name="message"
+                    rows="7"
+                    minlength="10"
+                    maxlength="1000"
+                    placeholder="What are you making, when do you need it, and what should we know first?"
+                    aria-describedby="message-hint message-error"
+                    aria-invalid="{{#if errors.message}}true{{else}}false{{/if}}"
+                >{{values.message}}</textarea>
+                <p class="field-hint" id="message-hint">10–1000 characters.</p>
+                <p class="field-error" id="message-error" role="alert">{{#if errors.message}}{{errors.message}}{{/if}}</p>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Send the note</button>
+                <span class="form-note">Submitted to <code>POST /</code></span>
+            </div>
+        </form>
+    </div>
+
+    <aside class="side-stack" id="studio" aria-label="How the form works">
+        <section class="side-card">
+            <p class="eyebrow">What happens next</p>
+            <ol class="steps">
+                <li>
+                    <span class="step-number">1</span>
+                    <div>
+                        <strong>The browser posts the form.</strong>
+                        <p>The fields are sent as URL-encoded form data.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-number">2</span>
+                    <div>
+                        <strong>The server trims and validates.</strong>
+                        <p>Each field is checked by hand; errors are returned per field.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-number">3</span>
+                    <div>
+                        <strong>A valid note is stored.</strong>
+                        <p>The server redirects with <code>303</code> so refreshing cannot resend it.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="side-card side-card-accent">
+            <p class="eyebrow">A useful first note</p>
+            <p class="side-quote">
+                “A sentence about the project, a date you are working towards, and a
+                link to anything we should see. That is enough to begin.”
+            </p>
+            <p class="side-signature">— The studio</p>
+        </section>
+    </aside>
+</section>
+
+<section class="shell recent-section" id="recent" aria-labelledby="recent-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">In the inbox</p>
+            <h2 id="recent-heading">Recently received</h2>
+        </div>
+        <span class="badge">{{totalInquiries}} notes</span>
+    </div>
+
+    <div class="recent-card">
+        <ul class="inquiry-list">
+            {{#each recent}}
+                {{> inquiry-row}}
+            {{else}}
+                <li class="empty-state">
+                    <span class="empty-icon" aria-hidden="true">✉</span>
+                    <h3>No notes yet.</h3>
+                    <p>The first message sent through this form will appear here.</p>
+                </li>
+            {{/each}}
+        </ul>
+    </div>
+
+    <p class="recent-note">Email addresses are masked in this educational view. Notes are held in memory and disappear when the server restarts.</p>
+</section>

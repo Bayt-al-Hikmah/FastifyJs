@@ -1,0 +1,24 @@
+{
+    "name": "task1-user-profile-api",
+    "version": "1.0.0",
+    "private": true,
+    "description": "User profile API with a details query parameter (Workshop 1 Task 1 solution)",
+    "type": "module",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fastify": "^5.12.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

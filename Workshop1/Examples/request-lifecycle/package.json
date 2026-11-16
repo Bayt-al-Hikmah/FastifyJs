@@ -1,0 +1,25 @@
+{
+    "name": "request-lifecycle",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Fastify lifecycle hooks, plugin prefixes, and encapsulation demonstration (Workshop 1 example)",
+    "type": "module",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fastify": "^5.12.8",
+        "fastify-plugin": "^6.0.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

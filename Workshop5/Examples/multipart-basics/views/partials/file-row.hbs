@@ -1,0 +1,26 @@
+<article class="file-card">
+    <div class="file-badge {{typeClass}}" aria-hidden="true">{{typeLabel}}</div>
+
+    <div class="file-main">
+        <h3 class="file-name" title="{{originalName}}">{{originalName}}</h3>
+        <p class="file-meta">
+            <span>{{displaySize}}</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span>{{displayDate}}</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span class="file-mime">{{mimeType}}</span>
+        </p>
+    </div>
+
+    <div class="file-actions">
+        <a class="btn btn-secondary btn-sm" href="{{downloadUrl}}">Download</a>
+
+        <form
+            action="/files/{{id}}/delete"
+            method="post"
+            data-confirm="Remove “{{originalName}}” from the cabinet?"
+        >
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+        </form>
+    </div>
+</article>

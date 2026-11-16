@@ -1,0 +1,19 @@
+<section class="shell message-page">
+    <p class="eyebrow">403 · Request blocked</p>
+    <h1>That form did not come from us.</h1>
+    <p class="lead">{{description}}</p>
+
+    <div class="message-card">
+        <p>
+            Cross-Site Request Forgery (CSRF) protection rejects any submission that does not
+            carry the token issued with the form. This is expected when a request is replayed,
+            edited outside the browser, or sent from another site.
+        </p>
+        <p>
+            Open the form, let it load fully, and submit again without changing the hidden
+            <code>_csrf</code> field.
+        </p>
+    </div>
+
+    <a class="btn btn-primary" href="/">Reload the pitch form</a>
+</section>

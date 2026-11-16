@@ -1,0 +1,53 @@
+<section class="page-heading">
+    <p class="eyebrow">Find an original voice</p>
+    <h1>Search authors</h1>
+    <p class="lede">
+        This search uses a partial, case-insensitive match. Searching for
+        “aurel” finds both “Marcus Aurelius” and “Aurelius Augustinus”.
+    </p>
+</section>
+
+<form class="card search-bar" action="/search" method="GET">
+    <div class="field field-inline">
+        <label for="author">Author name contains</label>
+        <input
+            type="text"
+            id="author"
+            name="author"
+            value="{{author}}"
+            maxlength="50"
+            autocomplete="off"
+            placeholder="e.g. Einstein"
+            required
+        >
+    </div>
+
+    <button class="button" type="submit">Search database</button>
+</form>
+
+{{#if searched}}
+    <section class="section" aria-labelledby="results-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Query results</p>
+                <h2 id="results-heading">Authors containing “{{author}}”</h2>
+            </div>
+            <p class="section-note">{{quoteCount}} matching quote(s), newest first</p>
+        </div>
+
+        {{#if quotes}}
+            <div class="quote-grid">
+                {{#each quotes}}
+                    {{> quote-card}}
+                {{/each}}
+            </div>
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-mark" aria-hidden="true">?</span>
+                <h3>No quotes found</h3>
+                <p>No author contains “{{author}}”. Try a shorter fragment or browse the full collection.</p>
+                <a class="button button-ghost" href="/">Browse all quotes</a>
+            </div>
+        {{/if}}
+    </section>
+{{/if}}

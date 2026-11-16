@@ -1,0 +1,21 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model Quote {
+    id        Int      @id @default(autoincrement())
+    author    String   @db.VarChar(50)
+    text      String   @db.VarChar(300)
+    category  String?  @db.VarChar(50)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([author])
+    @@index([createdAt])
+    @@index([category])
+}

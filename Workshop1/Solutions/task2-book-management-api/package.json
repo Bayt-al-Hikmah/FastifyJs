@@ -1,0 +1,24 @@
+{
+    "name": "task2-book-management-api",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Book API with GET summary mode and POST body validation (Workshop 1 Task 2 solution)",
+    "type": "module",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fastify": "^5.12.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

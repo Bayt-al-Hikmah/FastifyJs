@@ -1,0 +1,18 @@
+<article class="quote-card">
+    <span class="quote-mark" aria-hidden="true">&ldquo;</span>
+
+    <blockquote class="quote-text">{{text}}</blockquote>
+
+    <footer class="quote-meta">
+        <span class="author-avatar" aria-hidden="true">{{initial}}</span>
+
+        <span class="author-details">
+            <span class="quote-author">{{author}}</span>
+            <span class="quote-date">Shared {{submittedAt}}</span>
+        </span>
+
+        {{#if isNew}}
+            <span class="badge badge-accent">New</span>
+        {{/if}}
+    </footer>
+</article>

@@ -1,0 +1,185 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Workshop 5 · Single-file uploads</p>
+        <h1>Small files,<br><em>carefully kept.</em></h1>
+        <p class="lead">
+            A deliberately small upload desk. Every file is parsed as a
+            multipart stream, checked against a strict allowlist, verified by
+            its binary signature, and stored outside the public web root.
+        </p>
+
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="#upload">Choose a file</a>
+            <a class="btn btn-secondary" href="#files">Browse the cabinet</a>
+        </div>
+
+        <ul class="hero-points">
+            <li>One file per request</li>
+            <li>2 MB maximum</li>
+            <li>Server-generated storage keys</li>
+        </ul>
+    </div>
+
+    <aside class="stat-panel" aria-label="Cabinet summary">
+        <p class="panel-kicker">In the cabinet</p>
+        <p class="panel-number">{{stats.count}}</p>
+        <p class="panel-label">files stored · {{stats.totalSize}}</p>
+
+        <dl class="panel-list">
+            <div>
+                <dt>Per-file limit</dt>
+                <dd>2 MB</dd>
+            </div>
+            <div>
+                <dt>Accepted</dt>
+                <dd>PNG · JPG · PDF · TXT</dd>
+            </div>
+            <div>
+                <dt>Storage</dt>
+                <dd>Private <code>var/uploads</code></dd>
+            </div>
+        </dl>
+    </aside>
+</section>
+
+{{#if noticeMessage}}
+    <div class="flash flash-success" role="status">
+        <span class="flash-icon" aria-hidden="true">✓</span>
+        <div>
+            <strong>Done</strong>
+            <p>{{noticeMessage}}</p>
+        </div>
+    </div>
+{{/if}}
+
+{{#if errorMessage}}
+    <div class="flash flash-error" role="alert">
+        <span class="flash-icon" aria-hidden="true">!</span>
+        <div>
+            <strong>Upload rejected</strong>
+            <p>{{errorMessage}}</p>
+        </div>
+    </div>
+{{/if}}
+
+<section class="workspace-grid" id="upload" aria-labelledby="upload-heading">
+    <div class="card upload-card">
+        <header class="card-header">
+            <div>
+                <p class="eyebrow">New upload</p>
+                <h2 id="upload-heading">Put a file in the drawer</h2>
+            </div>
+            <span class="card-tag">POST /upload</span>
+        </header>
+
+        <form
+            class="upload-form"
+            action="/upload"
+            method="post"
+            enctype="multipart/form-data"
+            id="upload-form"
+        >
+            <label class="dropzone" for="file" id="dropzone">
+                <input
+                    class="file-input"
+                    id="file"
+                    name="file"
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.pdf,.txt"
+                    required
+                >
+
+                <span class="dropzone-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 16V4"></path>
+                        <path d="m7 9 5-5 5 5"></path>
+                        <path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"></path>
+                    </svg>
+                </span>
+
+                <span class="dropzone-title">Drop a file here or browse</span>
+                <span class="dropzone-hint">
+                    PNG, JPEG, PDF, or TXT · up to 2 MB
+                </span>
+            </label>
+
+            <div class="selected-file" id="selected-file" hidden>
+                <span class="selected-dot" aria-hidden="true"></span>
+                <span class="selected-name" id="selected-name"></span>
+                <span class="selected-size" id="selected-size"></span>
+            </div>
+
+            <div class="form-footer">
+                <p class="form-note">
+                    The original filename is kept for display only. The stored
+                    object is named with a random UUID.
+                </p>
+
+                <button class="btn btn-primary" type="submit" id="upload-button">
+                    Upload file
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <aside class="card rules-card" aria-labelledby="rules-heading">
+        <p class="eyebrow">The rules</p>
+        <h2 id="rules-heading">What gets through</h2>
+
+        <ul class="rules-list">
+            <li>
+                <strong>Allowlist first.</strong>
+                The extension must be <code>.png</code>, <code>.jpg</code>,
+                <code>.jpeg</code>, <code>.pdf</code>, or <code>.txt</code>.
+            </li>
+            <li>
+                <strong>Format second.</strong>
+                <code>file-type</code> reads the magic number and compares it
+                with the extension. Text files must be valid UTF-8.
+            </li>
+            <li>
+                <strong>Size always.</strong>
+                The multipart parser truncates anything over 2 MB, and the
+                handler rejects the partial write.
+            </li>
+            <li>
+                <strong>Private by default.</strong>
+                Files never appear under <code>/static</code>. Downloads pass
+                through a route that sets safe response headers.
+            </li>
+        </ul>
+    </aside>
+</section>
+
+<section class="files-section" id="files" aria-labelledby="files-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Stored objects</p>
+            <h2 id="files-heading">The cabinet</h2>
+        </div>
+
+        <p class="section-count">
+            {{stats.count}} files · {{stats.totalSize}}
+        </p>
+    </div>
+
+    <div class="file-list">
+        {{#each files}}
+            {{> file-row}}
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-mark" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </span>
+                <h3>No files yet</h3>
+                <p>
+                    Upload a small screenshot, a PDF, or a text note and it will
+                    appear here with its detected type and size.
+                </p>
+                <a class="btn btn-primary" href="#upload">Upload the first file</a>
+            </div>
+        {{/each}}
+    </div>
+</section>

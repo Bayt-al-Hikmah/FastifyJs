@@ -1,0 +1,56 @@
+<section class="page-heading">
+    <p class="eyebrow">Database at a glance</p>
+    <h1>Dashboard</h1>
+    <p class="lede">
+        These numbers come from Prisma aggregate queries, not from counters kept
+        in application memory.
+    </p>
+</section>
+
+<div class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-label">Total quotes</p>
+        <p class="stat-value">{{totalQuotes}}</p>
+        <p class="stat-note">Rows in the Quote table</p>
+    </article>
+
+    <article class="card stat-card">
+        <p class="stat-label">Unique authors</p>
+        <p class="stat-value">{{totalAuthors}}</p>
+        <p class="stat-note">Distinct values of the author column</p>
+    </article>
+
+    <article class="card stat-card">
+        <p class="stat-label">Newest submission</p>
+        <p class="stat-value stat-value-small">
+            {{#if newestSubmittedAt}}
+                {{formatDate newestSubmittedAt}}
+            {{else}}
+                —
+            {{/if}}
+        </p>
+        <p class="stat-note">Maximum createdAt value</p>
+    </article>
+</div>
+
+{{#if latestQuote}}
+    <section class="section" aria-labelledby="latest-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Most recent row</p>
+                <h2 id="latest-heading">Latest quote</h2>
+            </div>
+        </div>
+
+        <div class="quote-grid quote-grid-single">
+            {{> quote-card latestQuote}}
+        </div>
+    </section>
+{{else}}
+    <div class="empty-state">
+        <span class="empty-mark" aria-hidden="true">0</span>
+        <h3>The database is empty</h3>
+        <p>Add a quote and return here to watch the statistics change.</p>
+        <a class="button" href="/share">Share a quote</a>
+    </div>
+{{/if}}

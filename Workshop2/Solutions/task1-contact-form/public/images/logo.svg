@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Northwind Studio">
+    <rect width="64" height="64" rx="16" fill="#102a43"/>
+    <path d="M17 44V20h5.5l10 15.2L42.5 20H48v24h-5.5V29.4L32.8 43h-1.6L21.5 29.4V44H17Z" fill="#f5b942"/>
+    <circle cx="50" cy="14" r="3.5" fill="#f5b942"/>
+</svg>

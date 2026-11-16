@@ -1,0 +1,57 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">A shared commonplace book</p>
+        <h1>Small words,<br><em>kept well.</em></h1>
+        <p class="lead">
+            Collect the lines worth returning to. Add a quote, credit its author,
+            and browse what other visitors have left behind.
+        </p>
+
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="/share">Share a quote</a>
+            <a class="btn btn-secondary" href="/search">Search by author</a>
+        </div>
+    </div>
+
+    <aside class="hero-panel" aria-label="Collection summary">
+        <p class="panel-kicker">In the collection</p>
+        <p class="panel-number">{{stats.totalQuotes}}</p>
+        <p class="panel-label">
+            {{stats.totalQuotes}} quotes from {{stats.distinctAuthors}} authors
+        </p>
+
+        <ul class="panel-list">
+            <li>The 10 newest quotes appear first</li>
+            <li>Author search is exact and case-insensitive</li>
+            <li>No account, no noise — just quotes</li>
+        </ul>
+    </aside>
+</section>
+
+<section class="content-section" aria-labelledby="latest-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Latest arrivals</p>
+            <h2 id="latest-heading">Fresh from the collection</h2>
+        </div>
+
+        <a class="text-link" href="/share">Add yours <span aria-hidden="true">→</span></a>
+    </div>
+
+    {{#if hasMore}}
+        <p class="section-note">Showing the 10 newest of {{stats.totalQuotes}} quotes.</p>
+    {{/if}}
+
+    <div class="quote-grid">
+        {{#each quotes}}
+            {{> quote-card}}
+        {{else}}
+            <div class="empty-state">
+                <span class="empty-icon" aria-hidden="true">&ldquo;</span>
+                <h3 class="empty-title">The first page is still blank.</h3>
+                <p class="empty-copy">Share a quote and give the collection its opening line.</p>
+                <a class="btn btn-primary" href="/share">Share the first quote</a>
+            </div>
+        {{/each}}
+    </div>
+</section>

@@ -1,0 +1,100 @@
+<section class="page-heading">
+    <p class="eyebrow">Database at a glance</p>
+    <h1>Dashboard</h1>
+    <p class="lede">
+        Every number below is calculated by PostgreSQL through Prisma aggregate
+        and group-by queries.
+    </p>
+</section>
+
+<div class="stat-grid">
+    <article class="card stat-card">
+        <p class="stat-label">Total quotes</p>
+        <p class="stat-value">{{totalQuotes}}</p>
+        <p class="stat-note">Rows in the Quote table</p>
+    </article>
+
+    <article class="card stat-card">
+        <p class="stat-label">Unique authors</p>
+        <p class="stat-value">{{totalAuthors}}</p>
+        <p class="stat-note">Distinct author values</p>
+    </article>
+
+    <article class="card stat-card">
+        <p class="stat-label">Categories in use</p>
+        <p class="stat-value">{{totalCategories}}</p>
+        <p class="stat-note">Non-null category values</p>
+    </article>
+
+    <article class="card stat-card">
+        <p class="stat-label">Newest submission</p>
+        <p class="stat-value stat-value-small">
+            {{#if newestSubmittedAt}}
+                {{formatDate newestSubmittedAt}}
+            {{else}}
+                —
+            {{/if}}
+        </p>
+        <p class="stat-note">Maximum createdAt value</p>
+    </article>
+</div>
+
+<div class="dashboard-grid">
+    <section class="card side-panel" aria-labelledby="top-authors-heading">
+        <p class="eyebrow">Most represented</p>
+        <h2 id="top-authors-heading">Top authors</h2>
+
+        {{#if topAuthors}}
+            <ol class="rank-list">
+                {{#each topAuthors}}
+                    <li>
+                        <span>{{name}}</span>
+                        <strong>{{count}}</strong>
+                    </li>
+                {{/each}}
+            </ol>
+        {{else}}
+            <p class="muted">No authors yet.</p>
+        {{/if}}
+    </section>
+
+    <section class="card side-panel" aria-labelledby="top-categories-heading">
+        <p class="eyebrow">Distribution</p>
+        <h2 id="top-categories-heading">Categories</h2>
+
+        {{#if topCategories}}
+            <ol class="rank-list">
+                {{#each topCategories}}
+                    <li>
+                        <span>{{name}}</span>
+                        <strong>{{count}}</strong>
+                    </li>
+                {{/each}}
+            </ol>
+        {{else}}
+            <p class="muted">No categories yet.</p>
+        {{/if}}
+    </section>
+</div>
+
+{{#if latestQuote}}
+    <section class="section" aria-labelledby="latest-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Most recent row</p>
+                <h2 id="latest-heading">Latest quote</h2>
+            </div>
+        </div>
+
+        <div class="quote-grid quote-grid-single">
+            {{> quote-card latestQuote}}
+        </div>
+    </section>
+{{else}}
+    <div class="empty-state">
+        <span class="empty-mark" aria-hidden="true">0</span>
+        <h3>The database is empty</h3>
+        <p>Add a quote and return here to watch the statistics change.</p>
+        <a class="button" href="/share">Share a quote</a>
+    </div>
+{{/if}}

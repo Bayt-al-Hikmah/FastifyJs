@@ -1,0 +1,86 @@
+<section class="page-intro page-intro-split">
+    <div>
+        <p class="eyebrow">Add to the collection</p>
+        <h1>Share a quote</h1>
+        <p class="lead">
+            Credit the original author and keep the words exactly as you remember them.
+            New quotes appear on the homepage immediately.
+        </p>
+    </div>
+
+    <aside class="aside-note" aria-label="Submission rules">
+        <p class="aside-title">A note on the form</p>
+        <ul class="panel-list">
+            <li>Author names are 3–50 characters.</li>
+            <li>Quotes are 1–300 characters.</li>
+            <li>Whitespace-only entries are rejected.</li>
+        </ul>
+    </aside>
+</section>
+
+{{#if submitted}}
+    <div class="alert alert-success" role="status">
+        <span class="alert-icon" aria-hidden="true">✓</span>
+        <div>
+            <strong>Quote added to the collection.</strong>
+            <p>You can share another quote or browse the newest additions on the homepage.</p>
+        </div>
+    </div>
+{{/if}}
+
+{{#if formError}}
+    <div class="alert alert-error" role="alert">
+        <span class="alert-icon" aria-hidden="true">!</span>
+        <div>
+            <strong>We could not save that quote.</strong>
+            <p>{{formError}}</p>
+        </div>
+    </div>
+{{/if}}
+
+<section class="form-card" aria-labelledby="share-form-heading">
+    <h2 class="form-heading" id="share-form-heading">Quote details</h2>
+
+    <form action="/share" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}">
+
+        <div class="form-field">
+            <label for="author">Original author</label>
+            <input
+                type="text"
+                id="author"
+                name="author"
+                value="{{values.author}}"
+                minlength="3"
+                maxlength="50"
+                autocomplete="off"
+                required
+                aria-describedby="author-hint author-error"
+                aria-invalid="{{#if errors.author}}true{{else}}false{{/if}}"
+            >
+            <p class="field-hint" id="author-hint">Use the name the quote is credited to (3–50 characters).</p>
+            <p class="field-error" id="author-error" role="alert">{{#if errors.author}}{{errors.author}}{{/if}}</p>
+        </div>
+
+        <div class="form-field">
+            <label for="quote">Quote</label>
+            <textarea
+                id="quote"
+                name="quote"
+                rows="6"
+                minlength="1"
+                maxlength="300"
+                required
+                aria-describedby="quote-hint quote-error"
+                aria-invalid="{{#if errors.quote}}true{{else}}false{{/if}}"
+            >{{values.quote}}</textarea>
+            <p class="field-hint" id="quote-hint">Keep it short: 1–300 characters, including punctuation.</p>
+            <p class="field-error" id="quote-error" role="alert">{{#if errors.quote}}{{errors.quote}}{{/if}}</p>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Add quote</button>
+            <a class="btn btn-ghost" href="/">Cancel</a>
+        </div>
+    </form>
+</section>

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Workshop 5 Task 1 demo dashboard for multiple task attachments.">
+    <title>Attach · Task Attachment Studio</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script src="/app/js/app.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 16.5 16.4 7a5.5 5.5 0 0 1 7.8 7.8L14.6 24.4a3.5 3.5 0 0 1-5-5l9.2-9.2a1.5 1.5 0 0 1 2.1 2.1l-8.8 8.8"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Attach</span>
+                <span class="brand-tagline">Workshop 5 · Task 1</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta" id="session-bar" hidden>
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span class="session-name" id="session-name">Signed in</span>
+            <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="auth-layout" id="auth-view">
+            <div class="auth-intro">
+                <p class="eyebrow">Multiple attachments</p>
+                <h1>One task.<br><em>Up to five files.</em></h1>
+                <p class="lead">
+                    Upload screenshots, reports, and notes together. Every file is
+                    validated, stored under a server-generated key, and streamed back
+                    only after an ownership check.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Multi-file multipart streaming</li>
+                    <li><span>02</span> Extension, MIME, and signature checks</li>
+                    <li><span>03</span> All-or-nothing cleanup on failure</li>
+                    <li><span>04</span> Private storage behind JWT downloads</li>
+                </ul>
+
+                <div class="auth-note">
+                    <strong>Demo account</strong>
+                    <span>Register a new account, create a task, then attach up to five files.</span>
+                </div>
+            </div>
+
+            <div class="panel auth-card">
+                <div class="tabs" role="tablist" aria-label="Authentication">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="alice@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Enter workspace</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required placeholder="Alice Rivera">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="alice@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required placeholder="At least 15 characters">
+                        <span class="field-hint">Use 15 characters or more. The API enforces this minimum.</span>
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <header class="workspace-header">
+                <div>
+                    <p class="eyebrow">Attachment studio</p>
+                    <h1>Keep the work<br><em>together.</em></h1>
+                    <p class="lead">Select a task, drop in a handful of files, and manage every attachment from one place.</p>
+                </div>
+
+                <div class="header-aside">
+                    <div class="header-badge">
+                        <span class="badge-label">Session</span>
+                        <strong id="header-user">Signed in</strong>
+                    </div>
+                    <div class="header-badge">
+                        <span class="badge-label">API</span>
+                        <strong class="ok">Connected</strong>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stat-grid">
+                <article class="stat-card">
+                    <span class="stat-label">Tasks</span>
+                    <strong class="stat-value" id="task-stat">0</strong>
+                    <span class="stat-foot">Owned by this account</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">Attachments</span>
+                    <strong class="stat-value" id="attachment-stat">0</strong>
+                    <span class="stat-foot">Across all tasks</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">User Storage Quota</span>
+                    <strong class="stat-value" id="quota-stat">0 MB / 100 MB</strong>
+                    <span class="stat-foot" id="quota-foot">Max 10 MB/file · Max 10 files/task</span>
+                </article>
+            </div>
+
+            <div class="workspace-grid">
+                <aside class="panel task-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Workspace</p>
+                            <h2>Your tasks</h2>
+                        </div>
+                        <span class="count-badge" id="task-count">0</span>
+                    </div>
+
+                    <form class="task-form" id="task-form">
+                        <label class="sr-only" for="task-title">Task title</label>
+                        <input id="task-title" name="title" type="text" maxlength="120" required placeholder="New task title">
+                        <label class="sr-only" for="task-description">Task description</label>
+                        <textarea id="task-description" name="description" rows="2" maxlength="1000" placeholder="Optional description"></textarea>
+                        <button class="button button-primary button-block" type="submit">Create task</button>
+                    </form>
+
+                    <p class="form-message" id="task-message" role="status" aria-live="polite"></p>
+
+                    <ul class="task-list" id="task-list"></ul>
+                </aside>
+
+                <section class="panel detail-panel" id="task-detail">
+                    <div class="empty-state" id="task-empty">
+                        <span class="empty-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 14h28v23H10z"/>
+                                <path d="M10 14v-4h11l3 4"/>
+                                <path d="M24 23v8M20 27h8"/>
+                            </svg>
+                        </span>
+                        <h2>Select a task</h2>
+                        <p>Choose a task on the left to see its attachments, or create a new task to get started.</p>
+                    </div>
+
+                    <div id="task-content" hidden>
+                        <div class="detail-header">
+                            <div class="detail-title">
+                                <div class="detail-meta">
+                                    <span class="status-pill" id="detail-status">TODO</span>
+                                    <span class="detail-date" id="detail-date"></span>
+                                </div>
+                                <h2 id="detail-title-text"></h2>
+                                <p id="detail-description" class="detail-description"></p>
+                            </div>
+                            <button class="button button-danger button-small" id="delete-task-button" type="button">Delete task</button>
+                        </div>
+
+                        <div class="attachment-heading">
+                            <div>
+                                <p class="panel-kicker">Files</p>
+                                <h3>Attachments <span class="count-badge" id="attachment-count">0</span></h3>
+                            </div>
+                            <span class="limit-note">Max 5 files per upload · 10 MB each</span>
+                        </div>
+
+                        <form class="upload-form" id="upload-form">
+                            <label class="dropzone" id="dropzone" for="file-input">
+                                <input id="file-input" name="files" type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.txt,image/png,image/jpeg,application/pdf,text/plain">
+                                <span class="dropzone-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M24 31V11"/>
+                                        <path d="m17 18 7-7 7 7"/>
+                                        <path d="M10 30v5a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-5"/>
+                                    </svg>
+                                </span>
+                                <span class="dropzone-title">Drop files here or browse</span>
+                                <span class="dropzone-hint">PNG, JPEG, PDF, or TXT · up to 5 files · 10 MB each</span>
+                            </label>
+
+                            <div class="selection" id="selection" hidden>
+                                <div class="selection-head">
+                                    <span id="selection-summary">0 files selected</span>
+                                    <button class="button button-quiet button-small" id="clear-selection" type="button">Clear</button>
+                                </div>
+                                <ul class="selection-list" id="selection-list"></ul>
+                            </div>
+
+                            <button class="button button-primary button-block" id="upload-button" type="submit" disabled>Upload attachments</button>
+                            <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                        </form>
+
+                        <ul class="attachment-list" id="attachment-list"></ul>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 5 · Multiple attachments</span>
+        <span>Private storage at <code>var/uploads/objects</code></span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

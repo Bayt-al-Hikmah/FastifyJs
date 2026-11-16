@@ -1,0 +1,28 @@
+<header class="site-header">
+    <div class="navbar">
+        <a class="brand" href="/" aria-label="Quotebook home">
+            <img class="brand-logo" src="/static/images/logo.svg" alt="" width="44" height="44">
+            <span class="brand-text">
+                <span class="brand-name">Quotebook</span>
+                <span class="brand-tagline">Workshop 2 · Fastify</span>
+            </span>
+        </a>
+
+        <nav aria-label="Main navigation">
+            <ul class="nav-links">
+                <li>
+                    <a class="nav-link{{#if isHome}} is-active{{/if}}" href="/"{{#if isHome}} aria-current="page"{{/if}}>Home</a>
+                </li>
+                <li>
+                    <a class="nav-link{{#if isShare}} is-active{{/if}}" href="/share"{{#if isShare}} aria-current="page"{{/if}}>Share Quote</a>
+                </li>
+                <li>
+                    <a class="nav-link{{#if isSearch}} is-active{{/if}}" href="/search"{{#if isSearch}} aria-current="page"{{/if}}>Search</a>
+                </li>
+                <li>
+                    <a class="nav-link{{#if isDashboard}} is-active{{/if}}" href="/dashboard"{{#if isDashboard}} aria-current="page"{{/if}}>Dashboard</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</header>

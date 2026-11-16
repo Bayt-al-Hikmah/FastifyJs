@@ -1,0 +1,30 @@
+{
+    "name": "w5-streaming-uploads",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Workshop 5 example: streaming uploads with progress, byte metering, and SHA-256 hashing",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@fastify/multipart": "^10.1.8",
+        "@fastify/static": "^10.1.11",
+        "@fastify/view": "^12.0.1",
+        "fastify": "^5.12.8",
+        "fastify-plugin": "^6.0.1",
+        "file-type": "^21.3.4",
+        "handlebars": "^4.7.10"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    }
+}

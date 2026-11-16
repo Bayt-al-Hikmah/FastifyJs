@@ -1,0 +1,263 @@
+<section class="hero">
+    <div class="shell hero-grid">
+        <div class="hero-main">
+            <p class="eyebrow">
+                <span class="eyebrow-rule" aria-hidden="true"></span>
+                Issue 07 · Call for pitches
+            </p>
+
+            <h1>Stories about <em>making things</em> by hand, by heart, by accident.</h1>
+
+            <p class="lead">
+                The Margin is a small independent magazine about the tools we keep and the
+                people who use them. We are looking for reported stories, personal essays,
+                and photo-led pieces that take their time.
+            </p>
+
+            <dl class="hero-meta">
+                <div>
+                    <dt>Reading window</dt>
+                    <dd>15 Jan – 31 Mar</dd>
+                </div>
+                <div>
+                    <dt>First reply</dt>
+                    <dd>Within 14 days</dd>
+                </div>
+                <div>
+                    <dt>Rates</dt>
+                    <dd>£0.45 per word</dd>
+                </div>
+            </dl>
+        </div>
+
+        <aside class="hero-plate" aria-label="Issue theme">
+            <p class="plate-kicker">This issue</p>
+            <p class="plate-theme">“The tools we keep”</p>
+            <p class="plate-copy">
+                A chipped chisel. A inherited sewing machine. A notebook with three pages
+                left. Tell us about the object that keeps pulling you back to the work.
+            </p>
+
+            <ul class="plate-list">
+                <li>Reported features · 1,500–3,000 words</li>
+                <li>Essays · 900–1,800 words</li>
+                <li>Photo essays · 8–14 images</li>
+            </ul>
+
+            <span class="plate-stamp">Open for pitches</span>
+        </aside>
+    </div>
+</section>
+
+<section class="shell pitch-layout" aria-labelledby="pitch-heading">
+    <div class="pitch-card">
+        <div class="pitch-card-head">
+            <p class="eyebrow">Submission form</p>
+            <h2 id="pitch-heading">Tell us the story</h2>
+            <p class="pitch-card-intro">
+                A few honest sentences are enough. If the idea is right, we will ask for
+                more before asking for a full draft.
+            </p>
+
+            <ul class="form-badges" aria-label="Form features">
+                <li>JSON Schema validated</li>
+                <li>CSRF protected</li>
+                <li>No account needed</li>
+            </ul>
+        </div>
+
+        {{#if submitted}}
+            <div class="alert alert-success" role="status">
+                <span class="alert-icon" aria-hidden="true">✓</span>
+                <div>
+                    <strong>Your pitch is in the queue.</strong>
+                    <p>We have logged it and will reply within fourteen days, one way or another.</p>
+                </div>
+            </div>
+        {{/if}}
+
+        {{#if formError}}
+            <div class="alert alert-error" role="alert">
+                <span class="alert-icon" aria-hidden="true">!</span>
+                <div>
+                    <strong>The pitch was not sent.</strong>
+                    <p>{{formError}}</p>
+                </div>
+            </div>
+        {{/if}}
+
+        <form action="/" method="POST" novalidate>
+            <input type="hidden" name="_csrf" value="{{csrfToken}}">
+
+            <div class="field-grid">
+                <div class="form-field">
+                    <label for="name">Your name</label>
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value="{{values.name}}"
+                        minlength="3"
+                        maxlength="60"
+                        autocomplete="name"
+                        placeholder="Ada Lovelace"
+                        aria-describedby="name-hint name-error"
+                        aria-invalid="{{#if errors.name}}true{{else}}false{{/if}}"
+                    >
+                    <p class="field-hint" id="name-hint">3–60 characters.</p>
+                    <p class="field-error" id="name-error" role="alert">{{#if errors.name}}{{errors.name}}{{/if}}</p>
+                </div>
+
+                <div class="form-field">
+                    <label for="email">Email address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="{{values.email}}"
+                        maxlength="254"
+                        autocomplete="email"
+                        placeholder="ada@example.com"
+                        aria-describedby="email-hint email-error"
+                        aria-invalid="{{#if errors.email}}true{{else}}false{{/if}}"
+                    >
+                    <p class="field-hint" id="email-hint">Only used to reply to this pitch.</p>
+                    <p class="field-error" id="email-error" role="alert">{{#if errors.email}}{{errors.email}}{{/if}}</p>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label for="subject">Working title</label>
+                <input
+                    type="text"
+                    id="subject"
+                    name="subject"
+                    value="{{values.subject}}"
+                    minlength="4"
+                    maxlength="100"
+                    placeholder="The last letterpress in the valley"
+                    aria-describedby="subject-hint subject-error"
+                    aria-invalid="{{#if errors.subject}}true{{else}}false{{/if}}"
+                >
+                <p class="field-hint" id="subject-hint">4–100 characters. It can change later.</p>
+                <p class="field-error" id="subject-error" role="alert">{{#if errors.subject}}{{errors.subject}}{{/if}}</p>
+            </div>
+
+            <div class="form-field">
+                <label for="message">The pitch</label>
+                <textarea
+                    id="message"
+                    name="message"
+                    rows="7"
+                    minlength="10"
+                    maxlength="1000"
+                    placeholder="What is the story, who is it about, and why now? Tell us what you can already see or hear."
+                    aria-describedby="message-hint message-error"
+                    aria-invalid="{{#if errors.message}}true{{else}}false{{/if}}"
+                >{{values.message}}</textarea>
+                <p class="field-hint" id="message-hint">10–1000 characters. Plain text is perfect.</p>
+                <p class="field-error" id="message-error" role="alert">{{#if errors.message}}{{errors.message}}{{/if}}</p>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">
+                    Send the pitch
+                    <span aria-hidden="true">→</span>
+                </button>
+                <p class="form-note">
+                    Submitted to <code>POST /</code> with a one-time CSRF token.
+                </p>
+            </div>
+        </form>
+    </div>
+
+    <aside class="side-stack" id="guidelines" aria-label="Pitch guidelines">
+        <section class="side-card">
+            <p class="eyebrow">How it is read</p>
+            <h3>Three passes, one decision</h3>
+
+            <ol class="steps">
+                <li>
+                    <span class="step-number">1</span>
+                    <div>
+                        <strong>The form is checked first.</strong>
+                        <p>Fastify validates the shape and length of every field before an editor sees it.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-number">2</span>
+                    <div>
+                        <strong>An editor reads the idea.</strong>
+                        <p>We look for a clear subject, a reason to publish it now, and a voice we trust.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-number">3</span>
+                    <div>
+                        <strong>You get a real answer.</strong>
+                        <p>Yes, not yet, or try us again with this angle. No silence.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="side-card side-card-quote">
+            <p class="eyebrow">From the editors</p>
+            <p class="side-quote">
+                “We would rather read one specific paragraph about a workshop at 6am than a
+                polished summary of an idea you have not started yet.”
+            </p>
+            <p class="side-signature">— The Margin, editorial note</p>
+        </section>
+
+        <section class="side-card side-card-security">
+            <p class="eyebrow">Under the hood</p>
+            <h3>Two checks, one form</h3>
+
+            <dl class="security-list">
+                <div>
+                    <dt>JSON Schema</dt>
+                    <dd>Declares the required fields, types, and length limits. Fastify validates the body before the route runs.</dd>
+                </div>
+                <div>
+                    <dt>CSRF token</dt>
+                    <dd>A hidden, signed token proves the form came from this page and this browser session.</dd>
+                </div>
+            </dl>
+
+            <p class="security-note">
+                Try submitting with a missing token: the server rejects the request with
+                <code>403</code> before any pitch is stored.
+            </p>
+        </section>
+    </aside>
+</section>
+
+<section class="shell queue-section" id="queue" aria-labelledby="queue-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Recently received</p>
+            <h2 id="queue-heading">In the queue</h2>
+        </div>
+        <span class="badge">{{totalPitches}} pitches</span>
+    </div>
+
+    <div class="queue-card">
+        <ul class="pitch-list">
+            {{#each recent}}
+                {{> pitch-row}}
+            {{else}}
+                <li class="empty-state">
+                    <span class="empty-icon" aria-hidden="true">✎</span>
+                    <h3>Nothing in the queue yet.</h3>
+                    <p>The first pitch sent through this form will appear here.</p>
+                </li>
+            {{/each}}
+        </ul>
+    </div>
+
+    <p class="queue-note">
+        Email addresses are masked in this teaching view. Pitches are stored in memory and
+        disappear when the server restarts.
+    </p>
+</section>

@@ -1,0 +1,62 @@
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Independent design studio</p>
+        <h1>Quiet work,<br><em>made carefully.</em></h1>
+        <p class="lead">
+            We build identities, editorial systems, and product interfaces for
+            people who care about the details. This page is a Fastify demo:
+            every colour, shape, and image below is served as a static asset.
+        </p>
+
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="#work">See selected work</a>
+            <a class="btn btn-secondary" href="#contact">Start a conversation</a>
+        </div>
+    </div>
+
+    <div class="studio-visual" aria-hidden="true">
+        <img src="/assets/images/studio.svg" alt="" width="520" height="420">
+        <p class="visual-caption">Studio wall, autumn</p>
+    </div>
+</section>
+
+<section class="content-section" id="work" aria-labelledby="work-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Selected work</p>
+            <h2 id="work-heading">A small, considered shelf</h2>
+        </div>
+        <span class="badge">2025–2026</span>
+    </div>
+
+    <div class="project-grid">
+        {{#each projects}}
+            <article class="project-card project-{{tone}}">
+                <div class="project-top">
+                    <span class="topic-chip">{{category}}</span>
+                    <span class="note-date">{{year}}</span>
+                </div>
+                <h3 class="project-name">{{name}}</h3>
+                <p class="project-summary">{{summary}}</p>
+                <span class="project-link">View case study <span aria-hidden="true">→</span></span>
+            </article>
+        {{/each}}
+    </div>
+</section>
+
+<section class="static-note" aria-labelledby="static-heading">
+    <div>
+        <p class="eyebrow">How this page is served</p>
+        <h2 id="static-heading">Templates and assets, side by side</h2>
+        <p>
+            Fastify renders the HTML with Handlebars. The browser then requests
+            the stylesheet and images from <code>/assets/</code>, where
+            <code>@fastify/static</code> serves files from the <code>public/</code>
+            directory.
+        </p>
+    </div>
+
+    <code class="asset-snippet">GET /assets/css/style.css
+GET /assets/images/studio.svg
+GET /assets/images/mark.svg</code>
+</section>

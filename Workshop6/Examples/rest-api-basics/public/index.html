@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="An interactive explorer for the Community Library REST API built in Workshop 6.">
+    <title>Community Library API · Workshop 6 Explorer</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <a class="skip-link" href="#workspace">Skip to the API explorer</a>
+
+    <header class="site-header">
+        <div class="header-inner">
+            <a class="brand" href="/">
+                <span class="brand-mark" aria-hidden="true">CL</span>
+                <span class="brand-copy">
+                    <span class="brand-name">Community Library</span>
+                    <span class="brand-subtitle">REST API Explorer</span>
+                </span>
+            </a>
+
+            <div class="header-tags" aria-label="API characteristics">
+                <span class="tag tag-live">v1</span>
+                <span class="tag">In-memory</span>
+                <span class="tag">Rate limited</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">Workshop 6 · Example 01</p>
+                <h1 id="hero-title">A small library with a <em>well-behaved</em> API.</h1>
+                <p class="lead">
+                    Send real requests to six REST endpoints. Every call is validated,
+                    rate limited, and answered with the same predictable JSON envelope.
+                </p>
+
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="#request-panel">Try a request</a>
+                    <a class="btn btn-secondary" href="#endpoints">Browse endpoints</a>
+                </div>
+            </div>
+
+            <aside class="hero-card" aria-labelledby="snapshot-title">
+                <p class="card-kicker" id="snapshot-title">Collection snapshot</p>
+                <p class="stat-number" id="stat-total">—</p>
+                <p class="stat-label">titles in the library</p>
+
+                <dl class="stat-grid">
+                    <div>
+                        <dt>Available</dt>
+                        <dd id="stat-available">—</dd>
+                    </div>
+                    <div>
+                        <dt>Copies</dt>
+                        <dd id="stat-copies">—</dd>
+                    </div>
+                </dl>
+
+                <p class="stat-note">In-memory store · resets when the server restarts</p>
+            </aside>
+        </section>
+
+        <div class="workspace" id="workspace">
+            <aside class="panel endpoints-panel" id="endpoints" aria-labelledby="endpoints-title">
+                <div class="panel-heading">
+                    <p class="eyebrow">Reference</p>
+                    <h2 id="endpoints-title">Endpoints</h2>
+                    <p class="panel-copy">
+                        Resource URLs identify books. HTTP methods describe the operation.
+                    </p>
+                </div>
+
+                <nav class="endpoint-list" id="endpoint-list" aria-label="API endpoints"></nav>
+
+                <div class="aside-note">
+                    <p class="aside-note-title">Rate limit</p>
+                    <p>
+                        Reads allow 120 requests per minute; writes allow 30.
+                        Exceeding a limit returns <code>429</code>.
+                    </p>
+                </div>
+            </aside>
+
+            <div class="workspace-main">
+                <article class="panel request-panel" id="request-panel" aria-labelledby="request-title">
+                    <header class="panel-heading panel-heading-row">
+                        <div>
+                            <p class="eyebrow">Request</p>
+                            <h2 id="request-title">List books</h2>
+                            <p class="panel-copy" id="request-description">
+                                Retrieve the collection with pagination, search, filtering, and sorting.
+                            </p>
+                        </div>
+                        <span class="method-badge method-get" id="request-method">GET</span>
+                    </header>
+
+                    <div class="path-preview" aria-live="polite">
+                        <span class="path-preview-label">URL</span>
+                        <code id="request-path">/api/books</code>
+                    </div>
+
+                    <form class="request-form" id="request-form" novalidate>
+                        <div class="field-grid" id="form-fields"></div>
+
+                        <div class="request-actions">
+                            <button class="btn btn-primary" type="submit" id="send-button">
+                                Send request
+                            </button>
+                            <button class="btn btn-secondary" type="button" id="sample-button">
+                                Fill sample data
+                            </button>
+                            <button class="btn btn-ghost" type="reset" id="reset-button">
+                                Reset
+                            </button>
+                        </div>
+                    </form>
+                </article>
+
+                <article class="panel response-panel" aria-labelledby="response-title">
+                    <header class="panel-heading panel-heading-row">
+                        <div>
+                            <p class="eyebrow">Response</p>
+                            <h2 id="response-title">Server response</h2>
+                        </div>
+
+                        <div class="response-meta">
+                            <span class="status-badge is-idle" id="status-badge">Idle</span>
+                            <span class="response-time" id="response-time"></span>
+                        </div>
+                    </header>
+
+                    <div class="response-headers" id="response-headers" aria-live="polite">
+                        <p class="response-placeholder">Response headers will appear here.</p>
+                    </div>
+
+                    <pre class="response-body" id="response-body" tabindex="0">Send a request to see the JSON response.</pre>
+                </article>
+
+                <article class="panel shelf-panel" aria-labelledby="shelf-title">
+                    <header class="panel-heading panel-heading-row">
+                        <div>
+                            <p class="eyebrow">Live data</p>
+                            <h2 id="shelf-title">On the shelf</h2>
+                            <p class="panel-copy">
+                                The six newest arrivals. Select a book to load its detail request.
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary btn-small" type="button" id="refresh-shelf">
+                            Refresh
+                        </button>
+                    </header>
+
+                    <div class="shelf" id="shelf" aria-live="polite">
+                        <p class="shelf-placeholder">Loading the shelf…</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <p>Workshop 6 · REST API Basics · Fastify + TypeScript</p>
+        <p>Validation · consistent envelopes · status codes · rate limiting · CORS</p>
+    </footer>
+
+    <script type="module" src="/js/app.js"></script>
+</body>
+
+</html>
