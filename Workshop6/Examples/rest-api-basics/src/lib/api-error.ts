@@ -1,37 +1,61 @@
+/**
+ * An error type for expected, safe-to-display application failures.
+ *
+ * The central error handler recognises ApiError instances and returns their
+ * status code and message. Unexpected errors are logged and replaced with a
+ * generic 500 message so that internals never leak to clients.
+ */
+
+export interface ValidationIssue {
+
+    field: string
+
+    message: string
+
+}
+
+
 export class ApiError extends Error {
-    readonly statusCode: number;
 
-    readonly code: string;
+    public readonly statusCode: number
 
-    readonly details: unknown;
+    public readonly details?: ValidationIssue[]
+
 
     constructor(
         statusCode: number,
-        code: string,
         message: string,
-        details: unknown = null
+        details?: ValidationIssue[]
     ) {
-        super(message);
 
-        this.name = "ApiError";
-        this.statusCode = statusCode;
-        this.code = code;
-        this.details = details;
+        super(message)
+
+        this.name = 'ApiError'
+
+        this.statusCode = statusCode
+
+        this.details = details
+
+        Error.captureStackTrace?.(this, ApiError)
+
     }
 
-    static notFound(message: string, details: unknown = null): ApiError {
-        return new ApiError(404, "NOT_FOUND", message, details);
+
+    static notFound(
+        message = 'Book not found.'
+    ): ApiError {
+
+        return new ApiError(404, message)
+
     }
 
-    static conflict(message: string, details: unknown = null): ApiError {
-        return new ApiError(409, "CONFLICT", message, details);
+
+    static conflict(
+        message = 'A book with this ISBN already exists.'
+    ): ApiError {
+
+        return new ApiError(409, message)
+
     }
 
-    static unprocessable(message: string, details: unknown = null): ApiError {
-        return new ApiError(422, "UNPROCESSABLE_ENTITY", message, details);
-    }
-
-    static tooManyRequests(message: string): ApiError {
-        return new ApiError(429, "RATE_LIMITED", message);
-    }
 }

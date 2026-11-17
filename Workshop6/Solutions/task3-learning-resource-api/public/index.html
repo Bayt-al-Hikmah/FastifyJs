@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Open Shelf — a role-based learning resource catalogue built with Fastify and TypeScript.">
+    <title>Open Shelf · Learning Resource Catalogue</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/app.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 8.5h8.5a2 2 0 0 1 2 2V26a2.6 2.6 0 0 0-2.6-2.6H6z"/>
+                    <path d="M26 8.5h-8.5a2 2 0 0 0-2 2V26a2.6 2.6 0 0 1 2.6-2.6H26z"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Open Shelf</span>
+                <span class="brand-tagline">Workshop 6 · Task 3</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta" id="session-bar" hidden>
+            <span class="role-pill" id="session-role">STUDENT</span>
+            <span class="session-name" id="session-name">Signed in</span>
+            <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="auth-layout" id="auth-view">
+            <div class="auth-intro">
+                <p class="eyebrow">Open learning, carefully governed</p>
+                <h1>Knowledge,<br><em>on the right shelf.</em></h1>
+                <p class="lead">
+                    Instructors draft, publish, and curate resources. Students browse
+                    the open catalogue. Every read is filtered by publication status,
+                    so unpublished work stays invisible until it is ready.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Role-based visibility with JWT access tokens</li>
+                    <li><span>02</span> Drafts return 404 to anyone but their owner</li>
+                    <li><span>03</span> Search, subject and type filters with pagination</li>
+                    <li><span>04</span> Signature-checked, privately stored attachments</li>
+                </ul>
+
+                <div class="auth-note">
+                    <strong>Try both roles</strong>
+                    <span>Create an INSTRUCTOR account to manage resources, or a STUDENT account to browse the published catalogue.</span>
+                </div>
+            </div>
+
+            <div class="panel auth-card">
+                <div class="tabs" role="tablist" aria-label="Authentication">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.edu">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Enter the library</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required placeholder="Ada Lovelace">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.edu">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required placeholder="At least 15 characters">
+                        <span class="field-hint">Use 15 characters or more. The API enforces this minimum.</span>
+                    </div>
+                    <div class="field">
+                        <label for="register-role">I am joining as</label>
+                        <select id="register-role" name="role">
+                            <option value="STUDENT">Student — browse published resources</option>
+                            <option value="INSTRUCTOR">Instructor — create and publish resources</option>
+                        </select>
+                        <span class="field-hint">This demo lets you choose a role at registration.</span>
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+                <ul class="error-list" id="auth-errors" aria-live="polite"></ul>
+            </div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <header class="workspace-header">
+                <div>
+                    <p class="eyebrow">The catalogue</p>
+                    <h1>Find your next<br><em>great resource.</em></h1>
+                    <p class="lead">Search the open shelf, or step into your studio to draft, publish, and attach materials.</p>
+                </div>
+
+                <div class="header-aside">
+                    <div class="header-badge">
+                        <span class="badge-label">Signed in as</span>
+                        <strong id="header-user">—</strong>
+                    </div>
+                    <div class="header-badge">
+                        <span class="badge-label">Role</span>
+                        <strong class="accent-text" id="header-role">—</strong>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stat-grid">
+                <article class="stat-card">
+                    <span class="stat-label">Published</span>
+                    <strong class="stat-value" id="stat-published">0</strong>
+                    <span class="stat-foot">Visible to every student</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">On this page</span>
+                    <strong class="stat-value" id="stat-page">0</strong>
+                    <span class="stat-foot">Results in the current view</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">Subjects</span>
+                    <strong class="stat-value" id="stat-subjects">0</strong>
+                    <span class="stat-foot">Distinct topics in view</span>
+                </article>
+            </div>
+
+            <div class="view-tabs" role="tablist" aria-label="Workspace views">
+                <button class="view-tab is-active" id="catalogue-tab" type="button" role="tab" aria-selected="true" aria-controls="catalogue-view">Open catalogue</button>
+                <button class="view-tab" id="studio-tab" type="button" role="tab" aria-selected="false" aria-controls="studio-view" hidden>My studio</button>
+            </div>
+
+            <section class="catalogue" id="catalogue-view" role="tabpanel" aria-labelledby="catalogue-tab">
+                <form class="filter-bar" id="filter-form">
+                    <div class="search-field">
+                        <label class="sr-only" for="filter-search">Search resources</label>
+                        <input id="filter-search" name="search" type="search" maxlength="100" placeholder="Search by title, description, or subject…">
+                    </div>
+                    <div class="field compact">
+                        <label for="filter-subject">Subject</label>
+                        <select id="filter-subject" name="subject">
+                            <option value="">All subjects</option>
+                        </select>
+                    </div>
+                    <div class="field compact">
+                        <label for="filter-type">Type</label>
+                        <select id="filter-type" name="type">
+                            <option value="">All types</option>
+                            <option value="VIDEO">Video</option>
+                            <option value="ARTICLE">Article</option>
+                            <option value="BOOK">Book</option>
+                            <option value="EXERCISE">Exercise</option>
+                        </select>
+                    </div>
+                    <button class="button button-secondary" type="submit">Apply</button>
+                    <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
+                </form>
+
+                <div class="results-bar">
+                    <p class="results-count" id="results-count" role="status" aria-live="polite">Loading resources…</p>
+                    <div class="pager">
+                        <button class="button button-quiet button-small" id="prev-page" type="button" disabled>← Previous</button>
+                        <span class="page-label" id="page-label">Page 1</span>
+                        <button class="button button-quiet button-small" id="next-page" type="button" disabled>Next →</button>
+                    </div>
+                </div>
+
+                <ul class="resource-grid" id="resource-grid">
+                    <li class="panel loading-card">Loading the shelf…</li>
+                </ul>
+            </section>
+
+            <section class="studio" id="studio-view" role="tabpanel" aria-labelledby="studio-tab" hidden>
+                <div class="studio-grid">
+                    <div class="panel studio-form-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="panel-kicker">Instructor studio</p>
+                                <h2 id="resource-form-title">New resource</h2>
+                            </div>
+                            <button class="button button-quiet button-small" id="cancel-edit" type="button" hidden>Cancel edit</button>
+                        </div>
+
+                        <form class="form resource-form" id="resource-form">
+                            <div class="field">
+                                <label for="resource-title">Title</label>
+                                <input id="resource-title" name="title" type="text" minlength="4" maxlength="160" required placeholder="Introduction to relational thinking">
+                            </div>
+                            <div class="field">
+                                <label for="resource-description">Description</label>
+                                <textarea id="resource-description" name="description" rows="4" minlength="10" maxlength="2000" required placeholder="What will learners take away from this resource?"></textarea>
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="resource-subject">Subject</label>
+                                    <input id="resource-subject" name="subject" type="text" minlength="2" maxlength="80" required placeholder="Mathematics">
+                                </div>
+                                <div class="field">
+                                    <label for="resource-type">Type</label>
+                                    <select id="resource-type" name="type">
+                                        <option value="VIDEO">Video</option>
+                                        <option value="ARTICLE">Article</option>
+                                        <option value="BOOK">Book</option>
+                                        <option value="EXERCISE">Exercise</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field" id="status-field" hidden>
+                                <label for="resource-status">Publication status</label>
+                                <select id="resource-status" name="status">
+                                    <option value="DRAFT">Draft — only I can see it</option>
+                                    <option value="PUBLISHED">Published — visible to students</option>
+                                </select>
+                                <span class="field-hint">Publishing here calls PATCH <code>/resources/:id</code>.</span>
+                            </div>
+                            <button class="button button-primary button-block" id="save-resource" type="submit">Create draft</button>
+                        </form>
+
+                        <p class="form-message" id="resource-message" role="status" aria-live="polite"></p>
+                        <ul class="error-list" id="resource-errors" aria-live="polite"></ul>
+
+                        <div class="attachment-box" id="attachment-box" hidden>
+                            <div class="attachment-heading">
+                                <div>
+                                    <p class="panel-kicker">Attachment</p>
+                                    <h3 id="attachment-name">No attachment</h3>
+                                </div>
+                                <button class="button button-danger button-small" id="remove-attachment" type="button" hidden>Remove</button>
+                            </div>
+                            <form class="upload-form" id="upload-form">
+                                <label class="dropzone" for="attachment-input">
+                                    <input id="attachment-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                    <span class="dropzone-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M24 32V10"/>
+                                            <path d="m17 17 7-7 7 7"/>
+                                            <path d="M9 31v5a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3v-5"/>
+                                        </svg>
+                                    </span>
+                                    <span class="dropzone-title">Choose an image or drop it here</span>
+                                    <span class="dropzone-hint">JPG, PNG, or WEBP · maximum 5 MB</span>
+                                </label>
+                                <button class="button button-secondary button-block" id="upload-button" type="submit" disabled>Upload attachment</button>
+                            </form>
+                            <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                        </div>
+                    </div>
+
+                    <div class="panel studio-list-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="panel-kicker">Your work</p>
+                                <h2>Studio resources <span class="count-badge" id="studio-count">0</span></h2>
+                            </div>
+                        </div>
+                        <div class="studio-filters">
+                            <label class="sr-only" for="studio-status">Filter by status</label>
+                            <select id="studio-status">
+                                <option value="">All statuses</option>
+                                <option value="DRAFT">Drafts</option>
+                                <option value="PUBLISHED">Published</option>
+                            </select>
+                            <label class="sr-only" for="studio-search">Search your resources</label>
+                            <input id="studio-search" type="search" maxlength="100" placeholder="Search your resources…">
+                        </div>
+                        <ul class="studio-list" id="studio-list">
+                            <li class="loading-row">Loading your resources…</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Open Shelf · Workshop 6</span>
+        <span>Private uploads at <code>var/uploads/objects</code></span>
+    </footer>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="detail-drawer" id="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+        <div class="drawer-head">
+            <div>
+                <p class="panel-kicker">Resource detail</p>
+                <h2 id="detail-title">—</h2>
+            </div>
+            <button class="icon-button" id="close-detail" type="button" aria-label="Close detail panel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+        </div>
+        <div class="drawer-body" id="detail-body"></div>
+    </aside>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

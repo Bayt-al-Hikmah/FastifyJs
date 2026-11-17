@@ -1,364 +1,201 @@
 # Community Library API (Workshop 6 Example)
 
-This example is a complete, database-free REST API built with Fastify 5 and
-TypeScript. It exposes a small **Community Library** collection of books and
-serves an interactive API explorer at the root URL.
+A small, database-free REST API for a community library. It serves nine starter books from memory and demonstrates the core habits behind predictable HTTP APIs: resource-oriented URLs, meaningful status codes, validated input, and a consistent JSON envelope. A polished browser explorer at `/app/` lets you send every request and inspect the exact response without installing any API client.
 
-The goal is to practise REST design without the extra setup of a database:
-resource-oriented URLs, HTTP method semantics, JSON Schema validation,
-consistent response envelopes, meaningful status codes, pagination, filtering,
-CORS, and rate limiting.
+Everything lives in one Fastify process. There is no PostgreSQL, no Prisma, no JWT, and no build step needed to experiment — edits, creates, and deletes survive only until you restart the server.
 
-All data lives in memory, so the collection resets every time the server
-restarts. That makes the example safe to experiment with: create a book, break
-a request on purpose, delete a title, and restart to get the seed data back.
+### What You'll Learn
 
-## What You'll Learn
+- **Resource-oriented URLs** — `/books` is the collection, `/books/:id` is one item, and the HTTP method describes the operation.
+- **HTTP method semantics** — `GET` and `DELETE` are idempotent, `PATCH` applies a partial update, and `POST` creates a resource.
+- **Meaningful status codes** — `200`, `201`, `204`, `400`, `404`, `409`, and `429` each carry a distinct meaning.
+- **Consistent response envelopes** — successful responses use `message` + `data`; lists add `pagination`; errors use `message` (+ `errors`).
+- **Layered architecture** — routes declare the contract, controllers shape HTTP responses, and services own the business rules.
+- **Runtime validation** — JSON Schemas on params, query strings, and bodies with `additionalProperties: false`.
+- **Pre-validation normalisation** — trimming user input in a hook before the schema runs.
+- **Search, filtering, sorting, and pagination** — composable query parameters with bounded page sizes.
+- **Central error handling** — one `setErrorHandler` maps validation and domain errors to safe client messages.
+- **Duplicate detection** — ISBN conflicts return `409` instead of silently creating a second copy.
+- **Scoped CORS and rate limiting** — both apply to `/api` routes only; the static explorer is untouched.
+- **Fetch-based exploration** — a reusable browser helper that handles `response.ok`, `204`, and validation error details.
 
-- **Resource-oriented URLs** — `/api/books` is a collection and
-  `/api/books/:id` is one member of that collection.
-- **HTTP method semantics** — `GET` reads, `POST` creates, `PATCH` partially
-  updates, and `DELETE` removes.
-- **JSON Schema validation** — params, query strings, and request bodies are
-  validated before a handler runs.
-- **Consistent JSON envelopes** — successful responses use `data` and `meta`;
-  errors use `error.code`, `error.message`, and `error.details`.
-- **Status codes with meaning** — `201 Created`, `204 No Content`, `404 Not
-  Found`, `409 Conflict`, `422 Unprocessable Entity`, and `429 Too Many
-  Requests` each describe a distinct outcome.
-- **Pagination, search, filtering, and sorting** — collection queries are
-  bounded and return pagination metadata.
-- **Rate limiting and CORS** — reads and writes have separate limits, and
-  cross-origin access can be restricted with environment variables.
-- **API-first exploration** — the static UI sends real requests, so the API can
-  be tested independently of any frontend framework.
-
-## Project Structure
+### Project Structure
 
 ```text
 rest-api-basics/
 ├── public/
-│   ├── css/
-│   │   └── style.css           # Explorer layout, cards, forms, response viewer
-│   ├── js/
-│   │   └── app.js              # Endpoint definitions and fetch calls
-│   └── index.html              # Static API explorer
+│   ├── css/style.css              # Dark slate + amber developer-console theme
+│   ├── js/api.js                  # Reusable fetch helper (status, details, 204 handling)
+│   ├── js/app.js                  # Explorer logic: forms, endpoint list, cards, response panel
+│   └── index.html                 # Semantic, accessible single-page explorer
 ├── src/
-│   ├── controllers/
-│   │   └── book-controller.ts  # HTTP request/response handling
-│   ├── data/
-│   │   └── seed-books.ts       # In-memory starter collection
-│   ├── lib/
-│   │   └── api-error.ts        # Small typed error class
-│   ├── routes/
-│   │   └── books.ts            # Routes, schemas, and rate-limit config
-│   ├── schemas/
-│   │   └── book-schemas.ts     # JSON Schemas for params, query, and bodies
-│   ├── services/
-│   │   └── book-service.ts     # Collection logic and business rules
-│   ├── types/
-│   │   └── book.ts             # Shared TypeScript types
-│   ├── app.ts                  # Fastify application, CORS, errors, static UI
-│   ├── config.ts               # Environment configuration
-│   └── server.ts               # Process entry point
-├── .env.example
+│   ├── config.ts                  # Port, host, CORS origin, rate-limit and pagination settings
+│   ├── app.ts                     # Fastify instance, error handler, 404 handler, static UI, plugins
+│   ├── server.ts                  # Entry point that opens the network port
+│   ├── lib/api-error.ts           # ApiError for expected 404 / 409 failures
+│   ├── types/book.ts              # Book, Genre, query, pagination, and input types
+│   ├── data/seed-books.ts         # The nine starter books (fresh copy per startup)
+│   ├── schemas/book-schemas.ts    # JSON Schemas for params, query string, POST, and PATCH
+│   ├── services/book-service.ts   # In-memory collection, search, filters, sorting, CRUD
+│   ├── controllers/book-controller.ts  # HTTP envelopes and status codes
+│   └── routes/
+│       ├── api.ts                 # /api scope: CORS, rate limiting, sub-routes
+│       ├── books.ts               # The five /books endpoints and trimming hooks
+│       └── meta.ts                # GET /meta/genres
+├── .env.example                   # Optional, non-secret configuration
 ├── .gitignore
 ├── package.json
-├── README.md
-└── tsconfig.json
+├── tsconfig.json
+└── README.md
 ```
 
-The route → controller → service split is intentional. Routes describe the HTTP
-contract, controllers translate between HTTP and the service, and the service
-owns the in-memory data and business rules.
+### Getting Started
 
-## Getting Started
+1. **Check the prerequisites.** You need Node.js 20 or newer. **No PostgreSQL setup is required for this example** — unlike the other Workshop 6 projects, there is no database role, database, `prisma migrate`, or `prisma generate` step, and no JWT secret to create. The collection is seeded in `src/data/seed-books.ts` when the process starts.
 
-1. **Install dependencies**
+2. **Install the dependencies** from this directory:
 
-   ```bash
-   npm install
-   ```
+```bash
+cd Workshop6/Examples/rest-api-basics
+npm install
+```
 
-2. **Configure environment variables (optional)**
+3. **Optionally create a local environment file.** Every value has a working default, so this step is purely for experimentation:
 
-   The API has safe defaults, so this step is optional. To customise the port,
-   host, or allowed frontend origins:
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+```dotenv
+PORT=3010
+HOST=0.0.0.0
+CORS_ORIGIN=true
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=15 minutes
+```
 
-   The default values are:
+`CORS_ORIGIN=true` reflects any requesting origin, which is acceptable for this public demo. For a real deployment, set one exact origin (for example `http://127.0.0.1:5173`).
 
-   ```env
-   PORT=3010
-   HOST=127.0.0.1
-   FRONTEND_ORIGIN="http://localhost:5173,http://127.0.0.1:5173"
-   NODE_ENV="development"
-   ```
+4. **Start the development server.** `tsx watch` restarts it whenever a source file changes:
 
-   The API explorer is served from the same origin, so it works without any
-   CORS configuration. `FRONTEND_ORIGIN` accepts a comma-separated list and is
-   only needed when a separate frontend consumes the API. If the variable is
-   empty, the demo reflects any origin; restrict it in a real deployment.
+```bash
+npm run dev
+```
 
-3. **Run the development server**
+5. **Open the API explorer** at <http://127.0.0.1:3010/app/>. Visiting <http://127.0.0.1:3010/> redirects there automatically. Pick an endpoint in the left column, fill in the form, and send the request; the status code, timing, and raw JSON appear below.
 
-   ```bash
-   npm run dev
-   ```
+6. **Useful extra commands:**
 
-4. **Open the explorer**
+```bash
+npm run typecheck   # TypeScript strict check, no output files
+npm run build       # Compile to dist/
+npm start           # Run the compiled version
+```
 
-   Visit <http://127.0.0.1:3010>. The page lists every endpoint, provides
-   try-it forms, and renders the status, headers, and JSON body of each
-   response.
-
-5. **Build for a production-style run (optional)**
-
-   ```bash
-   npm run build
-   npm start
-   ```
-
-   The compiled server still serves `public/` relative to the project root.
-
-## Exploring the Example
-
-### Endpoints
+### Exploring the Example
 
 | Method | Endpoint | Purpose | Success |
 |---|---|---|---|
-| `GET` | `/api/books` | List books with pagination, search, category filtering, and sorting. | `200` |
-| `GET` | `/api/books/:id` | Retrieve one book by numeric ID. | `200` |
-| `POST` | `/api/books` | Create a book and return a `Location` header. | `201` |
-| `PATCH` | `/api/books/:id` | Partially update allowed book fields. | `200` |
-| `DELETE` | `/api/books/:id` | Remove a book. | `204` |
+| `GET` | `/api/books` | Search, filter, sort, and page through books | `200` |
+| `GET` | `/api/books/:id` | Fetch one book | `200` |
+| `POST` | `/api/books` | Add a book | `201` |
+| `PATCH` | `/api/books/:id` | Partially update a book | `200` |
+| `DELETE` | `/api/books/:id` | Remove a book | `204` (empty body) |
+| `GET` | `/api/meta/genres` | List the genre vocabulary | `200` |
 
-There is no authentication in this example. Authentication and ownership are
-introduced in the `community-events-api` example.
+Run these in a second terminal while `npm run dev` is running.
 
-### Collection query parameters
+1. **List the collection.** The response includes `message`, `data`, and `pagination`:
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | `1` | Page to return. Starts at 1. |
-| `limit` | integer | `10` | Page size. Maximum 50. |
-| `search` | string | — | Case-insensitive match on title, author, or description. |
-| `category` | enum | — | One of `FICTION`, `NON_FICTION`, `SCIENCE`, `HISTORY`, `POETRY`, `CHILDREN`, `TECHNOLOGY`. |
-| `sort` | enum | `newest` | `newest`, `oldest`, `title`, `author`, or `year`. |
-
-Unknown query parameters are rejected by the schema instead of being silently
-ignored.
-
-### Response envelopes
-
-A successful collection request returns an array in `data` and context in
-`meta`:
+```bash
+curl http://127.0.0.1:3010/api/books
+```
 
 ```json
 {
-    "data": [
-        {
-            "id": 1,
-            "title": "The Left Hand of Darkness",
-            "author": "Ursula K. Le Guin",
-            "category": "FICTION",
-            "description": "An envoy visits a frozen world...",
-            "publishedYear": 1969,
-            "isbn": "9780441478125",
-            "totalCopies": 4,
-            "availableCopies": 2,
-            "addedAt": "2026-09-02T09:15:00.000Z",
-            "updatedAt": "2026-10-18T14:30:00.000Z"
-        }
-    ],
-    "meta": {
-        "pagination": {
-            "page": 1,
-            "limit": 10,
-            "total": 14,
-            "totalPages": 2,
-            "hasNextPage": true,
-            "hasPreviousPage": false
-        },
-        "filters": {
-            "search": null,
-            "category": null
-        },
-        "sort": "newest"
-    }
+    "message": "Books retrieved successfully.",
+    "data": [ /* page of books */ ],
+    "pagination": { "page": 1, "limit": 10, "total": 9, "totalPages": 1 }
 }
 ```
 
-A single-resource request returns the object directly in `data`:
-
-```json
-{
-    "data": {
-        "id": 3,
-        "title": "The Pragmatic Programmer"
-    }
-}
-```
-
-An error always uses the same shape:
-
-```json
-{
-    "error": {
-        "code": "VALIDATION_ERROR",
-        "message": "Request validation failed.",
-        "details": [
-            {
-                "field": "author",
-                "message": "must have required property 'author'"
-            }
-        ]
-    }
-}
-```
-
-`details` is `null` when there is nothing useful to add, as in a simple `404`.
-
-### Status code map
-
-| Status | When it is used |
-|---|---|
-| `200 OK` | A read or update succeeded and a body is returned. |
-| `201 Created` | A book was created. The response also has a `Location` header. |
-| `204 No Content` | A book was deleted. The response body is empty. |
-| `400 Bad Request` | The JSON body is missing or malformed. |
-| `404 Not Found` | The requested book or API route does not exist. |
-| `409 Conflict` | A second book uses the same ISBN. |
-| `413 Payload Too Large` | The request body exceeds Fastify's limit. |
-| `415 Unsupported Media Type` | A non-JSON content type was sent to a JSON endpoint. |
-| `422 Unprocessable Entity` | JSON Schema validation failed, or a business rule was violated. |
-| `429 Too Many Requests` | A client exceeded a read or write rate limit. |
-
-### Pagination and filtering
-
-Pagination is applied after search and category filtering, so `meta.pagination.total`
-always describes the filtered collection:
+2. **Search, filter, sort, and paginate.** Parameters compose freely:
 
 ```bash
-curl "http://127.0.0.1:3010/api/books?search=le%20guin&category=FICTION&sort=title&page=1&limit=5"
+curl 'http://127.0.0.1:3010/api/books?search=tolkien&sort=title&page=1&limit=5'
+curl 'http://127.0.0.1:3010/api/books?genre=Technology&available=true'
+curl 'http://127.0.0.1:3010/api/books?sort=-publishedYear&limit=3'
 ```
 
-`page` values beyond the last page return an empty `data` array and consistent
-metadata. A negative or non-numeric page is rejected with `422`.
+`search` is case-insensitive and covers title, author, ISBN, and description. `sort` accepts `id`, `title`, `author`, `publishedYear`, and each of those prefixed with `-` for descending order. `limit` is capped at 50.
 
-### Trying It with curl
-
-List the first three books:
+3. **Fetch one resource:**
 
 ```bash
-curl "http://127.0.0.1:3010/api/books?limit=3"
+curl http://127.0.0.1:3010/api/books/3
+curl -i http://127.0.0.1:3010/api/books/999    # 404 Not Found
 ```
 
-Search for a word and filter by category:
-
-```bash
-curl "http://127.0.0.1:3010/api/books?search=systems&category=SCIENCE"
-```
-
-Retrieve one book:
-
-```bash
-curl "http://127.0.0.1:3010/api/books/3"
-```
-
-Create a book and inspect the `Location` header:
+4. **Create a book.** The server assigns `id`; an unavailable `copies` count of zero defaults `available` to `false`:
 
 ```bash
 curl -i -X POST http://127.0.0.1:3010/api/books \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "The Creative Act",
-    "author": "Rick Rubin",
-    "category": "NON_FICTION",
-    "description": "A short book about attention, preparation, and making things.",
-    "publishedYear": 2023,
-    "isbn": "9780593652886",
-    "totalCopies": 3,
-    "availableCopies": 3
-  }'
+    -H 'Content-Type: application/json' \
+    -d '{
+        "title": "The Left Hand of Darkness",
+        "author": "Ursula K. Le Guin",
+        "isbn": "978-0-441-47812-5",
+        "genre": "Fiction",
+        "publishedYear": 1969,
+        "copies": 2,
+        "description": "A diplomat on a frozen world questions gender and loyalty."
+    }'
 ```
 
-Partially update the new book:
+Expect `201 Created`. Repeating the same request returns `409 Conflict` because the ISBN already exists — hyphen placement and capitalisation are ignored when comparing.
+
+5. **See validation errors.** Fastify's schema runs before the handler, and the central error handler normalises Ajv's output:
 
 ```bash
-curl -X PATCH http://127.0.0.1:3010/api/books/15 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "totalCopies": 5,
-    "availableCopies": 4
-  }'
+curl -i -X POST http://127.0.0.1:3010/api/books \
+    -H 'Content-Type: application/json' \
+    -d '{"title": "   ", "author": "Someone"}'
 ```
 
-Delete the book and confirm the empty `204` response:
+```json
+{
+    "message": "Validation failed.",
+    "errors": [
+        { "field": "title", "message": "must match pattern \"\\S\"" },
+        { "field": "isbn", "message": "must have required property 'isbn'" }
+    ]
+}
+```
+
+6. **Partially update a book.** Only the fields you send are changed; an empty body fails with `400`:
 
 ```bash
-curl -i -X DELETE http://127.0.0.1:3010/api/books/15
+curl -X PATCH http://127.0.0.1:3010/api/books/1 \
+    -H 'Content-Type: application/json' \
+    -d '{"copies": 6, "available": true}'
 ```
 
-Try a validation failure:
+7. **Delete a book.** A successful delete has no response body at all:
 
 ```bash
-curl -X POST http://127.0.0.1:3010/api/books \
-  -H "Content-Type: application/json" \
-  -d '{"title":"x"}'
+curl -i -X DELETE http://127.0.0.1:3010/api/books/9
 ```
 
-The API responds with `422` and a list of the invalid or missing fields.
+8. **List metadata and trigger the rate limit:**
 
-### What to try in the explorer
+```bash
+curl http://127.0.0.1:3010/api/meta/genres
+```
 
-| Area | Experiment |
-|---|---|
-| Endpoint list | Switch between the five operations. The URL preview updates as you edit fields. |
-| Search and filters | Filter by category, then combine it with a search term and a non-default sort. |
-| Pagination | Request page 2, then a page beyond the end and compare the metadata. |
-| Validation | Send a short description, a negative copy count, or an unknown field. |
-| Business rules | Create a book with `availableCopies` greater than `totalCopies`. |
-| Conflicts | Create two books with the same ISBN and observe the `409`. |
-| Create and delete | Create a book, open it from the shelf, patch it, then delete it and refresh. |
-| Rate limiting | Repeatedly send writes until the `429` response appears. |
-| Status and headers | Watch the status badge and the `Location` header after a `201`. |
+After 100 API requests in 15 minutes (the default), the next one returns `429` with `{ "message": "Too many requests. Please wait a moment and try again." }`. Restart the server or lower `RATE_LIMIT_MAX` in `.env` to experiment.
 
-### REST principles demonstrated
+9. **Reset everything.** Stop the server with `Ctrl+C` and run `npm run dev` again. The original nine books and the id counter are restored from `src/data/seed-books.ts`.
 
-- **Client-server separation** — the browser only renders data; the API owns
-  validation and collection rules.
-- **Stateless requests** — every request contains everything the server needs.
-  No request depends on hidden per-client state.
-- **Uniform interface** — stable resource URLs, standard methods, predictable
-  JSON shapes, and meaningful status codes.
-- **Resource identification** — IDs appear in the URL, not in a custom action
-  name such as `/getBook`.
-- **Safe and idempotent methods** — `GET` does not modify state, and repeating
-  the same `PATCH` or `DELETE` has the same intended effect.
-- **Cacheable reads** — collection and item reads can be cached by an
-  intermediary when the application adds explicit cache headers.
+### Workshop Objective
 
-### Rate limiting and CORS
-
-Read routes allow 120 requests per minute per client. Create, update, and delete
-routes allow 30 requests per minute. The plugin returns a `429` response in the
-same error envelope and exposes rate-limit headers when CORS allows the browser
-to read them.
-
-CORS is configured from `FRONTEND_ORIGIN`. With the example value, a Vite
-frontend at `http://localhost:5173` can call the API directly. Credentials are
-disabled because this API does not use cookies. Remember that CORS is enforced
-by browsers, not by `curl`, and it is not an authentication mechanism.
-
-## Workshop Objective
-
-This example isolates the REST layer from the database and authentication so
-the API contract is easy to see. Once the request methods, schemas, envelopes,
-status codes, and pagination rules are clear, the
-[`community-events-api`](../community-events-api) example adds PostgreSQL,
-Prisma, JWT authentication, ownership authorization, registrations, and file
-uploads without changing those fundamentals.
+This example isolates the REST fundamentals before databases, authentication, or file uploads add extra moving parts. As you work through it, notice how the same small set of conventions — resource URLs, correct methods and status codes, validated input, stable envelopes, and a single error handler — makes both the curl walkthrough and the browser explorer predictable. The layered route → controller → service split is the same shape used by the larger Workshop 6 applications, so the habits transfer directly when you move on to the Prisma-backed examples.

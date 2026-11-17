@@ -1,20 +1,38 @@
 export function isPrismaError(
     error: unknown,
-    codes: readonly string[]
+    code: string
 ): boolean {
-    if (typeof error !== "object" || error === null) {
-        return false;
+
+    if (typeof error !== 'object' || error === null) {
+        return false
     }
 
     const candidate = error as {
-        name?: unknown;
-        code?: unknown;
-    };
+        code?: unknown
+        name?: unknown
+    }
 
     return (
-        typeof candidate.name === "string" &&
-        candidate.name.includes("PrismaClientKnownRequestError") &&
-        typeof candidate.code === "string" &&
-        codes.includes(candidate.code)
-    );
+        candidate.name === 'PrismaClientKnownRequestError' &&
+        candidate.code === code
+    )
+
+}
+
+
+export function isUniqueConstraintError(
+    error: unknown
+): boolean {
+
+    return isPrismaError(error, 'P2002')
+
+}
+
+
+export function isRecordNotFoundError(
+    error: unknown
+): boolean {
+
+    return isPrismaError(error, 'P2025')
+
 }

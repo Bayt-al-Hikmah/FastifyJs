@@ -1,6 +1,11 @@
 node_modules/
 dist/
 .env
-.env.*
-!.env.example
+.env.local
+coverage/
 *.log
+
+# Kept for consistency with the database-backed Workshop 6 projects.
+src/generated/
+var/uploads/
+storage/

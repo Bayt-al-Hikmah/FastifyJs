@@ -1,188 +1,221 @@
-import type { Prisma, PrismaClient } from "../generated/prisma/client.js";
-import { ApiError } from "../lib/api-error.js";
-import { isPrismaError } from "../lib/prisma-errors.js";
-import { buildPagination } from "../lib/pagination.js";
+import type { PrismaClient } from '../generated/prisma/client.js'
+
+import { ApiError } from '../lib/api-error.js'
+import { isUniqueConstraintError } from '../lib/prisma-errors.js'
 import {
     registrationSelect,
-    serializeRegistration,
-    type SerializedRegistration
-} from "../lib/serializers.js";
-import type { RegistrationListQuery } from "../schemas/registration-schemas.js";
+    serializeRegistration
+} from '../lib/serializers.js'
+
+import type {
+    RegistrationRow,
+    RegistrationSummary
+} from '../lib/serializers.js'
+
+
+export type RegistrationResult = {
+
+    eventId: number
+
+    registeredAt: string
+
+    registeredCount: number
+
+}
+
 
 export async function registerForEvent(
     prisma: PrismaClient,
-    eventId: number,
-    userId: number
-): Promise<SerializedRegistration> {
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        select: {
-            id: true,
-            status: true,
-            capacity: true,
-            registeredCount: true,
-            organizerId: true
-        }
-    });
-
-    if (!event) {
-        throw ApiError.notFound("Event not found.");
-    }
-
-    if (event.status !== "PUBLISHED") {
-        throw ApiError.badRequest("Cannot register for an unpublished event.");
-    }
-
-    if (event.organizerId === userId) {
-        throw ApiError.badRequest("You cannot register for an event you organize.");
-    }
+    userId: number,
+    eventId: number
+): Promise<RegistrationResult> {
 
     try {
-        const result = await prisma.$transaction(async (tx) => {
-            const currentEvent = await tx.event.findUnique({
-                where: { id: eventId },
-                select: { capacity: true, registeredCount: true }
-            });
 
-            if (!currentEvent) {
-                throw ApiError.notFound("Event not found.");
-            }
+        return await prisma.$transaction(async (tx) => {
 
-            if (currentEvent.registeredCount >= currentEvent.capacity) {
-                throw ApiError.conflict("This event has reached full capacity.");
-            }
+            const event = await tx.event.findFirst({
 
-            const registration = await tx.eventRegistration.create({
-                data: {
-                    eventId,
-                    userId
+                where: {
+                    id: eventId,
+                    status: 'PUBLISHED'
                 },
-                select: registrationSelect
-            });
 
-            await tx.event.update({
-                where: { id: eventId },
-                data: {
-                    registeredCount: { increment: 1 }
+                select: {
+                    id: true,
+                    capacity: true,
+                    registeredCount: true
                 }
-            });
 
-            return registration;
-        });
+            })
 
-        return serializeRegistration(result);
+
+            if (!event) {
+
+                throw ApiError.notFound(
+                    'Event not found.'
+                )
+
+            }
+
+
+            // The conditional update is the capacity guard: it increments the
+            // counter only while a place is still available, so two concurrent
+            // requests can never both claim the final seat.
+            const claim = await tx.event.updateMany({
+
+                where: {
+                    id: eventId,
+                    registeredCount: {
+                        lt: event.capacity
+                    }
+                },
+
+                data: {
+                    registeredCount: {
+                        increment: 1
+                    }
+                }
+
+            })
+
+
+            if (claim.count === 0) {
+
+                throw ApiError.conflict(
+                    'This event is fully booked.'
+                )
+
+            }
+
+
+            const registration =
+                await tx.eventRegistration.create({
+
+                    data: {
+                        userId,
+                        eventId
+                    }
+
+                })
+
+
+            return {
+
+                eventId: registration.eventId,
+
+                registeredAt:
+                    registration.registeredAt.toISOString(),
+
+                registeredCount: event.registeredCount + 1
+
+            }
+
+        })
+
     } catch (error) {
-        if (isPrismaError(error, ["P2002"])) {
-            throw ApiError.conflict("You are already registered for this event.");
+
+        if (isUniqueConstraintError(error)) {
+
+            throw ApiError.conflict(
+                'You are already registered for this event.'
+            )
+
         }
-        throw error;
+
+        throw error
+
     }
+
 }
+
 
 export async function cancelRegistration(
     prisma: PrismaClient,
-    eventId: number,
-    userId: number
+    userId: number,
+    eventId: number
 ): Promise<void> {
-    const existing = await prisma.eventRegistration.findUnique({
-        where: {
-            userId_eventId: {
-                userId,
-                eventId
-            }
-        }
-    });
-
-    if (!existing) {
-        throw ApiError.notFound("Registration not found.");
-    }
 
     await prisma.$transaction(async (tx) => {
+
+        const registration =
+            await tx.eventRegistration.findUnique({
+
+                where: {
+                    userId_eventId: {
+                        userId,
+                        eventId
+                    }
+                }
+
+            })
+
+
+        if (!registration) {
+
+            throw ApiError.notFound(
+                'Registration not found.'
+            )
+
+        }
+
+
         await tx.eventRegistration.delete({
+
             where: {
                 userId_eventId: {
                     userId,
                     eventId
                 }
             }
-        });
 
-        await tx.event.update({
-            where: { id: eventId },
-            data: {
-                registeredCount: { decrement: 1 }
-            }
-        });
-    });
-}
-
-export async function listEventRegistrations(
-    prisma: PrismaClient,
-    eventId: number,
-    userId: number,
-    userRole: string,
-    query: RegistrationListQuery
-) {
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        select: { id: true, organizerId: true }
-    });
-
-    if (!event) {
-        throw ApiError.notFound("Event not found.");
-    }
-
-    if (event.organizerId !== userId && userRole !== "ADMIN") {
-        throw ApiError.forbidden("Only the organizer or an admin may view the attendee list.");
-    }
-
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.EventRegistrationWhereInput = { eventId };
-
-    const [total, records] = await Promise.all([
-        prisma.eventRegistration.count({ where }),
-        prisma.eventRegistration.findMany({
-            where,
-            orderBy: { registeredAt: "asc" },
-            skip,
-            take: limit,
-            select: registrationSelect
         })
-    ]);
 
-    return {
-        data: records.map(serializeRegistration),
-        meta: buildPagination(page, limit, total)
-    };
+
+        await tx.event.updateMany({
+
+            where: {
+                id: eventId,
+                registeredCount: {
+                    gt: 0
+                }
+            },
+
+            data: {
+                registeredCount: {
+                    decrement: 1
+                }
+            }
+
+        })
+
+    })
+
 }
+
 
 export async function listMyRegistrations(
     prisma: PrismaClient,
-    userId: number,
-    query: RegistrationListQuery
-) {
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(50, Math.max(1, query.limit ?? 10));
-    const skip = (page - 1) * limit;
+    userId: number
+): Promise<RegistrationSummary[]> {
 
-    const where: Prisma.EventRegistrationWhereInput = { userId };
+    const rows = await prisma.eventRegistration.findMany({
 
-    const [total, records] = await Promise.all([
-        prisma.eventRegistration.count({ where }),
-        prisma.eventRegistration.findMany({
-            where,
-            orderBy: { registeredAt: "desc" },
-            skip,
-            take: limit,
-            select: registrationSelect
-        })
-    ]);
+        where: {
+            userId
+        },
 
-    return {
-        data: records.map(serializeRegistration),
-        meta: buildPagination(page, limit, total)
-    };
+        select: registrationSelect,
+
+        orderBy: {
+            registeredAt: 'desc'
+        }
+
+    })
+
+
+    return (rows as RegistrationRow[]).map(
+        serializeRegistration
+    )
+
 }

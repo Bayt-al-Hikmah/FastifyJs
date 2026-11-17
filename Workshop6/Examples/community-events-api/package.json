@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "private": true,
     "type": "module",
-    "description": "Workshop 6 example: Community Events REST API with Prisma, JWT auth, registrations, cover uploads, and a static SPA",
+    "description": "Workshop 6 main example: a Community Events REST API with Fastify, Prisma 7, JWT, capacity-safe registrations, and private cover uploads",
     "engines": {
         "node": ">=20"
     },
@@ -18,7 +18,7 @@
         "db:studio": "prisma studio"
     },
     "dependencies": {
-        "@fastify/cors": "^11.4.3",
+        "@fastify/cors": "^10.0.2",
         "@fastify/jwt": "^10.2.8",
         "@fastify/multipart": "^10.1.8",
         "@fastify/rate-limit": "^11.2.2",
@@ -42,6 +42,7 @@
     "allowScripts": {
         "prisma@7.10.1": true,
         "@prisma/engines@7.10.1": true,
+        "argon2@0.45.2": true,
         "esbuild@0.28.2": true
     }
 }

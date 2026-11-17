@@ -1,0 +1,95 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Role {
+    CHEF
+    MEMBER
+}
+
+enum RecipeCategory {
+    BREAKFAST
+    LUNCH
+    DINNER
+    DESSERT
+    SNACK
+    BEVERAGE
+}
+
+enum PublicationStatus {
+    DRAFT
+    PUBLISHED
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    name         String   @db.VarChar(80)
+    email        String   @unique @db.VarChar(254)
+    passwordHash String
+    role         Role     @default(MEMBER)
+
+    recipes  Recipe[]  @relation("RecipeAuthor")
+    favorites Favorite[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Recipe {
+    id          Int               @id @default(autoincrement())
+    title       String            @db.VarChar(160)
+    summary     String            @db.VarChar(600)
+    ingredients String            @db.Text
+    steps       String            @db.Text
+    category    RecipeCategory
+    prepMinutes Int
+    status      PublicationStatus @default(DRAFT)
+
+    authorId Int
+    author   User @relation("RecipeAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+    photo     Photo?
+    favorites Favorite[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([authorId, createdAt])
+    @@index([status, category])
+    @@index([status, prepMinutes])
+}
+
+model Photo {
+    id Int @id @default(autoincrement())
+
+    recipeId Int    @unique
+    recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+    originalName String @db.VarChar(255)
+    storageKey   String @unique @db.VarChar(36)
+    mimeType     String @db.VarChar(100)
+    extension    String @db.VarChar(10)
+    size         Int
+
+    createdAt DateTime @default(now())
+
+    @@index([recipeId, createdAt])
+}
+
+model Favorite {
+    userId   Int
+    recipeId Int
+
+    createdAt DateTime @default(now())
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+    @@id([userId, recipeId])
+    @@index([recipeId, createdAt])
+}

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Pawprint — a pet adoption dashboard built with Fastify, Prisma, and TypeScript.">
+    <title>Pawprint · Pet Adoption</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/app.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="12" r="2.5"/>
+                    <circle cx="16" cy="8" r="2.5"/>
+                    <circle cx="24" cy="12" r="2.5"/>
+                    <path d="M16 14c-4 0-7 3.5-7 7s3 5 7 5 7-1.5 7-5-3-7-7-7Z"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Pawprint</span>
+                <span class="brand-tagline">Workshop 6 · Task 2</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta" id="session-bar" hidden>
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span class="session-name" id="session-name">Signed in</span>
+            <span class="role-pill" id="session-role">VISITOR</span>
+            <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="auth-layout" id="auth-view">
+            <div class="auth-intro">
+                <p class="eyebrow">A better first impression</p>
+                <h1>Help a good pet<br><em>find its people.</em></h1>
+                <p class="lead">
+                    Pawprint keeps shelter listings clear, searchable, and welcoming.
+                    Browse available animals, follow their status, and give staff a calm
+                    place to manage photos and details.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Filter by species and adoption status</li>
+                    <li><span>02</span> Staff-only editing with ownership checks</li>
+                    <li><span>03</span> Private, signature-checked pet photos</li>
+                    <li><span>04</span> Consistent envelopes and clear errors</li>
+                </ul>
+
+                <div class="auth-actions">
+                    <button class="button button-quiet" id="guest-button" type="button">Browse without signing in</button>
+                </div>
+
+                <div class="auth-note">
+                    <strong>Demo access</strong>
+                    <span>Register as a visitor, or use an email listed in STAFF_EMAILS to start with the staff role.</span>
+                </div>
+            </div>
+
+            <div class="panel auth-card">
+                <div class="tabs" role="tablist" aria-label="Authentication">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Enter Pawprint</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required placeholder="Morgan Lee">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required placeholder="At least 12 characters">
+                        <span class="field-hint">Use 12 characters or more. The API enforces the same minimum.</span>
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <header class="workspace-header">
+                <div>
+                    <p class="eyebrow">Adoption gallery</p>
+                    <h1>Meet your <em>next companion.</em></h1>
+                    <p class="lead">Filter the gallery, open a card for details, and let staff keep each listing up to date.</p>
+                </div>
+                <div class="header-aside">
+                    <div class="header-badge">
+                        <span class="badge-label">Session</span>
+                        <strong id="header-user">Browsing as guest</strong>
+                    </div>
+                    <div class="header-badge">
+                        <span class="badge-label">API</span>
+                        <strong class="ok">Connected</strong>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stat-grid" aria-label="Adoption summary for the current page">
+                <article class="stat-card">
+                    <span class="stat-label">On this page</span>
+                    <strong class="stat-value" id="stat-total">0</strong>
+                    <span class="stat-foot">Pets in the current result</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">Available now</span>
+                    <strong class="stat-value" id="stat-available">0</strong>
+                    <span class="stat-foot">Ready to meet adopters</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">Pending / adopted</span>
+                    <strong class="stat-value" id="stat-other">0</strong>
+                    <span class="stat-foot">Already on their way home</span>
+                </article>
+            </div>
+
+            <div class="workspace-grid">
+                <aside class="panel gallery-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Gallery</p>
+                            <h2>Browse pets</h2>
+                        </div>
+                        <span class="count-badge" id="item-count">0</span>
+                    </div>
+
+                    <form class="filter-form" id="filter-form">
+                        <label class="sr-only" for="search-input">Search pets by name</label>
+                        <input id="search-input" name="search" type="search" maxlength="100" placeholder="Search by name…">
+
+                        <div class="chip-group">
+                            <span class="chip-label" id="species-label">Species</span>
+                            <div class="chip-row" id="species-chips" role="group" aria-labelledby="species-label">
+                                <button class="filter-chip is-active" type="button" data-species="" aria-pressed="true">All</button>
+                                <button class="filter-chip" type="button" data-species="DOG" aria-pressed="false">Dogs</button>
+                                <button class="filter-chip" type="button" data-species="CAT" aria-pressed="false">Cats</button>
+                                <button class="filter-chip" type="button" data-species="RABBIT" aria-pressed="false">Rabbits</button>
+                                <button class="filter-chip" type="button" data-species="OTHER" aria-pressed="false">Other</button>
+                            </div>
+                        </div>
+
+                        <div class="chip-group">
+                            <span class="chip-label" id="status-label">Status</span>
+                            <div class="chip-row" id="status-chips" role="group" aria-labelledby="status-label">
+                                <button class="filter-chip is-active" type="button" data-status="" aria-pressed="true">All</button>
+                                <button class="filter-chip" type="button" data-status="AVAILABLE" aria-pressed="false">Available</button>
+                                <button class="filter-chip" type="button" data-status="PENDING" aria-pressed="false">Pending</button>
+                                <button class="filter-chip" type="button" data-status="ADOPTED" aria-pressed="false">Adopted</button>
+                            </div>
+                        </div>
+
+                        <button class="button button-quiet button-small" id="reset-filters" type="button">Reset filters</button>
+                    </form>
+
+                    <nav class="pagination" id="list-pagination" aria-label="Gallery pages">
+                        <button class="button button-quiet button-small" id="prev-page" type="button">Previous</button>
+                        <span id="page-label" aria-live="polite">Page 1 of 1</span>
+                        <button class="button button-quiet button-small" id="next-page" type="button">Next</button>
+                    </nav>
+
+                    <ul class="pet-list" id="pet-list" aria-live="polite"></ul>
+
+                    <form class="create-form" id="create-form" hidden>
+                        <p class="create-title">List a pet</p>
+                        <label class="sr-only" for="create-name">Pet name</label>
+                        <input id="create-name" name="name" type="text" maxlength="120" required placeholder="e.g. Willow">
+
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="create-species">Species</label>
+                                <select id="create-species" name="species">
+                                    <option value="DOG">Dog</option>
+                                    <option value="CAT">Cat</option>
+                                    <option value="RABBIT">Rabbit</option>
+                                    <option value="OTHER">Other</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="create-age">Age (years)</label>
+                                <input id="create-age" name="age" type="number" min="0" max="40" value="1">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="create-description">Description</label>
+                            <textarea id="create-description" name="description" rows="2" maxlength="2000" placeholder="Temperament, history, and what makes this pet special."></textarea>
+                        </div>
+
+                        <div class="field">
+                            <label for="create-status">Status</label>
+                            <select id="create-status" name="status">
+                                <option value="AVAILABLE">Available</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="ADOPTED">Adopted</option>
+                            </select>
+                        </div>
+
+                        <button class="button button-primary button-block" type="submit">Add pet to gallery</button>
+                        <p class="form-message" id="create-message" role="status" aria-live="polite"></p>
+                    </form>
+                </aside>
+
+                <section class="panel detail-panel" id="detail-panel">
+                    <div class="empty-state" id="detail-empty">
+                        <span class="empty-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="18" r="4"/>
+                                <circle cx="24" cy="12" r="4"/>
+                                <circle cx="36" cy="18" r="4"/>
+                                <path d="M24 21c-6 0-11 5-11 11s5 7 11 7 11-1 11-7-5-11-11-11Z"/>
+                            </svg>
+                        </span>
+                        <h2>Select a pet</h2>
+                        <p>Choose a card to see its story, adoption status, shelter contact, and photo.</p>
+                    </div>
+
+                    <div id="detail-content" hidden>
+                        <div class="detail-header">
+                            <div class="detail-title">
+                                <div class="detail-meta">
+                                    <span class="status-pill" id="detail-status">AVAILABLE</span>
+                                    <span class="detail-date" id="detail-date"></span>
+                                </div>
+                                <h2 id="detail-title-text"></h2>
+                                <p class="detail-description" id="detail-description"></p>
+                            </div>
+                            <div class="detail-actions">
+                                <button class="button button-quiet button-small" id="edit-button" type="button" hidden>Edit details</button>
+                                <button class="button button-danger button-small" id="delete-button" type="button" hidden>Remove pet</button>
+                            </div>
+                        </div>
+
+                        <dl class="detail-facts">
+                            <div><dt>Species</dt><dd id="detail-species"></dd></div>
+                            <div><dt>Age</dt><dd id="detail-age"></dd></div>
+                            <div><dt>Listed by</dt><dd id="detail-shelter"></dd></div>
+                        </dl>
+
+                        <div class="media-section" id="media-section">
+                            <div class="media-heading">
+                                <div>
+                                    <p class="panel-kicker">Photo</p>
+                                    <h3>Pet portrait</h3>
+                                </div>
+                                <span class="limit-note">JPEG, PNG, or WebP · up to 5 MB</span>
+                            </div>
+
+                            <div class="media-frame" id="media-frame" hidden>
+                                <img id="preview-image" alt="Selected pet photo">
+                                <div class="media-caption" id="media-caption"></div>
+                            </div>
+
+                            <div class="media-placeholder" id="media-placeholder">
+                                No photo has been uploaded for this pet yet.
+                            </div>
+
+                            <form class="upload-form" id="upload-form" hidden>
+                                <label class="sr-only" for="image-input">Choose a pet photo</label>
+                                <input id="image-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                <div class="form-actions">
+                                    <button class="button button-primary button-small" id="upload-button" type="submit">Upload photo</button>
+                                    <button class="button button-quiet button-small" id="remove-image-button" type="button" hidden>Remove photo</button>
+                                </div>
+                                <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                            </form>
+                        </div>
+
+                        <form class="edit-form" id="edit-form" hidden>
+                            <p class="panel-kicker">Edit listing</p>
+                            <div class="field">
+                                <label for="edit-name">Name</label>
+                                <input id="edit-name" name="name" type="text" minlength="2" maxlength="120" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="field">
+                                    <label for="edit-species">Species</label>
+                                    <select id="edit-species" name="species">
+                                        <option value="DOG">Dog</option>
+                                        <option value="CAT">Cat</option>
+                                        <option value="RABBIT">Rabbit</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-age">Age (years)</label>
+                                    <input id="edit-age" name="age" type="number" min="0" max="40" required>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="edit-description">Description</label>
+                                <textarea id="edit-description" name="description" rows="3" maxlength="2000"></textarea>
+                            </div>
+                            <div class="field">
+                                <label for="edit-status">Status</label>
+                                <select id="edit-status" name="status">
+                                    <option value="AVAILABLE">Available</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="ADOPTED">Adopted</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button class="button button-primary button-small" type="submit">Save changes</button>
+                                <button class="button button-quiet button-small" id="cancel-edit" type="button">Cancel</button>
+                            </div>
+                            <p class="form-message" id="edit-message" role="status" aria-live="polite"></p>
+                        </form>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 6 · Pet Adoption API</span>
+        <span>Private photos stay outside <code>public/</code></span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

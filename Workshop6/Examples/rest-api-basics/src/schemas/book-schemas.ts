@@ -1,111 +1,174 @@
-import { BOOK_CATEGORIES, BOOK_SORT_OPTIONS } from "../types/book.js";
+import { DEFAULT_LIMIT, DEFAULT_PAGE, MAX_LIMIT } from '../config.js'
+import { GENRES, SORT_FIELDS } from '../types/book.js'
+
+
+/**
+ * The validation rules shared by POST and PATCH.
+ *
+ * `additionalProperties: false` is important: a client must not be able to
+ * sneak in an `id` or any other field the service owns. JSON Schema is runtime
+ * validation, so it still protects the API when requests come from curl or a
+ * script instead of our TypeScript-typed frontend.
+ */
+
+const bookProperties = {
+
+    title: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 160,
+        pattern: '\\S'
+    },
+
+    author: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+        pattern: '\\S'
+    },
+
+    isbn: {
+        type: 'string',
+        minLength: 10,
+        maxLength: 24,
+        pattern: '^[0-9Xx-]+$'
+    },
+
+    genre: {
+        type: 'string',
+        enum: [...GENRES]
+    },
+
+    publishedYear: {
+        type: 'integer',
+        minimum: 0,
+        maximum: 2100
+    },
+
+    copies: {
+        type: 'integer',
+        minimum: 0,
+        maximum: 10_000
+    },
+
+    available: {
+        type: 'boolean'
+    },
+
+    description: {
+        type: 'string',
+        maxLength: 2000
+    }
+
+} as const
+
+
+/** Every accepted sort token, including the descending `-field` variants. */
+
+const sortValues: string[] = SORT_FIELDS.flatMap((field) => [
+    field,
+    `-${field}`
+])
+
 
 export const bookIdParamsSchema = {
-    type: "object",
-    required: ["id"],
-    additionalProperties: false,
+
+    type: 'object',
+
     properties: {
+
         id: {
-            type: "integer",
+            type: 'integer',
             minimum: 1,
             maximum: 2_147_483_647
         }
-    }
-} as const;
 
-export const bookListQuerySchema = {
-    type: "object",
-    additionalProperties: false,
+    },
+
+    required: ['id'],
+
+    additionalProperties: false
+
+} as const
+
+
+export const listBooksQuerySchema = {
+
+    type: 'object',
+
     properties: {
+
+        search: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 120
+        },
+
+        genre: {
+            type: 'string',
+            enum: [...GENRES]
+        },
+
+        available: {
+            type: 'boolean'
+        },
+
+        sort: {
+            type: 'string',
+            enum: sortValues,
+            default: 'id'
+        },
+
         page: {
-            type: "integer",
+            type: 'integer',
             minimum: 1,
             maximum: 1_000_000,
-            default: 1
+            default: DEFAULT_PAGE
         },
+
         limit: {
-            type: "integer",
+            type: 'integer',
             minimum: 1,
-            maximum: 50,
-            default: 10
-        },
-        search: {
-            type: "string",
-            maxLength: 100
-        },
-        category: {
-            type: "string",
-            enum: BOOK_CATEGORIES
-        },
-        sort: {
-            type: "string",
-            enum: BOOK_SORT_OPTIONS,
-            default: "newest"
+            maximum: MAX_LIMIT,
+            default: DEFAULT_LIMIT
         }
-    }
-} as const;
 
-const bookProperties = {
-    title: {
-        type: "string",
-        minLength: 1,
-        maxLength: 160,
-        pattern: "\\S"
     },
-    author: {
-        type: "string",
-        minLength: 1,
-        maxLength: 120,
-        pattern: "\\S"
-    },
-    category: {
-        type: "string",
-        enum: BOOK_CATEGORIES
-    },
-    description: {
-        type: "string",
-        minLength: 10,
-        maxLength: 2000
-    },
-    publishedYear: {
-        type: "integer",
-        minimum: 1450,
-        maximum: 2100
-    },
-    isbn: {
-        type: ["string", "null"],
-        maxLength: 20,
-        pattern: "^[0-9Xx-]+$"
-    },
-    totalCopies: {
-        type: "integer",
-        minimum: 1,
-        maximum: 1000
-    },
-    availableCopies: {
-        type: "integer",
-        minimum: 0,
-        maximum: 1000
-    }
-} as const;
 
-export const createBookBodySchema = {
-    type: "object",
+    additionalProperties: false
+
+} as const
+
+
+export const createBookSchema = {
+
+    type: 'object',
+
     required: [
-        "title",
-        "author",
-        "category",
-        "description",
-        "publishedYear",
-        "totalCopies"
+        'title',
+        'author',
+        'isbn',
+        'genre',
+        'publishedYear',
+        'copies'
     ],
-    additionalProperties: false,
-    properties: bookProperties
-} as const;
 
-export const updateBookBodySchema = {
-    type: "object",
+    properties: { ...bookProperties },
+
+    additionalProperties: false
+
+} as const
+
+
+export const updateBookSchema = {
+
+    type: 'object',
+
+    // A PATCH with nothing to change is almost always a client mistake.
     minProperties: 1,
-    additionalProperties: false,
-    properties: bookProperties
-} as const;
+
+    properties: { ...bookProperties },
+
+    additionalProperties: false
+
+} as const

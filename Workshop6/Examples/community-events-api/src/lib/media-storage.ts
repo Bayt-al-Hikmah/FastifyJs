@@ -1,127 +1,266 @@
-import { randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { randomUUID } from 'node:crypto'
+import { createWriteStream } from 'node:fs'
 import {
     mkdir,
     rename,
     rm,
-    stat,
     unlink
-} from "node:fs/promises";
-import path from "node:path";
-import type { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+} from 'node:fs/promises'
 
-import { fileTypeFromFile } from "file-type";
+import {
+    basename,
+    join,
+    resolve
+} from 'node:path'
 
-import { env } from "../config/env.js";
+import {
+    Transform,
+    type Readable
+} from 'node:stream'
 
-const allowedTypes = new Map([
-    ["image/jpeg", "jpg"],
-    ["image/png", "png"],
-    ["image/webp", "webp"]
-]);
+import { pipeline } from 'node:stream/promises'
 
-export class UnsupportedCoverTypeError extends Error {
-    constructor() {
-        super("Only JPEG, PNG, and WebP images are accepted.");
+import { fileTypeFromFile } from 'file-type'
 
-        this.name = "UnsupportedCoverTypeError";
-    }
-}
+import { ApiError } from './api-error.js'
+
+
+/**
+ * Cover images live outside public/ so they cannot be reached by guessing a
+ * static URL. Every path is derived from a server-generated storage name that
+ * is stored in PostgreSQL; no client-supplied path is ever used.
+ */
+const coverDirectory = resolve(
+    process.cwd(),
+    'storage',
+    'event-covers'
+)
+
+
+export const MAX_COVER_SIZE = 5 * 1024 * 1024
+
+
+const mimeToExtension = new Map<string, string>([
+
+    ['image/jpeg', 'jpg'],
+
+    ['image/png', 'png'],
+
+    ['image/webp', 'webp']
+
+])
+
+
+const storageNamePattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/
+
+
+const MAX_ORIGINAL_NAME_LENGTH = 180
+
 
 export type StoredCover = {
-    storageName: string;
-    mimeType: string;
-    sizeBytes: number;
-    filePath: string;
-};
 
-export async function saveUploadedCover(
-    fileStream: Readable
+    storageName: string
+
+    mimeType: string
+
+    sizeBytes: number
+
+    originalName: string
+
+}
+
+
+export function sanitizeOriginalName(
+    filename: string
+): string {
+
+    const cleanName = basename(
+        filename.replaceAll('\\', '/')
+    )
+        .replace(/[\u0000-\u001F\u007F]/g, '')
+        .trim()
+
+    return (
+        cleanName || 'cover'
+    ).slice(0, MAX_ORIGINAL_NAME_LENGTH)
+
+}
+
+
+export async function ensureCoverDirectory(): Promise<void> {
+
+    await mkdir(coverDirectory, {
+        recursive: true
+    })
+
+}
+
+
+/**
+ * Stream an uploaded image to a temporary file, inspect its real binary
+ * signature, and (only then) move it to its final private storage name.
+ * Any failure removes both the temporary and the final file.
+ */
+export async function saveCoverImage(
+    stream: Readable,
+    originalName: string
 ): Promise<StoredCover> {
-    await mkdir(env.storageDirectory, { recursive: true });
 
-    const temporaryName = `${randomUUID()}.tmp`;
-    const temporaryPath = path.join(env.storageDirectory, temporaryName);
+    await ensureCoverDirectory()
 
-    let finalPath: string | null = null;
+    const temporaryName = `${randomUUID()}.tmp`
+
+    const temporaryPath = join(
+        coverDirectory,
+        temporaryName
+    )
+
+    let finalPath: string | null = null
+
+    let sizeBytes = 0
+
+    const byteCounter = new Transform({
+
+        transform(chunk: Buffer, _encoding, callback) {
+
+            sizeBytes += chunk.length
+
+            callback(null, chunk)
+
+        }
+
+    })
+
 
     try {
-        await pipeline(
-            fileStream,
-            createWriteStream(temporaryPath, {
-                flags: "wx"
-            })
-        );
 
-        const detectedType = await fileTypeFromFile(temporaryPath);
-        const extension = allowedTypes.get(detectedType?.mime ?? "");
+        await pipeline(
+            stream,
+            byteCounter,
+            createWriteStream(temporaryPath, {
+                flags: 'wx'
+            })
+        )
+
+
+        if (sizeBytes === 0) {
+
+            throw ApiError.badRequest(
+                'Select an image to upload.'
+            )
+
+        }
+
+
+        if (sizeBytes > MAX_COVER_SIZE) {
+
+            throw ApiError.payloadTooLarge(
+                'Cover images must be 5 MB or smaller.'
+            )
+
+        }
+
+
+        const detectedType = await fileTypeFromFile(
+            temporaryPath
+        )
+
+        const extension = detectedType
+            ? mimeToExtension.get(detectedType.mime)
+            : undefined
+
 
         if (!detectedType || !extension) {
-            throw new UnsupportedCoverTypeError();
+
+            throw ApiError.unsupportedMediaType(
+                'Only JPEG, PNG, and WebP images are supported.'
+            )
+
         }
 
-        const storageName = `${randomUUID()}.${extension}`;
 
-        finalPath = path.join(env.storageDirectory, storageName);
+        const storageName = `${randomUUID()}.${extension}`
 
-        await rename(temporaryPath, finalPath);
+        finalPath = join(
+            coverDirectory,
+            storageName
+        )
 
-        const fileStats = await stat(finalPath);
+        await rename(temporaryPath, finalPath)
+
 
         return {
+
             storageName,
+
             mimeType: detectedType.mime,
-            sizeBytes: fileStats.size,
-            filePath: finalPath
-        };
+
+            sizeBytes,
+
+            originalName: sanitizeOriginalName(originalName)
+
+        }
+
     } catch (error) {
-        await rm(temporaryPath, { force: true });
+
+        await rm(temporaryPath, {
+            force: true
+        }).catch(() => undefined)
+
 
         if (finalPath) {
-            await rm(finalPath, { force: true });
+
+            await rm(finalPath, {
+                force: true
+            }).catch(() => undefined)
+
         }
 
-        throw error;
-    }
-}
+        throw error
 
-export function resolveCoverPath(storageName: string): string {
-    const safeName = path.basename(storageName);
-
-    if (safeName !== storageName) {
-        throw new Error("INVALID_STORAGE_NAME");
     }
 
-    return path.join(env.storageDirectory, safeName);
 }
 
-export async function deleteStoredCover(
+
+/**
+ * Validate a database-derived storage name before turning it into a path.
+ * This is a final guard against path traversal if a row is ever corrupted.
+ */
+export function coverPathFor(
+    storageName: string
+): string {
+
+    if (!storageNamePattern.test(storageName)) {
+        throw ApiError.notFound(
+            'The cover image is unavailable.'
+        )
+    }
+
+    return join(coverDirectory, storageName)
+
+}
+
+
+export async function deleteCoverFile(
     storageName: string
 ): Promise<void> {
-    const filePath = resolveCoverPath(storageName);
+
+    const filePath = coverPathFor(storageName)
 
     try {
-        await unlink(filePath);
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-            throw error;
-        }
-    }
-}
 
-export async function coverFileExists(
-    storageName: string
-): Promise<boolean> {
-    try {
-        await stat(resolveCoverPath(storageName));
+        await unlink(filePath)
 
-        return true;
     } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-            return false;
+
+        if (
+            (error as NodeJS.ErrnoException).code !== 'ENOENT'
+        ) {
+            throw error
         }
 
-        throw error;
     }
+
 }

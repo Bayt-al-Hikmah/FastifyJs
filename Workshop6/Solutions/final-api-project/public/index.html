@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Mise — a chef-and-member recipe box built with Fastify, TypeScript, and Prisma.">
+    <title>Mise · Recipe Box</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/app.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 13h18l-2.2 13H9.2z"/>
+                    <path d="M5 13h22"/>
+                    <path d="M12 13V8a4 4 0 0 1 8 0v5"/>
+                    <path d="M16 5V3"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Mise</span>
+                <span class="brand-tagline">Workshop 6 · Final Project</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta" id="session-bar" hidden>
+            <span class="role-pill" id="session-role">MEMBER</span>
+            <span class="session-name" id="session-name">Signed in</span>
+            <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="auth-layout" id="auth-view">
+            <div class="auth-intro">
+                <p class="eyebrow">Everything in its place</p>
+                <h1>Cook with<br><em>intention.</em></h1>
+                <p class="lead">
+                    Mise is a shared recipe box for chefs and home cooks. Chefs draft,
+                    publish, and illustrate their recipes; members keep a private
+                    collection of favorites. Every action is backed by a Fastify API.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Search by title, summary, or ingredient</li>
+                    <li><span>02</span> Filter by category and preparation time</li>
+                    <li><span>03</span> Token-derived ownership for chef edits</li>
+                    <li><span>04</span> Private, signature-checked photo storage</li>
+                </ul>
+
+                <div class="auth-note">
+                    <strong>Two ways to join</strong>
+                    <span>Choose CHEF to build the recipe box, or MEMBER to browse and bookmark. Roles are selected at registration in this teaching project.</span>
+                </div>
+            </div>
+
+            <div class="panel auth-card">
+                <div class="tabs" role="tablist" aria-label="Authentication">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Open the recipe box</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required placeholder="Ada Lovelace">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required placeholder="At least 15 characters">
+                        <span class="field-hint">Use 15 characters or more. The API enforces this minimum.</span>
+                    </div>
+                    <div class="field">
+                        <label for="register-role">I am joining as</label>
+                        <select id="register-role" name="role">
+                            <option value="MEMBER">Member — browse and save favorites</option>
+                            <option value="CHEF">Chef — create and publish recipes</option>
+                        </select>
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+                <ul class="error-list" id="auth-errors" aria-live="polite"></ul>
+            </div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <header class="workspace-header">
+                <div>
+                    <p class="eyebrow">The recipe box</p>
+                    <h1>Good food,<br><em>well documented.</em></h1>
+                    <p class="lead">Browse published recipes, keep your favorites close, or step into the chef studio to create and publish your own.</p>
+                </div>
+
+                <div class="header-aside">
+                    <div class="header-badge">
+                        <span class="badge-label">Signed in as</span>
+                        <strong id="header-user">—</strong>
+                    </div>
+                    <div class="header-badge">
+                        <span class="badge-label">Role</span>
+                        <strong class="accent-text" id="header-role">—</strong>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stat-grid">
+                <article class="stat-card">
+                    <span class="stat-label">Recipes found</span>
+                    <strong class="stat-value" id="stat-total">0</strong>
+                    <span class="stat-foot">Matching your current filters</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">On this page</span>
+                    <strong class="stat-value" id="stat-page">0</strong>
+                    <span class="stat-foot">Ready to open</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">Your favorites</span>
+                    <strong class="stat-value" id="stat-favorites">0</strong>
+                    <span class="stat-foot">Saved to your private list</span>
+                </article>
+            </div>
+
+            <div class="view-tabs" role="tablist" aria-label="Workspace views">
+                <button class="view-tab is-active" id="box-tab" type="button" role="tab" aria-selected="true" aria-controls="box-view">Recipe box</button>
+                <button class="view-tab" id="favorites-tab" type="button" role="tab" aria-selected="false" aria-controls="favorites-view">My favorites</button>
+                <button class="view-tab" id="studio-tab" type="button" role="tab" aria-selected="false" aria-controls="studio-view" hidden>Chef studio</button>
+            </div>
+
+            <section class="catalogue" id="box-view" role="tabpanel" aria-labelledby="box-tab">
+                <form class="filter-bar" id="filter-form">
+                    <div class="search-field">
+                        <label class="sr-only" for="filter-search">Search recipes</label>
+                        <input id="filter-search" name="search" type="search" maxlength="100" placeholder="Search a dish or ingredient…">
+                    </div>
+                    <div class="field compact">
+                        <label for="filter-category">Category</label>
+                        <select id="filter-category" name="category">
+                            <option value="">All categories</option>
+                            <option value="BREAKFAST">Breakfast</option>
+                            <option value="LUNCH">Lunch</option>
+                            <option value="DINNER">Dinner</option>
+                            <option value="DESSERT">Dessert</option>
+                            <option value="SNACK">Snack</option>
+                            <option value="BEVERAGE">Beverage</option>
+                        </select>
+                    </div>
+                    <div class="field compact">
+                        <label for="filter-prep">Max prep</label>
+                        <select id="filter-prep" name="maxPrep">
+                            <option value="">Any time</option>
+                            <option value="15">15 min</option>
+                            <option value="30">30 min</option>
+                            <option value="60">60 min</option>
+                            <option value="120">2 hours</option>
+                        </select>
+                    </div>
+                    <button class="button button-secondary" type="submit">Apply</button>
+                    <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
+                </form>
+
+                <div class="results-bar">
+                    <p class="results-count" id="results-count" role="status" aria-live="polite">Loading recipes…</p>
+                    <div class="pager">
+                        <button class="button button-quiet button-small" id="prev-page" type="button" disabled>← Previous</button>
+                        <span class="page-label" id="page-label">Page 1</span>
+                        <button class="button button-quiet button-small" id="next-page" type="button" disabled>Next →</button>
+                    </div>
+                </div>
+
+                <ul class="recipe-grid" id="recipe-grid">
+                    <li class="panel loading-card">Setting the table…</li>
+                </ul>
+            </section>
+
+            <section class="catalogue" id="favorites-view" role="tabpanel" aria-labelledby="favorites-tab" hidden>
+                <div class="section-intro">
+                    <div>
+                        <p class="panel-kicker">Saved for later</p>
+                        <h2>Your favorites</h2>
+                        <p class="lead">A private list of published recipes you want to return to.</p>
+                    </div>
+                    <button class="button button-secondary" id="refresh-favorites" type="button">Refresh list</button>
+                </div>
+
+                <ul class="recipe-grid" id="favorite-grid">
+                    <li class="panel loading-card">Loading your favorites…</li>
+                </ul>
+            </section>
+
+            <section class="studio" id="studio-view" role="tabpanel" aria-labelledby="studio-tab" hidden>
+                <div class="studio-grid">
+                    <div class="panel studio-form-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="panel-kicker">Chef studio</p>
+                                <h2 id="recipe-form-title">New recipe</h2>
+                            </div>
+                            <button class="button button-quiet button-small" id="cancel-edit" type="button" hidden>Cancel edit</button>
+                        </div>
+
+                        <form class="form recipe-form" id="recipe-form">
+                            <div class="field">
+                                <label for="recipe-title">Title</label>
+                                <input id="recipe-title" name="title" type="text" minlength="4" maxlength="160" required placeholder="Charred lemon pasta">
+                            </div>
+                            <div class="field">
+                                <label for="recipe-summary">Short description</label>
+                                <textarea id="recipe-summary" name="summary" rows="3" minlength="10" maxlength="600" required placeholder="What makes this dish worth cooking?"></textarea>
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="recipe-category">Category</label>
+                                    <select id="recipe-category" name="category">
+                                        <option value="BREAKFAST">Breakfast</option>
+                                        <option value="LUNCH">Lunch</option>
+                                        <option value="DINNER">Dinner</option>
+                                        <option value="DESSERT">Dessert</option>
+                                        <option value="SNACK">Snack</option>
+                                        <option value="BEVERAGE">Beverage</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="recipe-prep">Prep minutes</label>
+                                    <input id="recipe-prep" name="prepMinutes" type="number" min="1" max="1440" required value="30">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="recipe-ingredients">Ingredients</label>
+                                <textarea id="recipe-ingredients" name="ingredients" rows="5" minlength="10" maxlength="8000" required placeholder="One ingredient per line"></textarea>
+                                <span class="field-hint">One ingredient per line keeps the detail view easy to scan.</span>
+                            </div>
+                            <div class="field">
+                                <label for="recipe-steps">Method</label>
+                                <textarea id="recipe-steps" name="steps" rows="6" minlength="10" maxlength="8000" required placeholder="One step per line"></textarea>
+                            </div>
+                            <div class="field" id="status-field" hidden>
+                                <label for="recipe-status">Publication status</label>
+                                <select id="recipe-status" name="status">
+                                    <option value="DRAFT">Draft — only I can see it</option>
+                                    <option value="PUBLISHED">Published — visible to everyone</option>
+                                </select>
+                            </div>
+                            <button class="button button-primary button-block" id="save-recipe" type="submit">Create draft</button>
+                        </form>
+
+                        <p class="form-message" id="recipe-message" role="status" aria-live="polite"></p>
+                        <ul class="error-list" id="recipe-errors" aria-live="polite"></ul>
+
+                        <div class="photo-box" id="photo-box" hidden>
+                            <div class="attachment-heading">
+                                <div>
+                                    <p class="panel-kicker">Recipe photo</p>
+                                    <h3 id="photo-name">No photo</h3>
+                                </div>
+                                <button class="button button-danger button-small" id="remove-photo" type="button" hidden>Remove</button>
+                              </div>
+                            <form class="upload-form" id="upload-form">
+                                <label class="dropzone" for="photo-input">
+                                    <input id="photo-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                    <span class="dropzone-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M24 32V10"/>
+                                            <path d="m17 17 7-7 7 7"/>
+                                            <path d="M9 31v5a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3v-5"/>
+                                        </svg>
+                                    </span>
+                                    <span class="dropzone-title">Choose a photo or drop it here</span>
+                                    <span class="dropzone-hint">JPG, PNG, or WEBP · maximum 5 MB</span>
+                                </label>
+                                <button class="button button-secondary button-block" id="upload-button" type="submit" disabled>Upload photo</button>
+                            </form>
+                            <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                        </div>
+                    </div>
+
+                    <div class="panel studio-list-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="panel-kicker">Your recipes</p>
+                                <h2>Studio shelf <span class="count-badge" id="studio-count">0</span></h2>
+                            </div>
+                        </div>
+                        <div class="studio-filters">
+                            <label class="sr-only" for="studio-status">Filter by status</label>
+                            <select id="studio-status">
+                                <option value="">All statuses</option>
+                                <option value="DRAFT">Drafts</option>
+                                <option value="PUBLISHED">Published</option>
+                            </select>
+                            <label class="sr-only" for="studio-search">Search your recipes</label>
+                            <input id="studio-search" type="search" maxlength="100" placeholder="Search your recipes…">
+                        </div>
+                        <ul class="studio-list" id="studio-list">
+                            <li class="loading-row">Loading your recipes…</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Mise · Workshop 6 Final Project</span>
+        <span>Private photos live in <code>var/uploads/objects</code></span>
+    </footer>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="detail-drawer" id="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+        <div class="drawer-head">
+            <div>
+                <p class="panel-kicker">Recipe card</p>
+                <h2 id="detail-title">—</h2>
+            </div>
+            <button class="icon-button" id="close-detail" type="button" aria-label="Close recipe detail">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+        </div>
+        <div class="drawer-body" id="detail-body"></div>
+    </aside>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

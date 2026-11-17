@@ -1,147 +1,196 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync } from 'fastify'
 
-import {
-    createBookHandler,
-    deleteBookHandler,
-    getBook,
-    listBookCollection,
-    updateBookHandler
-} from "../controllers/book-controller.js";
+import { BookController } from '../controllers/book-controller.js'
 import {
     bookIdParamsSchema,
-    bookListQuerySchema,
-    createBookBodySchema,
-    updateBookBodySchema
-} from "../schemas/book-schemas.js";
+    createBookSchema,
+    listBooksQuerySchema,
+    updateBookSchema
+} from '../schemas/book-schemas.js'
+import { BookService } from '../services/book-service.js'
 import type {
-    BookCategory,
-    BookListQuery,
+    BookIdParams,
     CreateBookInput,
+    ListBooksQuery,
     UpdateBookInput
-} from "../types/book.js";
+} from '../types/book.js'
 
-const readLimit = {
-    max: 120,
-    timeWindow: "1 minute"
-} as const;
 
-const writeLimit = {
-    max: 30,
-    timeWindow: "1 minute"
-} as const;
-
-function normalizeBookBody(body: CreateBookInput | UpdateBookInput): void {
-    if (typeof body.title === "string") {
-        body.title = body.title.trim();
-    }
-
-    if (typeof body.author === "string") {
-        body.author = body.author.trim();
-    }
-
-    if (typeof body.description === "string") {
-        body.description = body.description.trim();
-    }
-
-    if (typeof body.isbn === "string") {
-        body.isbn = body.isbn.trim();
-    }
-
-    if (typeof body.category === "string") {
-        body.category = body.category.toUpperCase() as BookCategory;
-    }
-}
+/**
+ * The /books endpoints.
+ *
+ * Routes only describe the HTTP contract: path, method, JSON Schema, and small
+ * normalisation hooks. All decisions about the collection are delegated to the
+ * controller and service layers.
+ */
 
 const bookRoutes: FastifyPluginAsync = async (fastify) => {
-    fastify.get<{ Querystring: BookListQuery }>(
-        "/",
+
+    const service = new BookService()
+
+    const controller = new BookController(service)
+
+
+    fastify.get<{ Querystring: ListBooksQuery }>(
+        '/books',
+
         {
+
             schema: {
-                querystring: bookListQuerySchema
+
+                querystring: listBooksQuerySchema
+
             },
-            config: {
-                rateLimit: readLimit
-            },
+
+
             preValidation: async (request) => {
-                if (typeof request.query.search === "string") {
-                    request.query.search = request.query.search.trim();
+
+                const search = request.query.search
+
+                if (typeof search === 'string') {
+
+                    const trimmed = search.trim()
+
+                    if (trimmed.length === 0) {
+
+                        // An empty search is the same as no search. Removing it
+                        // here avoids a needless schema error for whitespace.
+                        delete request.query.search
+
+                    } else {
+
+                        request.query.search = trimmed
+
+                    }
+
                 }
 
-                if (typeof request.query.category === "string") {
-                    request.query.category =
-                        request.query.category.toUpperCase() as BookCategory;
-                }
-
-                if (typeof request.query.sort === "string") {
-                    request.query.sort =
-                        request.query.sort.toLowerCase() as BookListQuery["sort"];
-                }
             }
-        },
-        listBookCollection
-    );
 
-    fastify.get<{ Params: { id: number } }>(
-        "/:id",
+        },
+
+        controller.list
+    )
+
+
+    fastify.get<{ Params: BookIdParams }>(
+        '/books/:id',
+
         {
+
             schema: {
+
                 params: bookIdParamsSchema
-            },
-            config: {
-                rateLimit: readLimit
+
             }
+
         },
-        getBook
-    );
+
+        controller.getById
+    )
+
 
     fastify.post<{ Body: CreateBookInput }>(
-        "/",
+        '/books',
+
         {
+
             schema: {
-                body: createBookBodySchema
+
+                body: createBookSchema
+
             },
-            config: {
-                rateLimit: writeLimit
-            },
+
+
             preValidation: async (request) => {
-                normalizeBookBody(request.body);
+
+                const body = request.body as CreateBookInput
+
+                if (typeof body?.title === 'string') {
+                    body.title = body.title.trim()
+                }
+
+                if (typeof body?.author === 'string') {
+                    body.author = body.author.trim()
+                }
+
+                if (typeof body?.isbn === 'string') {
+                    body.isbn = body.isbn.trim()
+                }
+
+                if (typeof body?.description === 'string') {
+                    body.description = body.description.trim()
+                }
+
             }
+
         },
-        createBookHandler
-    );
+
+        controller.create
+    )
+
 
     fastify.patch<{
-        Params: { id: number };
-        Body: UpdateBookInput;
+        Params: BookIdParams
+        Body: UpdateBookInput
     }>(
-        "/:id",
+        '/books/:id',
+
         {
+
             schema: {
+
                 params: bookIdParamsSchema,
-                body: updateBookBodySchema
+
+                body: updateBookSchema
+
             },
-            config: {
-                rateLimit: writeLimit
-            },
+
+
             preValidation: async (request) => {
-                normalizeBookBody(request.body);
-            }
-        },
-        updateBookHandler
-    );
 
-    fastify.delete<{ Params: { id: number } }>(
-        "/:id",
+                const body = request.body as UpdateBookInput
+
+                if (typeof body?.title === 'string') {
+                    body.title = body.title.trim()
+                }
+
+                if (typeof body?.author === 'string') {
+                    body.author = body.author.trim()
+                }
+
+                if (typeof body?.isbn === 'string') {
+                    body.isbn = body.isbn.trim()
+                }
+
+                if (typeof body?.description === 'string') {
+                    body.description = body.description.trim()
+                }
+
+            }
+
+        },
+
+        controller.update
+    )
+
+
+    fastify.delete<{ Params: BookIdParams }>(
+        '/books/:id',
+
         {
-            schema: {
-                params: bookIdParamsSchema
-            },
-            config: {
-                rateLimit: writeLimit
-            }
-        },
-        deleteBookHandler
-    );
-};
 
-export default bookRoutes;
+            schema: {
+
+                params: bookIdParamsSchema
+
+            }
+
+        },
+
+        controller.remove
+    )
+
+}
+
+export default bookRoutes

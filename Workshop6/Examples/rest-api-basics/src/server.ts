@@ -1,18 +1,36 @@
-import { buildApp } from "./app.js";
-import { config } from "./config.js";
+import 'dotenv/config'
 
-async function start(): Promise<void> {
-    const app = await buildApp();
+import { buildApp } from './app.js'
+import { HOST, PORT } from './config.js'
+
+
+/**
+ * The entry point only starts the server. Keeping `buildApp()` separate means
+ * the Fastify instance can be created without opening a network port.
+ */
+
+const start = async (): Promise<void> => {
+
+    const app = buildApp()
 
     try {
+
         await app.listen({
-            port: config.port,
-            host: config.host
-        });
+
+            port: PORT,
+
+            host: HOST
+
+        })
+
     } catch (error) {
-        app.log.error(error);
-        process.exit(1);
+
+        app.log.error(error)
+
+        process.exit(1)
+
     }
+
 }
 
-void start();
+start()

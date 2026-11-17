@@ -1,206 +1,336 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync } from 'fastify'
+
 import {
-    handleCreateEvent,
-    handleDeleteCover,
-    handleDeleteEvent,
-    handleGetCover,
-    handleGetEvent,
-    handleListEvents,
-    handleListMyEvents,
-    handleUpdateEvent,
-    handleUploadCover
-} from "../controllers/event-controller.js";
+    createEventHandler,
+    deleteCoverHandler,
+    deleteEventHandler,
+    downloadCoverHandler,
+    getEvent,
+    listCurrentUserEvents,
+    listEvents,
+    requireEventOwner,
+    updateEventHandler,
+    uploadCoverHandler
+} from '../controllers/event-controller.js'
+
 import {
-    handleCancelRegistration,
-    handleListEventRegistrations,
-    handleListMyRegistrations,
-    handleRegisterForEvent
-} from "../controllers/registration-controller.js";
+    cancelRegistrationHandler,
+    listMyRegistrationsHandler,
+    registerForEventHandler
+} from '../controllers/registration-controller.js'
+
+import { idParamSchema } from '../schemas/common-schemas.js'
+
 import {
     createEventBodySchema,
-    eventListQuerySchema,
-    myEventListQuerySchema,
-    updateEventBodySchema,
-    type CreateEventBody,
-    type EventListQuery,
-    type MyEventListQuery,
-    type UpdateEventBody
-} from "../schemas/event-schemas.js";
-import {
-    registrationListQuerySchema,
-    type RegistrationListQuery
-} from "../schemas/registration-schemas.js";
+    listEventsQuerySchema,
+    myEventsQuerySchema,
+    updateEventBodySchema
+} from '../schemas/event-schemas.js'
 
-const idParamsSchema = {
-    type: "object",
-    required: ["id"],
-    properties: {
-        id: {
-            type: "integer",
-            minimum: 1
-        }
-    }
-} as const;
+import { myRegistrationsQuerySchema } from '../schemas/registration-schemas.js'
 
-type IdParam = {
-    id: number;
-};
+import type {
+    CreateEventInput,
+    ListMyEventsQuery,
+    UpdateEventInput
+} from '../services/event-service.js'
+
+import type { EventCategoryValue } from '../lib/serializers.js'
+
+
+type EventIdParams = {
+
+    eventId: number
+
+}
+
+
+type PublicEventsQuery = {
+
+    search?: string
+
+    category?: EventCategoryValue
+
+    page?: number
+
+    limit?: number
+
+}
+
+
+type MyEventsQuery = ListMyEventsQuery
+
 
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
-    // 1. List published events (Public)
-    fastify.get<{ Querystring: EventListQuery }>(
-        "/events",
+
+    // ------------------------------------------------------------------
+    // Public collection and detail
+    // ------------------------------------------------------------------
+
+    fastify.get<{ Querystring: PublicEventsQuery }>(
+        '/events',
+
         {
             schema: {
-                querystring: eventListQuerySchema
-            }
-        },
-        handleListEvents
-    );
+                querystring: listEventsQuerySchema
+            },
 
-    // 2. List events organized by current user (Authenticated)
-    fastify.get<{ Querystring: MyEventListQuery }>(
-        "/events/me",
+            preValidation: async (request) => {
+
+                const query = request.query
+
+
+                if (typeof query?.search === 'string') {
+                    query.search = query.search.trim()
+                }
+
+            }
+
+        },
+
+        listEvents
+    )
+
+
+    fastify.get<{ Params: EventIdParams }>(
+        '/events/:eventId',
+
         {
-            preHandler: [fastify.authenticate],
             schema: {
-                querystring: myEventListQuerySchema
+                params: idParamSchema
             }
         },
-        handleListMyEvents
-    );
 
-    // 3. Get single event by id (Public for published; Auth check for draft)
-    fastify.get<{ Params: IdParam }>(
-        "/events/:id",
+        getEvent
+    )
+
+
+    fastify.get<{ Params: EventIdParams }>(
+        '/events/:eventId/cover',
+
         {
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleGetEvent
-    );
 
-    // 4. Create new event (Authenticated)
-    fastify.post<{ Body: CreateEventBody }>(
-        "/events",
+        downloadCoverHandler
+    )
+
+
+    // ------------------------------------------------------------------
+    // Organiser collection and mutations
+    // ------------------------------------------------------------------
+
+    fastify.get<{ Querystring: MyEventsQuery }>(
+        '/me/events',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
+            schema: {
+                querystring: myEventsQuerySchema
+            }
+        },
+
+        listCurrentUserEvents
+    )
+
+
+    fastify.post<{ Body: CreateEventInput }>(
+        '/events',
+
+        {
+            preHandler: [
+                fastify.authenticate,
+                fastify.authorize('ORGANIZER')
+            ],
+
             schema: {
                 body: createEventBodySchema
-            }
-        },
-        handleCreateEvent
-    );
+            },
 
-    // 5. Update existing event (Authenticated owner or admin)
-    fastify.patch<{ Params: IdParam; Body: UpdateEventBody }>(
-        "/events/:id",
+            preValidation: async (request) => {
+
+                const body = request.body
+
+
+                if (typeof body?.title === 'string') {
+                    body.title = body.title.trim()
+                }
+
+                if (typeof body?.description === 'string') {
+                    body.description = body.description.trim()
+                }
+
+                if (typeof body?.location === 'string') {
+                    body.location = body.location.trim()
+                }
+
+            }
+
+        },
+
+        createEventHandler
+    )
+
+
+    fastify.patch<{
+        Params: EventIdParams
+        Body: UpdateEventInput
+    }>(
+        '/events/:eventId',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
             schema: {
-                params: idParamsSchema,
+                params: idParamSchema,
                 body: updateEventBodySchema
-            }
-        },
-        handleUpdateEvent
-    );
+            },
 
-    // 6. Delete event (Authenticated owner or admin)
-    fastify.delete<{ Params: IdParam }>(
-        "/events/:id",
+            preValidation: async (request) => {
+
+                const body = request.body
+
+
+                if (typeof body?.title === 'string') {
+                    body.title = body.title.trim()
+                }
+
+                if (typeof body?.description === 'string') {
+                    body.description = body.description.trim()
+                }
+
+                if (typeof body?.location === 'string') {
+                    body.location = body.location.trim()
+                }
+
+            }
+
+        },
+
+        updateEventHandler
+    )
+
+
+    fastify.delete<{ Params: EventIdParams }>(
+        '/events/:eventId',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleDeleteEvent
-    );
 
-    // 7. Upload cover image (Authenticated owner or admin)
-    fastify.post<{ Params: IdParam }>(
-        "/events/:id/cover",
+        deleteEventHandler
+    )
+
+
+    // ------------------------------------------------------------------
+    // Private cover images (ownership is checked before reading the file)
+    // ------------------------------------------------------------------
+
+    fastify.put<{ Params: EventIdParams }>(
+        '/events/:eventId/cover',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate,
+                requireEventOwner
+            ],
+
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleUploadCover
-    );
 
-    // 8. Serve cover image (Public)
-    fastify.get<{ Params: IdParam }>(
-        "/events/:id/cover",
+        uploadCoverHandler
+    )
+
+
+    fastify.delete<{ Params: EventIdParams }>(
+        '/events/:eventId/cover',
+
         {
+            preHandler: [
+                fastify.authenticate,
+                requireEventOwner
+            ],
+
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleGetCover
-    );
 
-    // 9. Delete cover image (Authenticated owner or admin)
-    fastify.delete<{ Params: IdParam }>(
-        "/events/:id/cover",
+        deleteCoverHandler
+    )
+
+
+    // ------------------------------------------------------------------
+    // Registrations
+    // ------------------------------------------------------------------
+
+    fastify.post<{ Params: EventIdParams }>(
+        '/events/:eventId/registrations',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleDeleteCover
-    );
 
-    // 10. Register for event (Authenticated)
-    fastify.post<{ Params: IdParam }>(
-        "/events/:id/registrations",
+        registerForEventHandler
+    )
+
+
+    fastify.delete<{ Params: EventIdParams }>(
+        '/events/:eventId/registrations/me',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
             schema: {
-                params: idParamsSchema
+                params: idParamSchema
             }
         },
-        handleRegisterForEvent
-    );
 
-    // 11. Cancel registration (Authenticated)
-    fastify.delete<{ Params: IdParam }>(
-        "/events/:id/registrations",
+        cancelRegistrationHandler
+    )
+
+
+    fastify.get(
+        '/me/registrations',
+
         {
-            preHandler: [fastify.authenticate],
+            preHandler: [
+                fastify.authenticate
+            ],
+
             schema: {
-                params: idParamsSchema
+                querystring: myRegistrationsQuerySchema
             }
         },
-        handleCancelRegistration
-    );
 
-    // 12. List attendees for event (Authenticated organizer or admin)
-    fastify.get<{ Params: IdParam; Querystring: RegistrationListQuery }>(
-        "/events/:id/registrations",
-        {
-            preHandler: [fastify.authenticate],
-            schema: {
-                params: idParamsSchema,
-                querystring: registrationListQuerySchema
-            }
-        },
-        handleListEventRegistrations
-    );
+        listMyRegistrationsHandler
+    )
 
-    // 13. List registrations for current user (Authenticated)
-    fastify.get<{ Querystring: RegistrationListQuery }>(
-        "/me/registrations",
-        {
-            preHandler: [fastify.authenticate],
-            schema: {
-                querystring: registrationListQuerySchema
-            }
-        },
-        handleListMyRegistrations
-    );
-};
+}
 
-export default eventRoutes;
+
+export default eventRoutes

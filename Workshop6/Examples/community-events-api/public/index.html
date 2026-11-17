@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Gather — discover community events, register for meetups, and host your own.">
+    <title>Gather · Community Events</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="7" width="22" height="20" rx="3"/>
+                    <path d="M5 13h22M11 4v6M21 4v6"/>
+                    <path d="m12.5 20 2.5 2.5 5-5"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Gather</span>
+                <span class="brand-tagline">Community events</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta">
+            <div class="session-bar" id="session-bar" hidden>
+                <span class="connection-dot" aria-hidden="true"></span>
+                <span class="session-user" id="session-user">Signed in</span>
+                <span class="role-badge" id="session-role">Member</span>
+                <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+            </div>
+            <button class="button button-primary button-small" id="host-button" type="button" hidden>Host an event</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="hero" id="hero" aria-labelledby="hero-heading">
+            <div class="hero-copy">
+                <p class="eyebrow">Find your people</p>
+                <h1 id="hero-heading">Good things happen<br><em>when we gather.</em></h1>
+                <p class="lead">
+                    Discover workshops, meetups, and activities in your community —
+                    or host one of your own and watch the guest list grow.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Browse upcoming events by category</li>
+                    <li><span>02</span> Register in a single click, capacity safe</li>
+                    <li><span>03</span> Host drafts and publish when you are ready</li>
+                    <li><span>04</span> Add a private, signature-checked cover image</li>
+                </ul>
+            </div>
+
+            <div class="panel auth-card" id="auth-card">
+                <div class="tabs" role="tablist" aria-label="Account access">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Join Gather</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="12" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Sign in</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-username">Username</label>
+                        <input id="register-username" name="username" type="text" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="community_alex">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required placeholder="At least 12 characters">
+                        <span class="field-hint">Use 12 characters or more — the API enforces this minimum.</span>
+                    </div>
+                    <fieldset class="role-field">
+                        <legend>I want to</legend>
+                        <label class="radio-option">
+                            <input type="radio" name="role" value="MEMBER" checked>
+                            <span>Attend events</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="role" value="ORGANIZER">
+                            <span>Host events</span>
+                        </label>
+                    </fieldset>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+            </div>
+
+            <div class="panel welcome-card" id="welcome-card" hidden>
+                <p class="eyebrow">Your community, your calendar</p>
+                <h2 id="welcome-title">Hello.</h2>
+                <p class="welcome-copy" id="welcome-copy"></p>
+                <button class="button button-primary" id="welcome-host" type="button" hidden>Host an event</button>
+            </div>
+        </section>
+
+        <section class="discover" aria-labelledby="discover-heading">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">What's on</p>
+                    <h2 id="discover-heading">Upcoming events</h2>
+                </div>
+                <p class="result-count" id="result-count" aria-live="polite"></p>
+            </div>
+
+            <form class="filter-bar" id="filter-form">
+                <div class="search-field">
+                    <label class="sr-only" for="search-input">Search events by title</label>
+                    <input id="search-input" name="search" type="search" maxlength="100" placeholder="Search events by title…">
+                </div>
+                <div class="filter-field">
+                    <label class="sr-only" for="category-select">Filter by category</label>
+                    <select id="category-select" name="category">
+                        <option value="">All categories</option>
+                    </select>
+                </div>
+                <button class="button button-primary" type="submit">Apply filters</button>
+                <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
+            </form>
+
+            <div class="events-grid" id="events-grid" aria-live="polite">
+                <p class="loading-state">Loading events…</p>
+            </div>
+
+            <nav class="pagination" id="pagination" aria-label="Event pages"></nav>
+        </section>
+
+        <section class="workspace" id="workspace" aria-labelledby="workspace-heading" hidden>
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">Your space</p>
+                    <h2 id="workspace-heading">My dashboard</h2>
+                </div>
+            </div>
+
+            <div class="workspace-tabs" role="tablist" aria-label="Dashboard sections">
+                <button class="workspace-tab is-active" id="tab-events" type="button" role="tab" aria-selected="true" aria-controls="panel-my-events">My events</button>
+                <button class="workspace-tab" id="tab-registrations" type="button" role="tab" aria-selected="false" aria-controls="panel-my-registrations">My registrations</button>
+            </div>
+
+            <div class="workspace-panel" id="panel-my-events" role="tabpanel" aria-labelledby="tab-events">
+                <ul class="manage-list" id="my-events-list"></ul>
+                <p class="form-message" id="my-events-message" role="status" aria-live="polite"></p>
+            </div>
+
+            <div class="workspace-panel" id="panel-my-registrations" role="tabpanel" aria-labelledby="tab-registrations" hidden>
+                <ul class="manage-list" id="my-registrations-list"></ul>
+                <p class="form-message" id="my-registrations-message" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Gather · Workshop 6 Community Events API</span>
+        <span>Cover images live in <code>storage/event-covers</code></span>
+    </footer>
+
+    <dialog class="modal" id="event-dialog" aria-labelledby="detail-title">
+        <div class="modal-inner">
+            <button class="modal-close" id="detail-close" type="button" aria-label="Close event details">×</button>
+
+            <div class="detail-cover" id="detail-cover" hidden>
+                <img id="detail-cover-img" alt="">
+            </div>
+
+            <div class="detail-body">
+                <div class="detail-meta">
+                    <span class="status-pill" id="detail-status">Published</span>
+                    <span class="category-pill" id="detail-category">Community</span>
+                </div>
+
+                <h2 id="detail-title"></h2>
+
+                <p class="detail-description" id="detail-description"></p>
+
+                <dl class="detail-facts">
+                    <div>
+                        <dt>When</dt>
+                        <dd id="detail-date"></dd>
+                    </div>
+                    <div>
+                        <dt>Where</dt>
+                        <dd id="detail-location"></dd>
+                    </div>
+                    <div>
+                        <dt>Capacity</dt>
+                        <dd id="detail-capacity"></dd>
+                    </div>
+                    <div>
+                        <dt>Hosted by</dt>
+                        <dd id="detail-organizer"></dd>
+                    </div>
+                </dl>
+
+                <p class="form-message" id="detail-message" role="status" aria-live="polite"></p>
+
+                <div class="detail-actions" id="detail-actions">
+                    <button class="button button-primary" id="detail-register" type="button">Register</button>
+                    <button class="button button-danger" id="detail-cancel" type="button" hidden>Cancel registration</button>
+                    <div class="owner-actions" id="detail-owner-actions" hidden>
+                        <button class="button button-quiet" id="detail-edit" type="button">Edit</button>
+                        <button class="button button-quiet" id="detail-publish" type="button">Publish</button>
+                        <button class="button button-danger" id="detail-delete" type="button">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="modal" id="editor-dialog" aria-labelledby="editor-heading">
+        <form class="modal-inner editor-form" id="editor-form">
+            <button class="modal-close" id="editor-close" type="button" aria-label="Close editor">×</button>
+
+            <p class="eyebrow" id="editor-kicker">New event</p>
+            <h2 id="editor-heading">Host an event</h2>
+
+            <div class="field">
+                <label for="editor-title">Title</label>
+                <input id="editor-title" name="title" type="text" minlength="3" maxlength="120" required placeholder="Community Robotics Workshop">
+            </div>
+
+            <div class="field">
+                <label for="editor-description">Description</label>
+                <textarea id="editor-description" name="description" rows="4" minlength="10" maxlength="3000" required placeholder="What will people learn or enjoy?"></textarea>
+            </div>
+
+            <div class="field">
+                <label for="editor-location">Location</label>
+                <input id="editor-location" name="location" type="text" minlength="2" maxlength="160" required placeholder="Community Technology Center">
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="editor-startsAt">Starts at</label>
+                    <input id="editor-startsAt" name="startsAt" type="datetime-local" required>
+                </div>
+                <div class="field">
+                    <label for="editor-capacity">Capacity</label>
+                    <input id="editor-capacity" name="capacity" type="number" min="1" max="10000" required>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="editor-category">Category</label>
+                <select id="editor-category" name="category">
+                    <option value="TECHNOLOGY">Technology</option>
+                    <option value="EDUCATION">Education</option>
+                    <option value="ART">Art</option>
+                    <option value="COMMUNITY">Community</option>
+                    <option value="SPORTS">Sports</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+
+            <div class="field" id="editor-status-field" hidden>
+                <label for="editor-status">Status</label>
+                <select id="editor-status" name="status">
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                </select>
+            </div>
+
+            <div class="field" id="editor-cover-field" hidden>
+                <label for="editor-cover">Cover image</label>
+                <input id="editor-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp">
+                <span class="field-hint">JPEG, PNG, or WebP up to 5 MB. Stored privately and signature checked.</span>
+                <button class="button button-danger button-small" id="editor-remove-cover" type="button" hidden>Remove current cover</button>
+            </div>
+
+            <p class="form-message" id="editor-message" role="status" aria-live="polite"></p>
+
+            <div class="modal-actions">
+                <button class="button button-quiet" id="editor-cancel" type="button">Cancel</button>
+                <button class="button button-primary" id="editor-submit" type="submit">Create draft</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

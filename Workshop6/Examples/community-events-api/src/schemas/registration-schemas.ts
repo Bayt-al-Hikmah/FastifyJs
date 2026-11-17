@@ -1,14 +1,4 @@
-import { paginationProperties } from "./common.js";
+import { paginationQuerySchema } from './common-schemas.js'
 
-export const registrationListQuerySchema = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-        ...paginationProperties
-    }
-} as const;
 
-export type RegistrationListQuery = {
-    page?: number;
-    limit?: number;
-};
+export const myRegistrationsQuerySchema = paginationQuerySchema

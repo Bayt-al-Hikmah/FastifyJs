@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Kitbase — a equipment catalogue dashboard built with Fastify, Prisma, and TypeScript.">
+    <title>Kitbase · Equipment Catalogue</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/app.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h22v13H5z"/>
+                    <path d="M5 12V8h5l2 4"/>
+                    <path d="M13 17h6M16 14v6"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Kitbase</span>
+                <span class="brand-tagline">Workshop 6 · Task 1</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta" id="session-bar" hidden>
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span class="session-name" id="session-name">Signed in</span>
+            <span class="role-pill" id="session-role">USER</span>
+            <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="auth-layout" id="auth-view">
+            <div class="auth-intro">
+                <p class="eyebrow">Shared equipment, sorted</p>
+                <h1>Everything the team needs,<br><em>ready to borrow.</em></h1>
+                <p class="lead">
+                    Kitbase keeps a single, searchable record of the tools and kit your
+                    organisation owns. Track quantities, availability, and reference
+                    photos from one calm workspace.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Search and filter the whole catalogue</li>
+                    <li><span>02</span> Role-aware ownership on every change</li>
+                    <li><span>03</span> Private, signature-checked image storage</li>
+                    <li><span>04</span> Consistent envelopes and clear errors</li>
+                </ul>
+
+                <div class="auth-actions">
+                    <button class="button button-quiet" id="guest-button" type="button">Browse without signing in</button>
+                </div>
+
+                <div class="auth-note">
+                    <strong>Demo access</strong>
+                    <span>Register as a user, or use an email listed in ADMIN_EMAILS to start with the admin role.</span>
+                </div>
+            </div>
+
+            <div class="panel auth-card">
+                <div class="tabs" role="tablist" aria-label="Authentication">
+                    <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                </div>
+
+                <form class="form" id="login-form" autocomplete="on">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Enter the catalogue</button>
+                </form>
+
+                <form class="form" id="register-form" autocomplete="on" hidden>
+                    <div class="field">
+                        <label for="register-name">Display name</label>
+                        <input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required placeholder="Alex Rivera">
+                    </div>
+                    <div class="field">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="register-password">Password</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required placeholder="At least 12 characters">
+                        <span class="field-hint">Use 12 characters or more. The API enforces the same minimum.</span>
+                    </div>
+                    <button class="button button-primary button-block" type="submit">Create account</button>
+                </form>
+
+                <p class="form-message" id="auth-message" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section class="workspace" id="workspace" hidden>
+            <header class="workspace-header">
+                <div>
+                    <p class="eyebrow">Equipment catalogue</p>
+                    <h1>A clear view of <em>every item.</em></h1>
+                    <p class="lead">Filter the catalogue, open a record for details, and manage the items you own.</p>
+                </div>
+                <div class="header-aside">
+                    <div class="header-badge">
+                        <span class="badge-label">Session</span>
+                        <strong id="header-user">Browsing as guest</strong>
+                    </div>
+                    <div class="header-badge">
+                        <span class="badge-label">API</span>
+                        <strong class="ok">Connected</strong>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stat-grid" aria-label="Catalogue summary for the current page">
+                <article class="stat-card">
+                    <span class="stat-label">On this page</span>
+                    <strong class="stat-value" id="stat-total">0</strong>
+                    <span class="stat-foot">Items in the current result</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">Available</span>
+                    <strong class="stat-value" id="stat-available">0</strong>
+                    <span class="stat-foot">Ready to borrow</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">On loan / maintenance</span>
+                    <strong class="stat-value" id="stat-unavailable">0</strong>
+                    <span class="stat-foot">Currently out of circulation</span>
+                </article>
+            </div>
+
+            <div class="workspace-grid">
+                <aside class="panel catalogue-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Catalogue</p>
+                            <h2>Browse items</h2>
+                        </div>
+                        <span class="count-badge" id="item-count">0</span>
+                    </div>
+
+                    <form class="filter-form" id="filter-form">
+                        <label class="sr-only" for="search-input">Search equipment by name</label>
+                        <input id="search-input" name="search" type="search" maxlength="100" placeholder="Search by name…">
+
+                        <div class="field">
+                            <label for="category-select">Category</label>
+                            <select id="category-select" name="category">
+                                <option value="">All categories</option>
+                                <option value="TOOLS">Tools</option>
+                                <option value="ELECTRONICS">Electronics</option>
+                                <option value="FURNITURE">Furniture</option>
+                                <option value="SPORTS">Sports</option>
+                                <option value="CAMPING">Camping</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="availability-select">Availability</label>
+                            <select id="availability-select" name="availability">
+                                <option value="">Any availability</option>
+                                <option value="AVAILABLE">Available</option>
+                                <option value="ON_LOAN">On loan</option>
+                                <option value="MAINTENANCE">Maintenance</option>
+                            </select>
+                        </div>
+
+                        <button class="button button-quiet button-small" id="reset-filters" type="button">Reset filters</button>
+                    </form>
+
+                    <nav class="pagination" id="list-pagination" aria-label="Catalogue pages">
+                        <button class="button button-quiet button-small" id="prev-page" type="button">Previous</button>
+                        <span id="page-label" aria-live="polite">Page 1 of 1</span>
+                        <button class="button button-quiet button-small" id="next-page" type="button">Next</button>
+                    </nav>
+
+                    <ul class="equipment-list" id="equipment-list" aria-live="polite"></ul>
+
+                    <form class="create-form" id="create-form" hidden>
+                        <p class="create-title">Add an item</p>
+                        <label class="sr-only" for="create-name">Equipment name</label>
+                        <input id="create-name" name="name" type="text" maxlength="140" required placeholder="e.g. Cordless drill">
+
+                        <div class="field">
+                            <label for="create-description">Description</label>
+                            <textarea id="create-description" name="description" rows="2" maxlength="2000" placeholder="What is this item used for?"></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="create-category">Category</label>
+                                <select id="create-category" name="category">
+                                    <option value="TOOLS">Tools</option>
+                                    <option value="ELECTRONICS">Electronics</option>
+                                    <option value="FURNITURE">Furniture</option>
+                                    <option value="SPORTS">Sports</option>
+                                    <option value="CAMPING">Camping</option>
+                                    <option value="OTHER">Other</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="create-availability">Availability</label>
+                                <select id="create-availability" name="availability">
+                                    <option value="AVAILABLE">Available</option>
+                                    <option value="ON_LOAN">On loan</option>
+                                    <option value="MAINTENANCE">Maintenance</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="create-quantity">Quantity</label>
+                            <input id="create-quantity" name="quantity" type="number" min="0" max="100000" value="1">
+                        </div>
+
+                        <button class="button button-primary button-block" type="submit">Add to catalogue</button>
+                        <p class="form-message" id="create-message" role="status" aria-live="polite"></p>
+                    </form>
+                </aside>
+
+                <section class="panel detail-panel" id="detail-panel">
+                    <div class="empty-state" id="detail-empty">
+                        <span class="empty-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 17h32v22H8z"/>
+                                <path d="M8 17v-5h9l4 5"/>
+                                <path d="M20 28h8M24 24v8"/>
+                            </svg>
+                        </span>
+                        <h2>Select an item</h2>
+                        <p>Choose something from the catalogue to see its details, availability, and image.</p>
+                    </div>
+
+                    <div id="detail-content" hidden>
+                        <div class="detail-header">
+                            <div class="detail-title">
+                                <div class="detail-meta">
+                                    <span class="status-pill" id="detail-status">AVAILABLE</span>
+                                    <span class="detail-date" id="detail-date"></span>
+                                </div>
+                                <h2 id="detail-title-text"></h2>
+                                <p class="detail-description" id="detail-description"></p>
+                            </div>
+                            <div class="detail-actions">
+                                <button class="button button-quiet button-small" id="edit-button" type="button" hidden>Edit details</button>
+                                <button class="button button-danger button-small" id="delete-button" type="button" hidden>Delete item</button>
+                            </div>
+                        </div>
+
+                        <dl class="detail-facts">
+                            <div><dt>Category</dt><dd id="detail-category"></dd></div>
+                            <div><dt>Quantity</dt><dd id="detail-quantity"></dd></div>
+                            <div><dt>Added by</dt><dd id="detail-owner"></dd></div>
+                        </dl>
+
+                        <div class="media-section" id="media-section">
+                            <div class="media-heading">
+                                <div>
+                                    <p class="panel-kicker">Reference photo</p>
+                                    <h3>Item image</h3>
+                                </div>
+                                <span class="limit-note">JPEG, PNG, or WebP · up to 5 MB</span>
+                            </div>
+
+                            <div class="media-frame" id="media-frame" hidden>
+                                <img id="preview-image" alt="Selected equipment photo">
+                                <div class="media-caption" id="media-caption"></div>
+                            </div>
+
+                            <div class="media-placeholder" id="media-placeholder">
+                                No image has been uploaded for this item yet.
+                            </div>
+
+                            <form class="upload-form" id="upload-form" hidden>
+                                <label class="sr-only" for="image-input">Choose an image file</label>
+                                <input id="image-input" name="image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                <div class="form-actions">
+                                    <button class="button button-primary button-small" id="upload-button" type="submit">Upload image</button>
+                                    <button class="button button-quiet button-small" id="remove-image-button" type="button" hidden>Remove image</button>
+                                </div>
+                                <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                            </form>
+                        </div>
+
+                        <form class="edit-form" id="edit-form" hidden>
+                            <p class="panel-kicker">Edit item</p>
+                            <div class="field">
+                                <label for="edit-name">Name</label>
+                                <input id="edit-name" name="name" type="text" minlength="2" maxlength="140" required>
+                            </div>
+                            <div class="field">
+                                <label for="edit-description">Description</label>
+                                <textarea id="edit-description" name="description" rows="3" maxlength="2000"></textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="field">
+                                    <label for="edit-category">Category</label>
+                                    <select id="edit-category" name="category">
+                                        <option value="TOOLS">Tools</option>
+                                        <option value="ELECTRONICS">Electronics</option>
+                                        <option value="FURNITURE">Furniture</option>
+                                        <option value="SPORTS">Sports</option>
+                                        <option value="CAMPING">Camping</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-availability">Availability</label>
+                                    <select id="edit-availability" name="availability">
+                                        <option value="AVAILABLE">Available</option>
+                                        <option value="ON_LOAN">On loan</option>
+                                        <option value="MAINTENANCE">Maintenance</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="edit-quantity">Quantity</label>
+                                <input id="edit-quantity" name="quantity" type="number" min="0" max="100000" required>
+                            </div>
+                            <div class="form-actions">
+                                <button class="button button-primary button-small" type="submit">Save changes</button>
+                                <button class="button button-quiet button-small" id="cancel-edit" type="button">Cancel</button>
+                            </div>
+                            <p class="form-message" id="edit-message" role="status" aria-live="polite"></p>
+                        </form>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 6 · Equipment Catalogue API</span>
+        <span>Private images stay outside <code>public/</code></span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

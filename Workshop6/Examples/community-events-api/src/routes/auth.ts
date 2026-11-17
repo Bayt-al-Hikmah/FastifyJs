@@ -1,56 +1,115 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync } from 'fastify'
+
 import {
-    handleGetMe,
-    handleLogin,
-    handleRegister
-} from "../controllers/auth-controller.js";
+    loginHandler,
+    meHandler,
+    registerHandler
+} from '../controllers/auth-controller.js'
+
 import {
     loginBodySchema,
-    registerBodySchema,
-    type LoginBody,
-    type RegisterBody
-} from "../schemas/auth-schemas.js";
+    registerBodySchema
+} from '../schemas/auth-schemas.js'
+
+import type {
+    LoginInput,
+    RegisterInput
+} from '../services/auth-service.js'
+
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
-    fastify.post<{ Body: RegisterBody }>(
-        "/register",
+
+    fastify.post<{ Body: RegisterInput }>(
+        '/register',
+
         {
+
             schema: {
                 body: registerBodySchema
             },
+
             config: {
                 rateLimit: {
-                    max: 5,
-                    timeWindow: "15 minutes"
+                    max: 3,
+                    timeWindow: '1 hour'
                 }
-            }
-        },
-        handleRegister
-    );
+            },
 
-    fastify.post<{ Body: LoginBody }>(
-        "/login",
+            preValidation: async (request) => {
+
+                const body = request.body
+
+
+                if (typeof body?.username === 'string') {
+                    body.username = body.username.trim()
+                }
+
+                if (typeof body?.email === 'string') {
+                    body.email = body.email
+                        .trim()
+                        .toLowerCase()
+                }
+
+                if (body?.role === undefined) {
+                    body.role = 'MEMBER'
+                }
+
+            }
+
+        },
+
+        registerHandler
+    )
+
+
+    fastify.post<{ Body: LoginInput }>(
+        '/login',
+
         {
+
             schema: {
                 body: loginBodySchema
             },
+
             config: {
                 rateLimit: {
                     max: 5,
-                    timeWindow: "15 minutes"
+                    timeWindow: '15 minutes'
                 }
+            },
+
+            preValidation: async (request) => {
+
+                const body = request.body
+
+
+                if (typeof body?.email === 'string') {
+                    body.email = body.email
+                        .trim()
+                        .toLowerCase()
+                }
+
             }
+
         },
-        handleLogin
-    );
+
+        loginHandler
+    )
+
 
     fastify.get(
-        "/me",
-        {
-            preHandler: [fastify.authenticate]
-        },
-        handleGetMe
-    );
-};
+        '/me',
 
-export default authRoutes;
+        {
+            preHandler: [
+                fastify.authenticate
+            ]
+        },
+
+        meHandler
+    )
+
+}
+
+
+export default authRoutes

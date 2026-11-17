@@ -1,75 +1,217 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes } from 'node:crypto'
 
-import type { PrismaClient } from "../generated/prisma/client.js";
+import type { PrismaClient } from '../generated/prisma/client.js'
 
-import { ApiError } from "../lib/api-error.js";
-import { hashPassword, verifyPassword } from "../lib/password.js";
-import { isPrismaError } from "../lib/prisma-errors.js";
-import { publicUserSelect } from "../lib/serializers.js";
-import type { RegisterBody } from "../schemas/auth-schemas.js";
+import { env } from '../config/env.js'
 
-const dummyPasswordHash = hashPassword(
-    randomBytes(32).toString("hex")
-);
+import { ApiError } from '../lib/api-error.js'
+import {
+    hashPassword,
+    verifyPassword
+} from '../lib/password.js'
+import { isUniqueConstraintError } from '../lib/prisma-errors.js'
+import { serializeUser } from '../lib/serializers.js'
+
+import type {
+    PublicUser,
+    UserRole
+} from '../types/auth.js'
+
+
+export type RegisterInput = {
+
+    username: string
+
+    email: string
+
+    password: string
+
+    role: UserRole
+
+}
+
+
+export type LoginInput = {
+
+    email: string
+
+    password: string
+
+}
+
+
+export type LoginResult = {
+
+    accessToken: string
+
+    tokenType: string
+
+    expiresIn: number
+
+    user: PublicUser
+
+}
+
+
+const publicUserSelect = {
+
+    id: true,
+
+    username: true,
+
+    email: true,
+
+    role: true,
+
+    createdAt: true
+
+} as const
+
+
+let dummyPasswordHash: Promise<string> | null = null
+
+
+/**
+ * A stable hash of a random throwaway value. It is computed once and reused so
+ * a login attempt for a missing account still performs an Argon2 verification
+ * (avoiding a timing signal) without hashing on every request.
+ */
+function getDummyPasswordHash(): Promise<string> {
+
+    if (!dummyPasswordHash) {
+
+        dummyPasswordHash = hashPassword(
+            randomBytes(32).toString('hex')
+        )
+
+    }
+
+    return dummyPasswordHash
+
+}
+
 
 export async function registerUser(
     prisma: PrismaClient,
-    input: RegisterBody
-) {
-    const passwordHash = await hashPassword(input.password);
+    input: RegisterInput
+): Promise<PublicUser> {
+
+    const passwordHash = await hashPassword(input.password)
 
     try {
-        return await prisma.user.create({
+
+        const user = await prisma.user.create({
+
             data: {
                 username: input.username,
                 email: input.email,
-                passwordHash
+                passwordHash,
+                role: input.role
             },
+
             select: publicUserSelect
-        });
+
+        })
+
+        return serializeUser(user)
+
     } catch (error) {
-        if (isPrismaError(error, ["P2002"])) {
+
+        if (isUniqueConstraintError(error)) {
+
             throw ApiError.conflict(
-                "An account with this email or username already exists.",
-                [
-                    {
-                        field: "email",
-                        message:
-                            "Choose a different email address or username."
-                    }
-                ]
-            );
+                'An account with that email or username already exists.'
+            )
+
         }
 
-        throw error;
+        throw error
+
     }
+
 }
 
-export async function authenticateCredentials(
-    prisma: PrismaClient,
-    email: string,
-    password: string
-) {
-    const user = await prisma.user.findUnique({
-        where: {
-            email
-        },
-        select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            createdAt: true,
-            passwordHash: true
-        }
-    });
 
-    const passwordHash = user?.passwordHash ?? (await dummyPasswordHash);
-    const passwordValid = await verifyPassword(passwordHash, password);
+export async function authenticateUser(
+    prisma: PrismaClient,
+    input: LoginInput,
+    signAccessToken: (subject: string) => Promise<string>
+): Promise<LoginResult> {
+
+    const user = await prisma.user.findUnique({
+
+        where: {
+            email: input.email
+        }
+
+    })
+
+
+    // Verify against a dummy hash when the account does not exist so the two
+    // failure paths take a comparable amount of time (no user enumeration).
+    const passwordHash =
+        user?.passwordHash ?? await getDummyPasswordHash()
+
+    const passwordValid = await verifyPassword(
+        passwordHash,
+        input.password
+    )
+
 
     if (!user || !passwordValid) {
-        throw ApiError.unauthorized("Invalid email or password.");
+
+        throw ApiError.unauthorized(
+            'Invalid email or password.'
+        )
+
     }
 
-    return user;
+
+    const accessToken = await signAccessToken(
+        String(user.id)
+    )
+
+
+    return {
+
+        accessToken,
+
+        tokenType: 'Bearer',
+
+        expiresIn: env.accessTokenTtlSeconds,
+
+        user: serializeUser(user)
+
+    }
+
+}
+
+
+export async function getPublicUser(
+    prisma: PrismaClient,
+    userId: number
+): Promise<PublicUser> {
+
+    const user = await prisma.user.findUnique({
+
+        where: {
+            id: userId
+        },
+
+        select: publicUserSelect
+
+    })
+
+
+    if (!user) {
+
+        throw ApiError.notFound(
+            'The account no longer exists.'
+        )
+
+    }
+
+
+    return serializeUser(user)
+
 }

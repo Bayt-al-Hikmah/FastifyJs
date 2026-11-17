@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Eventide — a frontend-only Workshop 6 dashboard for the Community Events REST API.">
+    <meta name="api-base-url" content="http://127.0.0.1:3000">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23291535'/%3E%3Cpath d='M9 18.5 16 11l7 7.5' fill='none' stroke='%23ff7a66' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11 17v6h10v-6' fill='none' stroke='%23ff7a66' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+    <title>Eventide · Community Events</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 18.5 16 9l10 9.5"/>
+                    <path d="M9 17v7h14v-7"/>
+                    <path d="M13 24v-5h6v5"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Eventide</span>
+                <span class="brand-tagline">Workshop 6 · Frontend integration</span>
+            </span>
+        </a>
+
+        <div class="topbar-meta">
+            <span class="api-indicator" title="Configured API origin">
+                <span class="connection-dot" aria-hidden="true"></span>
+                <span class="api-label">API</span>
+                <code id="api-origin">127.0.0.1:3000</code>
+            </span>
+
+            <div class="session-bar" id="session-bar" hidden>
+                <span class="session-avatar" id="session-avatar" aria-hidden="true">E</span>
+                <span class="session-copy">
+                    <span class="session-name" id="session-name">Signed in</span>
+                    <span class="session-role" id="session-role">MEMBER</span>
+                </span>
+                <button class="button button-quiet button-small" id="logout-button" type="button">Sign out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">Discover · Organise · Gather</p>
+                <h1 id="hero-title">Find your next <em>gathering.</em></h1>
+                <p class="lead">
+                    Eventide is a browser-only client for the Community Events REST API.
+                    Browse published events, host your own, and see every change appear
+                    instantly — without a single page reload.
+                </p>
+
+                <ul class="feature-list">
+                    <li><span>01</span> Fetch-powered event explorer with live search</li>
+                    <li><span>02</span> Create, edit, publish, and delete your own events</li>
+                    <li><span>03</span> API validation errors shown where they belong</li>
+                    <li><span>04</span> Private cover uploads through <code>FormData</code></li>
+                </ul>
+            </div>
+
+            <div class="stat-grid" aria-label="At a glance">
+                <article class="stat-card">
+                    <span class="stat-label">On display</span>
+                    <strong class="stat-value" id="stat-events">0</strong>
+                    <span class="stat-foot">Events from the current view</span>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-label">Your events</span>
+                    <strong class="stat-value" id="stat-mine">0</strong>
+                    <span class="stat-foot">Including drafts</span>
+                </article>
+                <article class="stat-card stat-card-accent">
+                    <span class="stat-label">Client</span>
+                    <strong class="stat-value">0 kb</strong>
+                    <span class="stat-foot">No framework, no build step</span>
+                </article>
+            </div>
+        </section>
+
+        <section class="explorer" aria-labelledby="explorer-title">
+            <header class="section-header">
+                <div>
+                    <p class="panel-kicker">Live from the API</p>
+                    <h2 id="explorer-title">Event explorer</h2>
+                </div>
+
+                <div class="toolbar">
+                    <div class="search-field">
+                        <label class="sr-only" for="search-input">Search events</label>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="10.5" cy="10.5" r="6.5"/>
+                            <path d="m15.5 15.5 4.5 4.5"/>
+                        </svg>
+                        <input id="search-input" type="search" placeholder="Search events…" autocomplete="off">
+                    </div>
+
+                    <div class="field-inline">
+                        <label class="sr-only" for="category-filter">Filter by category</label>
+                        <select id="category-filter">
+                            <option value="">All categories</option>
+                            <option value="TECHNOLOGY">Technology</option>
+                            <option value="EDUCATION">Education</option>
+                            <option value="ART">Art</option>
+                            <option value="COMMUNITY">Community</option>
+                            <option value="SPORTS">Sports</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="field-inline">
+                        <label class="sr-only" for="scope-filter">Choose which events to show</label>
+                        <select id="scope-filter">
+                            <option value="all">Published events</option>
+                            <option value="mine">My events</option>
+                        </select>
+                    </div>
+
+                    <button class="button button-quiet" id="refresh-button" type="button">Refresh</button>
+                </div>
+            </header>
+
+            <div class="results-line">
+                <p id="results-count" role="status" aria-live="polite">Loading events…</p>
+                <span class="legend"><span class="legend-dot" aria-hidden="true"></span> Updates in place, no navigation</span>
+            </div>
+
+            <div class="events-grid" id="events-grid" aria-live="polite"></div>
+        </section>
+
+        <div class="workspace-grid">
+            <div class="workspace-main">
+                <section class="panel auth-card" id="auth-card" aria-labelledby="auth-title">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Membership</p>
+                            <h2 id="auth-title">Join Eventide</h2>
+                        </div>
+                    </div>
+                    <p class="panel-intro">Sign in to host events, upload covers, and manage your own collection.</p>
+
+                    <div class="tabs" role="tablist" aria-label="Authentication">
+                        <button class="tab is-active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form">Sign in</button>
+                        <button class="tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form">Create account</button>
+                    </div>
+
+                    <form class="form" id="login-form" novalidate>
+                        <div class="field">
+                            <label for="login-email">Email</label>
+                            <input id="login-email" name="email" data-field="email" type="email" autocomplete="email" required placeholder="organiser@example.com">
+                        </div>
+                        <div class="field">
+                            <label for="login-password">Password</label>
+                            <input id="login-password" name="password" data-field="password" type="password" autocomplete="current-password" required placeholder="Your password">
+                        </div>
+                        <p class="form-message is-error" id="login-error" role="alert" hidden></p>
+                        <button class="button button-primary button-block" id="login-submit-button" type="submit">Sign in</button>
+                    </form>
+
+                    <form class="form" id="register-form" novalidate hidden>
+                        <div class="field">
+                            <label for="register-username">Username</label>
+                            <input id="register-username" name="username" data-field="username" type="text" autocomplete="username" required minlength="2" maxlength="80" placeholder="RiveraEvents">
+                        </div>
+                        <div class="field">
+                            <label for="register-email">Email</label>
+                            <input id="register-email" name="email" data-field="email" type="email" autocomplete="email" required placeholder="organiser@example.com">
+                        </div>
+                        <div class="field">
+                            <label for="register-password">Password</label>
+                            <input id="register-password" name="password" data-field="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">
+                            <span class="field-hint">The API enforces the final password rules.</span>
+                        </div>
+                        <div class="field">
+                            <label for="register-role">Role</label>
+                            <select id="register-role" name="role" data-field="role">
+                                <option value="ORGANIZER">Organiser — host events</option>
+                                <option value="MEMBER">Member — attend events</option>
+                            </select>
+                        </div>
+                        <p class="form-message is-error" id="register-error" role="alert" hidden></p>
+                        <button class="button button-primary button-block" id="register-submit-button" type="submit">Create account</button>
+                    </form>
+
+                    <p class="auth-footnote">
+                        Tokens are kept in memory only. A page refresh signs you out —
+                        a deliberate choice for this learning project.
+                    </p>
+                </section>
+
+                <section class="panel studio-card" id="studio-card" aria-labelledby="studio-title" hidden>
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Organiser studio</p>
+                            <h2 id="studio-title">Host an event</h2>
+                        </div>
+                        <span class="count-badge" id="studio-user-badge">—</span>
+                    </div>
+                    <p class="panel-intro">New events start as drafts. Publish them from your collection when they are ready.</p>
+
+                    <form class="form" id="create-form" novalidate>
+                        <div class="field">
+                            <label for="create-title">Title</label>
+                            <input id="create-title" name="title" data-field="title" type="text" maxlength="120" required placeholder="Community Robotics Night">
+                        </div>
+                        <div class="field">
+                            <label for="create-description">Description</label>
+                            <textarea id="create-description" name="description" data-field="description" rows="3" required placeholder="What will people do there?"></textarea>
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="create-location">Location</label>
+                                <input id="create-location" name="location" data-field="location" type="text" maxlength="160" required placeholder="Civic Hall, Room 2">
+                            </div>
+                            <div class="field">
+                                <label for="create-starts-at">Starts at</label>
+                                <input id="create-starts-at" name="startsAt" data-field="startsAt" type="datetime-local" required>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="create-capacity">Capacity</label>
+                                <input id="create-capacity" name="capacity" data-field="capacity" type="number" min="1" max="10000" required value="20">
+                            </div>
+                            <div class="field">
+                                <label for="create-category">Category</label>
+                                <select id="create-category" name="category" data-field="category">
+                                    <option value="OTHER">Other</option>
+                                    <option value="TECHNOLOGY">Technology</option>
+                                    <option value="EDUCATION">Education</option>
+                                    <option value="ART">Art</option>
+                                    <option value="COMMUNITY">Community</option>
+                                    <option value="SPORTS">Sports</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="form-message is-error" id="create-error" role="alert" hidden></p>
+                        <button class="button button-primary button-block" id="create-submit-button" type="submit">Create draft event</button>
+                    </form>
+                </section>
+
+                <section class="panel manage-card" id="manage-card" aria-labelledby="manage-title" hidden>
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Your collection</p>
+                            <h2 id="manage-title">My events</h2>
+                        </div>
+                        <span class="count-badge" id="my-events-count">0</span>
+                    </div>
+
+                    <ul class="my-events-list" id="my-events-list"></ul>
+
+                    <section class="edit-panel" id="edit-panel" aria-labelledby="edit-heading-title" hidden>
+                        <div class="edit-heading">
+                            <h3 id="edit-heading-title">Edit event</h3>
+                            <button class="button button-quiet button-small" id="edit-cancel-button" type="button">Cancel</button>
+                        </div>
+
+                        <form class="form" id="edit-form" novalidate>
+                            <div class="field">
+                                <label for="edit-title">Title</label>
+                                <input id="edit-title" name="title" data-field="title" type="text" maxlength="120" required>
+                            </div>
+                            <div class="field">
+                                <label for="edit-description">Description</label>
+                                <textarea id="edit-description" name="description" data-field="description" rows="3" required></textarea>
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="edit-location">Location</label>
+                                    <input id="edit-location" name="location" data-field="location" type="text" maxlength="160" required>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-starts-at">Starts at</label>
+                                    <input id="edit-starts-at" name="startsAt" data-field="startsAt" type="datetime-local" required>
+                                </div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="edit-capacity">Capacity</label>
+                                    <input id="edit-capacity" name="capacity" data-field="capacity" type="number" min="1" max="10000" required>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-category">Category</label>
+                                    <select id="edit-category" name="category" data-field="category">
+                                        <option value="OTHER">Other</option>
+                                        <option value="TECHNOLOGY">Technology</option>
+                                        <option value="EDUCATION">Education</option>
+                                        <option value="ART">Art</option>
+                                        <option value="COMMUNITY">Community</option>
+                                        <option value="SPORTS">Sports</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="edit-status">Status</label>
+                                <select id="edit-status" name="status" data-field="status">
+                                    <option value="DRAFT">Draft — hidden from visitors</option>
+                                    <option value="PUBLISHED">Published — visible to everyone</option>
+                                </select>
+                            </div>
+                            <p class="form-message is-error" id="edit-error" role="alert" hidden></p>
+                            <button class="button button-primary button-block" id="edit-submit-button" type="submit">Save changes</button>
+                        </form>
+                    </section>
+                </section>
+            </div>
+
+            <aside class="panel guide-card" aria-labelledby="guide-title">
+                <p class="panel-kicker">Under the hood</p>
+                <h2 id="guide-title">What this page teaches</h2>
+                <p class="panel-intro">Every control here is an ordinary browser API talking to a separate Fastify service.</p>
+
+                <ul class="guide-list">
+                    <li>
+                        <strong>Fetch + response.ok</strong>
+                        <span>The shared helper checks the HTTP status instead of trusting the Promise to reject, and renders JSON or null for 204 responses.</span>
+                    </li>
+                    <li>
+                        <strong>DOM updates</strong>
+                        <span>Cards, lists, and dialogs are built with <code>textContent</code>, so API text is never interpreted as markup.</span>
+                    </li>
+                    <li>
+                        <strong>Validation errors</strong>
+                        <span>Forms use <code>novalidate</code> on purpose: the API's <code>errors</code> array drives the messages and highlights the right field.</span>
+                    </li>
+                    <li>
+                        <strong>Ownership</strong>
+                        <span>Edit, publish, delete, and cover controls only appear for events owned by the signed-in user.</span>
+                    </li>
+                    <li>
+                        <strong>FormData</strong>
+                        <span>The browser sets the multipart boundary. A private API endpoint streams the cover back after checking the token.</span>
+                    </li>
+                    <li>
+                        <strong>CORS</strong>
+                        <span>This page runs on port 5173 and the API on port 3000. The API must allow this origin explicitly.</span>
+                    </li>
+                </ul>
+
+                <div class="guide-note">
+                    <strong>Troubleshooting</strong>
+                    <span>If the gallery shows a connection error, start <code>community-events-api</code> first with <code>FRONTEND_ORIGIN=http://127.0.0.1:5173</code>.</span>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 6 · Task 4 · Frontend integration</span>
+        <span>Eventide UI → Community Events API · <code id="footer-api-url">http://127.0.0.1:3000</code></span>
+    </footer>
+
+    <dialog class="detail-dialog" id="event-dialog" aria-labelledby="detail-title">
+        <div class="dialog-inner">
+            <header class="dialog-header">
+                <div>
+                    <p class="panel-kicker">Event details</p>
+                    <h2 id="detail-title">Event</h2>
+                </div>
+                <button class="icon-button" id="dialog-close-button" type="button" aria-label="Close event details">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                        <path d="m6 6 12 12M18 6 6 18"/>
+                    </svg>
+                </button>
+            </header>
+
+            <div class="dialog-body">
+                <div class="detail-cover-wrap">
+                    <img id="detail-cover" alt="" hidden>
+                    <div class="detail-cover-placeholder" id="detail-cover-placeholder" aria-hidden="true">No cover image yet</div>
+                </div>
+
+                <div class="detail-badges">
+                    <span class="status-pill" id="detail-status">—</span>
+                    <span class="category-pill" id="detail-category">—</span>
+                </div>
+
+                <p class="detail-description" id="detail-description"></p>
+
+                <dl class="detail-facts">
+                    <div>
+                        <dt>When</dt>
+                        <dd id="detail-when"></dd>
+                    </div>
+                    <div>
+                        <dt>Where</dt>
+                        <dd id="detail-where"></dd>
+                    </div>
+                    <div>
+                        <dt>Capacity</dt>
+                        <dd id="detail-capacity"></dd>
+                    </div>
+                    <div>
+                        <dt>Organiser</dt>
+                        <dd id="detail-organizer"></dd>
+                    </div>
+                </dl>
+
+                <p class="form-message is-error" id="detail-error" role="alert" hidden></p>
+
+                <div class="detail-actions">
+                    <div class="detail-actions-owned" id="detail-own-actions" hidden>
+                        <button class="button button-primary button-small" id="detail-edit-button" type="button">Edit event</button>
+                        <button class="button button-quiet button-small" id="detail-status-button" type="button">Publish event</button>
+                        <button class="button button-danger button-small" id="detail-delete-button" type="button">Delete event</button>
+                    </div>
+
+                    <div class="detail-actions-public" id="detail-public-actions" hidden>
+                        <button class="button button-primary button-small" id="detail-register-button" type="button">Register for this event</button>
+                        <button class="button button-quiet button-small" id="detail-cancel-button" type="button" hidden>Cancel my registration</button>
+                        <p class="detail-hint" id="detail-rsvp-hint">Sign in to register for events.</p>
+                    </div>
+                </div>
+
+                <section class="cover-manager" id="cover-section" aria-labelledby="cover-title" hidden>
+                    <h3 id="cover-title">Cover image</h3>
+                    <p class="field-hint">JPEG, PNG, or WebP · up to 5 MB. Stored privately and streamed through the API.</p>
+                    <label class="sr-only" for="cover-input">Choose a cover image</label>
+                    <input id="cover-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+                    <div class="button-row">
+                        <button class="button button-primary button-small" id="cover-upload-button" type="button">Upload cover</button>
+                        <button class="button button-danger button-small" id="cover-remove-button" type="button" hidden>Remove cover</button>
+                    </div>
+                    <p class="form-message" id="cover-message" role="status" aria-live="polite" hidden></p>
+                </section>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+</body>
+</html>

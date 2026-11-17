@@ -1,55 +1,85 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
-import type { LoginBody, RegisterBody } from "../schemas/auth-schemas.js";
-import { authenticateCredentials, registerUser } from "../services/auth-service.js";
-import { serializePublicUser } from "../lib/serializers.js";
+import type {
+    FastifyReply,
+    FastifyRequest
+} from 'fastify'
 
-export async function handleRegister(
-    request: FastifyRequest<{ Body: RegisterBody }>,
+import {
+    authenticateUser,
+    getPublicUser,
+    registerUser
+} from '../services/auth-service.js'
+
+import type {
+    LoginInput,
+    RegisterInput
+} from '../services/auth-service.js'
+
+
+export async function registerHandler(
+    request: FastifyRequest<{ Body: RegisterInput }>,
     reply: FastifyReply
-) {
-    const user = await registerUser(request.server.prisma, request.body);
+): Promise<FastifyReply> {
 
-    const token = request.server.jwt.sign({
-        sub: String(user.id),
-        role: user.role
-    });
+    const user = await registerUser(
+        request.server.prisma,
+        request.body
+    )
 
     return reply.code(201).send({
+
+        message: 'Account created successfully.',
+
         data: {
-            token,
-            user: serializePublicUser(user)
+            user
         }
-    });
+
+    })
+
 }
 
-export async function handleLogin(
-    request: FastifyRequest<{ Body: LoginBody }>,
-    reply: FastifyReply
-) {
-    const user = await authenticateCredentials(
-        request.server.prisma,
-        request.body.email,
-        request.body.password
-    );
 
-    const token = request.server.jwt.sign({
-        sub: String(user.id),
-        role: user.role
-    });
+export async function loginHandler(
+    request: FastifyRequest<{ Body: LoginInput }>,
+    reply: FastifyReply
+): Promise<FastifyReply> {
+
+    const result = await authenticateUser(
+        request.server.prisma,
+        request.body,
+        (subject) => reply.jwtSign({
+            sub: subject
+        })
+    )
 
     return reply.code(200).send({
-        data: {
-            token,
-            user: serializePublicUser(user)
-        }
-    });
+
+        message: 'Login successful.',
+
+        data: result
+
+    })
+
 }
 
-export async function handleGetMe(
+
+export async function meHandler(
     request: FastifyRequest,
     reply: FastifyReply
-) {
+): Promise<FastifyReply> {
+
+    const user = await getPublicUser(
+        request.server.prisma,
+        request.currentUser!.id
+    )
+
     return reply.code(200).send({
-        data: request.currentUser
-    });
+
+        message: 'Current user retrieved successfully.',
+
+        data: {
+            user
+        }
+
+    })
+
 }

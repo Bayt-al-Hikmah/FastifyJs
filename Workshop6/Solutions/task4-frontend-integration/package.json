@@ -1,0 +1,10 @@
+{
+    "name": "eventide-frontend-integration",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Frontend-only Workshop 6 solution: a zero-dependency static dashboard for the Community Events API.",
+    "scripts": {
+        "start": "node server.mjs"
+    }
+}

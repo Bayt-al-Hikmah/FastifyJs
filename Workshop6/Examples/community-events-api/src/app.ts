@@ -1,117 +1,346 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import 'dotenv/config'
 
-import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
-import cors from "@fastify/cors";
-import rateLimit from "@fastify/rate-limit";
-import staticPlugin from "@fastify/static";
+import Fastify, {
+    type FastifyError,
+    type FastifyInstance
+} from 'fastify'
 
-import { env } from "./config/env.js";
-import { ApiError } from "./lib/api-error.js";
-import authPlugin from "./plugins/auth.js";
-import multipartPlugin from "./plugins/multipart.js";
-import prismaPlugin from "./plugins/prisma.js";
-import authRoutes from "./routes/auth.js";
-import eventRoutes from "./routes/events.js";
+import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const publicDirectory = path.resolve(currentDirectory, "../public");
+import { env } from './config/env.js'
 
-export async function buildApp(): Promise<FastifyInstance> {
+import { isApiError } from './lib/api-error.js'
+import { isPrismaError } from './lib/prisma-errors.js'
+import { ensureCoverDirectory } from './lib/media-storage.js'
+
+import prismaPlugin from './plugins/prisma.js'
+import authPlugin from './plugins/auth.js'
+import multipartPlugin from './plugins/multipart.js'
+import staticPlugin from './plugins/static.js'
+
+import authRoutes from './routes/auth.js'
+import eventRoutes from './routes/events.js'
+
+
+type ValidationItem = {
+
+    instancePath?: string
+
+    message?: string
+
+    params?: {
+        missingProperty?: string
+    }
+
+}
+
+
+function wantsHtml(
+    request: { headers: { accept?: string }; url: string }
+): boolean {
+
+    if (request.url.startsWith('/api/')) {
+        return false
+    }
+
+    return request.headers.accept?.includes('text/html') === true
+
+}
+
+
+export function buildApp(): FastifyInstance {
+
     const fastify = Fastify({
+
         logger: true
-    });
 
-    fastify.setErrorHandler((error: FastifyError | ApiError, request, reply) => {
-        if (error instanceof ApiError) {
-            return reply.code(error.statusCode).send({
-                error: {
-                    code: error.code,
-                    message: error.message,
-                    details: error.details
-                }
-            });
-        }
+    })
 
-        if (error.validation) {
-            return reply.code(400).send({
-                error: {
-                    code: "VALIDATION_ERROR",
-                    message: "Request validation failed",
-                    details: error.validation
-                }
-            });
-        }
 
-        if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
-            return reply.code(error.statusCode).send({
-                error: {
-                    code: error.code || "CLIENT_ERROR",
-                    message: error.message,
-                    details: null
-                }
-            });
-        }
+    fastify.addHook('onRequest', async (request) => {
 
-        request.log.error(error);
+        request.log.info({
 
-        return reply.code(500).send({
-            error: {
-                code: "INTERNAL_SERVER_ERROR",
-                message: "An internal server error occurred",
-                details: null
+            method: request.method,
+
+            route: request.routeOptions.url
+
+        }, 'Incoming request')
+
+    })
+
+
+    fastify.addHook('onSend', async (_request, reply, payload) => {
+
+        reply.header(
+            'X-Application',
+            'Gather Community Events API'
+        )
+
+        return payload
+
+    })
+
+
+    fastify.addHook('onResponse', async (request, reply) => {
+
+        request.log.info({
+
+            statusCode: reply.statusCode
+
+        }, 'Request completed')
+
+    })
+
+
+    fastify.addHook('onReady', async () => {
+
+        await ensureCoverDirectory()
+
+        fastify.log.info(
+            'Private cover storage is ready'
+        )
+
+    })
+
+
+    fastify.addHook('onClose', async () => {
+
+        fastify.log.info(
+            'Application shutdown completed'
+        )
+
+    })
+
+
+    fastify.setErrorHandler(
+        (error: FastifyError, request, reply) => {
+
+            if (error.validation) {
+
+                const validationErrors =
+                    (error.validation as ValidationItem[])
+                        .map((item) => ({
+
+                            field:
+                                item.instancePath
+                                    ? item.instancePath.replace(
+                                        /^\//,
+                                        ''
+                                    )
+                                    : (
+                                        item.params?.missingProperty ??
+                                        'body'
+                                    ),
+
+                            message:
+                                item.message ?? 'Invalid value.'
+
+                        }))
+
+                return reply.code(400).send({
+
+                    message: 'Validation failed.',
+
+                    errors: validationErrors
+
+                })
+
             }
-        });
-    });
 
-    await fastify.register(cors, {
-        origin: env.frontendOrigin ? [env.frontendOrigin] : true,
-        credentials: true,
-        allowedHeaders: ["Content-Type", "Authorization"]
-    });
 
-    await fastify.register(rateLimit, {
-        global: true,
-        max: env.rateLimitMax,
-        timeWindow: env.rateLimitTimeWindow
-    });
+            if (isApiError(error)) {
 
-    await fastify.register(prismaPlugin);
-    await fastify.register(authPlugin);
-    await fastify.register(multipartPlugin);
+                const body: {
+                    message: string
+                    errors?: typeof error.details
+                } = {
+                    message: error.message
+                }
 
-    await fastify.register(authRoutes, {
-        prefix: "/api/auth"
-    });
+                if (error.details.length > 0) {
+                    body.errors = error.details
+                }
 
-    await fastify.register(eventRoutes, {
-        prefix: "/api"
-    });
+                return reply
+                    .code(error.statusCode)
+                    .send(body)
 
-    await fastify.register(staticPlugin, {
-        root: publicDirectory,
-        prefix: "/assets/"
-    });
+            }
 
-    fastify.get("/", async (_request, reply) => {
-        return reply.sendFile("index.html", publicDirectory);
-    });
+
+            if (isPrismaError(error, 'P2002')) {
+
+                return reply.code(409).send({
+                    message: 'A record with these values already exists.'
+                })
+
+            }
+
+
+            if (isPrismaError(error, 'P2025')) {
+
+                return reply.code(404).send({
+                    message: 'The requested resource was not found.'
+                })
+
+            }
+
+
+            if (error.code === 'FST_REQ_FILE_TOO_LARGE') {
+
+                return reply.code(413).send({
+                    message: 'The uploaded file is too large.'
+                })
+
+            }
+
+
+            if (
+                error.statusCode &&
+                error.statusCode >= 400 &&
+                error.statusCode < 500
+            ) {
+
+                return reply
+                    .code(error.statusCode)
+                    .send({
+                        message: error.message
+                    })
+
+            }
+
+
+            request.log.error(
+                error,
+                'Unhandled request error'
+            )
+
+
+            if (wantsHtml(request)) {
+
+                return reply
+                    .code(500)
+                    .type('text/html')
+                    .send(
+                        '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+                        '<title>Something went wrong</title></head><body>' +
+                        '<h1>Something went wrong</h1>' +
+                        '<p>The server could not complete this request.</p>' +
+                        '</body></html>'
+                    )
+
+            }
+
+
+            return reply.code(500).send({
+                message: 'Something went wrong on the server.'
+            })
+
+        }
+    )
+
 
     fastify.setNotFoundHandler((request, reply) => {
-        if (request.url.startsWith("/api/")) {
+
+        if (request.url.startsWith('/api/')) {
+
             return reply.code(404).send({
-                error: {
-                    code: "NOT_FOUND",
-                    message: "API endpoint not found.",
-                    details: null
-                }
-            });
+                message: 'API endpoint not found.'
+            })
+
         }
 
-        return reply.code(404).send({
-            message: "Page not found."
-        });
-    });
 
-    return fastify;
+        if (wantsHtml(request)) {
+
+            return reply
+                .code(404)
+                .type('text/html')
+                .send(
+                    '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+                    '<title>Page not found</title></head><body>' +
+                    '<h1>Page not found</h1>' +
+                    '<p>The page you are looking for does not exist.</p>' +
+                    '<p><a href="/app/">Return to Gather</a></p>' +
+                    '</body></html>'
+                )
+
+        }
+
+
+        return reply.code(404).send({
+            message: 'Route not found.'
+        })
+
+    })
+
+
+    // CORS is only needed when a separate frontend origin consumes the API.
+    fastify.register(cors, {
+
+        origin: env.frontendOrigin ?? false,
+
+        credentials: false,
+
+        methods: [
+            'GET',
+            'POST',
+            'PUT',
+            'PATCH',
+            'DELETE'
+        ],
+
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization'
+        ]
+
+    })
+
+
+    fastify.register(rateLimit, {
+
+        max: 100,
+
+        timeWindow: '15 minutes'
+
+    })
+
+
+    fastify.register(prismaPlugin)
+
+    fastify.register(authPlugin)
+
+    fastify.register(multipartPlugin)
+
+    fastify.register(staticPlugin)
+
+
+    fastify.get('/', async (_request, reply) => {
+
+        return reply.redirect('/app/')
+
+    })
+
+
+    fastify.get('/app', async (_request, reply) => {
+
+        return reply.redirect('/app/')
+
+    })
+
+
+    fastify.register(authRoutes, {
+        prefix: '/api/auth'
+    })
+
+    fastify.register(eventRoutes, {
+        prefix: '/api'
+    })
+
+
+    return fastify
+
 }

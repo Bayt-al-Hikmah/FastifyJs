@@ -1,9 +1,13 @@
 node_modules/
 dist/
 .env
-.env.*
-!.env.example
-src/generated/prisma/
+
+# Generated Prisma 7 client.
+src/generated/
+
+# Private cover storage (the .gitkeep file keeps the directory in git).
 storage/event-covers/*
 !storage/event-covers/.gitkeep
+var/uploads/
+
 *.log

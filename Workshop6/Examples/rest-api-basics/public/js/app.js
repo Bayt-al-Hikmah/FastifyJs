@@ -1,935 +1,1192 @@
-const BOOK_CATEGORIES = [
-    "FICTION",
-    "NON_FICTION",
-    "SCIENCE",
-    "HISTORY",
-    "POETRY",
-    "CHILDREN",
-    "TECHNOLOGY"
-];
+import { apiRequest } from './api.js'
 
-const SORT_OPTIONS = [
-    { value: "newest", label: "Newest first" },
-    { value: "oldest", label: "Oldest first" },
-    { value: "title", label: "Title (A–Z)" },
-    { value: "author", label: "Author (A–Z)" },
-    { value: "year", label: "Publication year" }
-];
 
-const CATEGORY_OPTIONS = BOOK_CATEGORIES.map((category) => {
-    return {
-        value: category,
-        label: category
-            .toLowerCase()
-            .split("_")
-            .map((part) => part[0].toUpperCase() + part.slice(1))
-            .join(" ")
-    };
-});
+/**
+ * Browser controller for the Community Library API explorer.
+ *
+ * Every value that comes from the API is written to the page with textContent.
+ * No response data is ever interpolated into innerHTML.
+ */
 
-const endpoints = [
+
+const OPERATIONS = [
+
     {
-        id: "list",
-        method: "GET",
-        path: "/api/books",
-        name: "List books",
-        title: "List books",
-        description:
-            "Retrieve the collection with pagination, search, filtering, and sorting.",
-        fields: [
-            {
-                name: "search",
-                label: "Search",
-                hint: "title, author, or description",
-                type: "text",
-                placeholder: "le guin"
-            },
-            {
-                name: "category",
-                label: "Category",
-                type: "select",
-                emptyLabel: "All categories",
-                options: CATEGORY_OPTIONS
-            },
-            {
-                name: "sort",
-                label: "Sort",
-                type: "select",
-                options: SORT_OPTIONS,
-                value: "newest"
-            },
-            {
-                name: "page",
-                label: "Page",
-                type: "number",
-                value: "1",
-                min: 1,
-                max: 1000000
-            },
-            {
-                name: "limit",
-                label: "Limit",
-                hint: "1–50",
-                type: "number",
-                value: "6",
-                min: 1,
-                max: 50
-            }
-        ],
-        sample: {
-            search: "",
-            category: "",
-            sort: "newest",
-            page: "1",
-            limit: "6"
-        }
+        key: 'list',
+        method: 'GET',
+        path: '/api/books',
+        label: 'List & filter'
     },
     {
-        id: "detail",
-        method: "GET",
-        path: "/api/books/:id",
-        name: "Get one book",
-        title: "Get one book",
-        description:
-            "Retrieve a single book by its numeric identifier. Missing books return 404.",
-        idField: "id",
-        fields: [
-            {
-                name: "id",
-                label: "Book ID",
-                type: "number",
-                value: "1",
-                min: 1
-            }
-        ],
-        sample: {
-            id: "3"
-        }
+        key: 'get',
+        method: 'GET',
+        path: '/api/books/:id',
+        label: 'Get one book'
     },
     {
-        id: "create",
-        method: "POST",
-        path: "/api/books",
-        name: "Create a book",
-        title: "Create a book",
-        description:
-            "Add a title to the collection. A successful request returns 201 and a Location header.",
-        bodyFields: [
-            "title",
-            "author",
-            "category",
-            "description",
-            "publishedYear",
-            "isbn",
-            "totalCopies",
-            "availableCopies"
-        ],
-        fields: [
-            {
-                name: "title",
-                label: "Title",
-                type: "text",
-                placeholder: "The Creative Act",
-                full: true,
-                required: true
-            },
-            {
-                name: "author",
-                label: "Author",
-                type: "text",
-                placeholder: "Rick Rubin"
-            },
-            {
-                name: "category",
-                label: "Category",
-                type: "select",
-                options: CATEGORY_OPTIONS,
-                value: "NON_FICTION"
-            },
-            {
-                name: "publishedYear",
-                label: "Published year",
-                type: "number",
-                value: "2023",
-                min: 1450,
-                max: 2100
-            },
-            {
-                name: "isbn",
-                label: "ISBN",
-                hint: "optional",
-                type: "text",
-                placeholder: "9780593652886"
-            },
-            {
-                name: "totalCopies",
-                label: "Total copies",
-                type: "number",
-                value: "3",
-                min: 1,
-                max: 1000
-            },
-            {
-                name: "availableCopies",
-                label: "Available copies",
-                hint: "defaults to total",
-                type: "number",
-                min: 0,
-                max: 1000
-            },
-            {
-                name: "description",
-                label: "Description",
-                hint: "at least 10 characters",
-                type: "textarea",
-                placeholder:
-                    "A short book about attention, preparation, and making things.",
-                full: true,
-                required: true
-            }
-        ],
-        sample: {
-            title: "The Creative Act",
-            author: "Rick Rubin",
-            category: "NON_FICTION",
-            description:
-                "A short book about attention, preparation, and making things over and over again.",
-            publishedYear: "2023",
-            isbn: "9780593652886",
-            totalCopies: "3",
-            availableCopies: "3"
-        }
+        key: 'create',
+        method: 'POST',
+        path: '/api/books',
+        label: 'Add a book'
     },
     {
-        id: "update",
-        method: "PATCH",
-        path: "/api/books/:id",
-        name: "Update a book",
-        title: "Update a book",
-        description:
-            "Apply a partial update. Only the supplied fields change; unknown fields are rejected.",
-        idField: "id",
-        bodyFields: [
-            "title",
-            "author",
-            "category",
-            "description",
-            "publishedYear",
-            "isbn",
-            "totalCopies",
-            "availableCopies"
-        ],
-        fields: [
-            {
-                name: "id",
-                label: "Book ID",
-                type: "number",
-                value: "1",
-                min: 1
-            },
-            {
-                name: "title",
-                label: "Title",
-                hint: "leave blank to keep",
-                type: "text",
-                placeholder: "The Left Hand of Darkness"
-            },
-            {
-                name: "author",
-                label: "Author",
-                hint: "leave blank to keep",
-                type: "text",
-                placeholder: "Ursula K. Le Guin"
-            },
-            {
-                name: "category",
-                label: "Category",
-                hint: "leave blank to keep",
-                type: "select",
-                emptyLabel: "No change",
-                options: CATEGORY_OPTIONS
-            },
-            {
-                name: "publishedYear",
-                label: "Published year",
-                hint: "leave blank to keep",
-                type: "number",
-                min: 1450,
-                max: 2100
-            },
-            {
-                name: "isbn",
-                label: "ISBN",
-                hint: "leave blank to keep",
-                type: "text"
-            },
-            {
-                name: "totalCopies",
-                label: "Total copies",
-                hint: "leave blank to keep",
-                type: "number",
-                min: 1,
-                max: 1000
-            },
-            {
-                name: "availableCopies",
-                label: "Available copies",
-                hint: "leave blank to keep",
-                type: "number",
-                min: 0,
-                max: 1000
-            },
-            {
-                name: "description",
-                label: "Description",
-                hint: "leave blank to keep",
-                type: "textarea",
-                full: true
-            }
-        ],
-        sample: {
-            id: "1",
-            title: "The Left Hand of Darkness (Anniversary Edition)",
-            totalCopies: "5"
-        }
+        key: 'update',
+        method: 'PATCH',
+        path: '/api/books/:id',
+        label: 'Update a book'
     },
     {
-        id: "delete",
-        method: "DELETE",
-        path: "/api/books/:id",
-        name: "Delete a book",
-        title: "Delete a book",
-        description:
-            "Remove a title from the collection. A successful delete returns 204 with no body.",
-        idField: "id",
-        fields: [
-            {
-                name: "id",
-                label: "Book ID",
-                type: "number",
-                value: "14",
-                min: 1
-            }
-        ],
-        sample: {
-            id: "14"
-        }
+        key: 'delete',
+        method: 'DELETE',
+        path: '/api/books/:id',
+        label: 'Delete a book'
+    },
+    {
+        key: 'genres',
+        method: 'GET',
+        path: '/api/meta/genres',
+        label: 'List genres'
     }
-];
+
+]
+
+
+const STATUS_TEXT = {
+    200: 'OK',
+    201: 'Created',
+    204: 'No Content',
+    400: 'Bad Request',
+    404: 'Not Found',
+    409: 'Conflict',
+    413: 'Content Too Large',
+    429: 'Too Many Requests',
+    500: 'Server Error'
+}
+
 
 const state = {
-    activeEndpointId: "list",
-    lastBooks: []
-};
 
-const elements = {
-    endpointList: document.querySelector("#endpoint-list"),
-    form: document.querySelector("#request-form"),
-    fields: document.querySelector("#form-fields"),
-    requestTitle: document.querySelector("#request-title"),
-    requestDescription: document.querySelector("#request-description"),
-    requestMethod: document.querySelector("#request-method"),
-    requestPath: document.querySelector("#request-path"),
-    sendButton: document.querySelector("#send-button"),
-    sampleButton: document.querySelector("#sample-button"),
-    resetButton: document.querySelector("#reset-button"),
-    statusBadge: document.querySelector("#status-badge"),
-    responseTime: document.querySelector("#response-time"),
-    responseHeaders: document.querySelector("#response-headers"),
-    responseBody: document.querySelector("#response-body"),
-    shelf: document.querySelector("#shelf"),
-    refreshShelf: document.querySelector("#refresh-shelf"),
-    statTotal: document.querySelector("#stat-total"),
-    statAvailable: document.querySelector("#stat-available"),
-    statCopies: document.querySelector("#stat-copies")
-};
+    operation: 'list',
 
-function getActiveEndpoint() {
-    return (
-        endpoints.find((endpoint) => endpoint.id === state.activeEndpointId) ??
-        endpoints[0]
-    );
+    bookQuery: {},
+
+    visibleBooks: [],
+
+    lastBookResult: null
+
 }
 
-function methodClass(method) {
-    return `method-${method.toLowerCase()}`;
+
+let toastTimer = null
+
+
+function byId(id) {
+
+    return document.getElementById(id)
+
 }
 
-function getField(name) {
-    return elements.fields.querySelector(`[name="${name}"]`);
+
+const element = {
+
+    main: byId('main'),
+
+    endpointList: byId('endpoint-list'),
+
+    requestUrl: byId('request-url'),
+
+    consoleMessage: byId('console-message'),
+
+    statusBadge: byId('status-badge'),
+
+    timing: byId('timing'),
+
+    responseRequest: byId('response-request'),
+
+    responseEmpty: byId('response-empty'),
+
+    responseCode: byId('response-code'),
+
+    responseBody: byId('response-body'),
+
+    errorDetails: byId('error-details'),
+
+    errorList: byId('error-list'),
+
+    statTotal: byId('stat-total'),
+
+    statTotalFoot: byId('stat-total-foot'),
+
+    statAvailable: byId('stat-available'),
+
+    statGenres: byId('stat-genres'),
+
+    librarySummary: byId('library-summary'),
+
+    bookGrid: byId('book-grid'),
+
+    pagination: byId('pagination'),
+
+    pageLabel: byId('page-label'),
+
+    prevPage: byId('prev-page'),
+
+    nextPage: byId('next-page'),
+
+    toast: byId('toast')
+
 }
 
-function readFormValues() {
-    const values = {};
 
-    for (const element of elements.fields.querySelectorAll("[name]")) {
-        values[element.name] = element.value;
-    }
+const forms = Array.from(
+    document.querySelectorAll('.operation-form')
+)
 
-    return values;
+
+/** Renders the endpoint reference from one shared list of operation metadata. */
+
+function buildEndpointList() {
+
+    element.endpointList.replaceChildren()
+
+
+    OPERATIONS.forEach((operation) => {
+
+        const item = document.createElement('li')
+
+        const button = document.createElement('button')
+
+        button.type = 'button'
+
+        button.className = 'endpoint-item'
+
+        button.dataset.operation = operation.key
+
+        button.setAttribute('aria-pressed', 'false')
+
+
+        const method = document.createElement('span')
+
+        method.className = `method method-${operation.method.toLowerCase()}`
+
+        method.textContent = operation.method
+
+
+        const path = document.createElement('span')
+
+        path.className = 'endpoint-path'
+
+        path.textContent = operation.path
+
+
+        const label = document.createElement('span')
+
+        label.className = 'endpoint-label'
+
+        label.textContent = operation.label
+
+
+        button.append(method, path, label)
+
+        item.append(button)
+
+        element.endpointList.append(item)
+
+    })
+
 }
 
-function setFormValues(values) {
-    for (const [name, value] of Object.entries(values)) {
-        const field = getField(name);
 
-        if (field) {
-            field.value = value;
-        }
+function setOperation(key, options = {}) {
+
+    const shouldFocus = options.focus ?? true
+
+    const operation = OPERATIONS.find(
+        (candidate) => candidate.key === key
+    )
+
+    if (!operation) {
+        return
     }
 
-    updatePathPreview();
+
+    state.operation = key
+
+
+    forms.forEach((form) => {
+
+        form.hidden = form.dataset.operation !== key
+
+    })
+
+
+    element.endpointList
+        .querySelectorAll('.endpoint-item')
+        .forEach((button) => {
+
+            const isActive = button.dataset.operation === key
+
+            button.classList.toggle('is-active', isActive)
+
+            button.setAttribute('aria-pressed', String(isActive))
+
+        })
+
+
+    element.requestUrl.textContent =
+        `${operation.method} ${operation.path}`
+
+    clearResponse()
+
+
+    if (shouldFocus) {
+
+        const activeForm = forms.find(
+            (form) => form.dataset.operation === key
+        )
+
+        const firstControl = activeForm?.querySelector(
+            'input, select, textarea, button'
+        )
+
+        firstControl?.focus()
+
+    }
+
 }
 
-function createOption(option) {
-    const element = document.createElement("option");
 
-    element.value = option.value;
-    element.textContent = option.label;
+function getValue(form, name) {
 
-    return element;
+    const control = form.elements.namedItem(name)
+
+    if (!control || !('value' in control)) {
+        return ''
+    }
+
+    return String(control.value)
+
 }
 
-function createField(field, values) {
-    const wrapper = document.createElement("label");
 
-    wrapper.className = field.full ? "field field-full" : "field";
+function toBoundedInteger(value, fallback, minimum, maximum) {
 
-    const label = document.createElement("span");
+    const numeric = Number(value)
 
-    label.className = "field-label";
-
-    const labelText = document.createElement("span");
-
-    labelText.textContent = field.label;
-
-    if (field.required) {
-        labelText.textContent += " *";
+    if (!Number.isFinite(numeric) || value === '') {
+        return fallback
     }
 
-    label.append(labelText);
+    return Math.min(maximum, Math.max(minimum, Math.trunc(numeric)))
 
-    if (field.hint) {
-        const hint = document.createElement("span");
-
-        hint.className = "field-hint";
-        hint.textContent = field.hint;
-
-        label.append(hint);
-    }
-
-    wrapper.append(label);
-
-    let input;
-
-    if (field.type === "select") {
-        input = document.createElement("select");
-
-        const emptyOption = createOption({
-            value: "",
-            label: field.emptyLabel ?? "Default"
-        });
-
-        input.append(emptyOption);
-
-        for (const option of field.options) {
-            input.append(createOption(option));
-        }
-    } else if (field.type === "textarea") {
-        input = document.createElement("textarea");
-    } else {
-        input = document.createElement("input");
-        input.type = field.type;
-    }
-
-    input.className = "input";
-    input.name = field.name;
-
-    if (field.placeholder) {
-        input.placeholder = field.placeholder;
-    }
-
-    if (field.type === "number") {
-        if (field.min !== undefined) {
-            input.min = String(field.min);
-        }
-
-        if (field.max !== undefined) {
-            input.max = String(field.max);
-        }
-    }
-
-    const value = values[field.name] ?? field.value ?? "";
-
-    input.value = value;
-
-    if (field.required) {
-        input.setAttribute("aria-required", "true");
-    }
-
-    input.addEventListener("input", updatePathPreview);
-    input.addEventListener("change", updatePathPreview);
-
-    wrapper.append(input);
-
-    return wrapper;
 }
 
-function renderEndpointList() {
-    elements.endpointList.replaceChildren();
 
-    for (const endpoint of endpoints) {
-        const button = document.createElement("button");
+function buildListQuery() {
 
-        button.type = "button";
-        button.className = "endpoint-button";
-        button.dataset.endpointId = endpoint.id;
+    const form = byId('form-list')
 
-        if (endpoint.id === state.activeEndpointId) {
-            button.classList.add("is-active");
-        }
+    const query = {
 
-        const method = document.createElement("span");
+        sort: getValue(form, 'sort') || '-id',
 
-        method.className = `method-badge ${methodClass(endpoint.method)}`;
-        method.textContent = endpoint.method;
+        page: toBoundedInteger(
+            getValue(form, 'page'), 1, 1, 1_000_000
+        ),
 
-        const copy = document.createElement("span");
+        limit: toBoundedInteger(
+            getValue(form, 'limit'), 10, 1, 50
+        )
 
-        copy.className = "endpoint-copy";
-
-        const path = document.createElement("span");
-
-        path.className = "endpoint-path";
-        path.textContent = endpoint.path;
-
-        const name = document.createElement("span");
-
-        name.className = "endpoint-name";
-        name.textContent = endpoint.name;
-
-        copy.append(path, name);
-        button.append(method, copy);
-
-        button.addEventListener("click", () => {
-            selectEndpoint(endpoint.id);
-        });
-
-        elements.endpointList.append(button);
-    }
-}
-
-function renderRequestPanel() {
-    const endpoint = getActiveEndpoint();
-
-    elements.requestTitle.textContent = endpoint.title;
-    elements.requestDescription.textContent = endpoint.description;
-    elements.requestMethod.textContent = endpoint.method;
-    elements.requestMethod.className =
-        `method-badge ${methodClass(endpoint.method)}`;
-
-    elements.fields.replaceChildren();
-
-    for (const field of endpoint.fields) {
-        elements.fields.append(createField(field, {}));
     }
 
-    updatePathPreview();
-}
 
-function selectEndpoint(endpointId) {
-    state.activeEndpointId = endpointId;
+    const search = getValue(form, 'search').trim()
 
-    renderEndpointList();
-    renderRequestPanel();
-    resetResponse();
-}
-
-function updatePathPreview() {
-    const endpoint = getActiveEndpoint();
-    const values = readFormValues();
-
-    let path = endpoint.path;
-
-    if (endpoint.idField) {
-        const id = values[endpoint.idField] ?? "";
-
-        path = path.replace(
-            `:${endpoint.idField}`,
-            encodeURIComponent(id || "")
-        );
+    if (search) {
+        query.search = search
     }
 
-    const query = new URLSearchParams();
 
-    for (const field of endpoint.fields) {
-        if (field.name === endpoint.idField) {
-            continue;
-        }
+    const genre = getValue(form, 'genre')
 
-        if (endpoint.bodyFields?.includes(field.name)) {
-            continue;
-        }
+    if (genre) {
+        query.genre = genre
+    }
 
-        const value = values[field.name]?.trim();
+
+    const available = getValue(form, 'available')
+
+    if (available) {
+        query.available = available === 'true'
+    }
+
+
+    return query
+
+}
+
+
+function buildCreateBody() {
+
+    const form = byId('form-create')
+
+    const availableControl = form.elements.namedItem('available')
+
+
+    return {
+
+        title: getValue(form, 'title').trim(),
+
+        author: getValue(form, 'author').trim(),
+
+        isbn: getValue(form, 'isbn').trim(),
+
+        genre: getValue(form, 'genre'),
+
+        publishedYear: Number(getValue(form, 'publishedYear')),
+
+        copies: Number(getValue(form, 'copies')),
+
+        available: availableControl instanceof HTMLInputElement
+            ? availableControl.checked
+            : true,
+
+        description: getValue(form, 'description').trim()
+
+    }
+
+}
+
+
+function buildUpdateBody() {
+
+    const form = byId('form-update')
+
+    const body = {}
+
+
+    const textFields = [
+        'title',
+        'author',
+        'isbn',
+        'description'
+    ]
+
+
+    textFields.forEach((name) => {
+
+        const value = getValue(form, name).trim()
 
         if (value) {
-            query.set(field.name, value);
-        }
-    }
-
-    const queryString = query.toString();
-
-    elements.requestPath.textContent = queryString
-        ? `${path}?${queryString}`
-        : path;
-}
-
-function buildRequestBody(endpoint, values) {
-    const body = {};
-
-    for (const name of endpoint.bodyFields ?? []) {
-        const rawValue = values[name]?.trim();
-
-        if (!rawValue) {
-            continue;
+            body[name] = value
         }
 
-        const field = endpoint.fields.find((candidate) => {
-            return candidate.name === name;
-        });
+    })
 
-        if (field?.type === "number") {
-            body[name] = Number(rawValue);
-        } else {
-            body[name] = rawValue;
-        }
+
+    const genre = getValue(form, 'genre')
+
+    if (genre) {
+        body.genre = genre
     }
 
-    return body;
+
+    const year = getValue(form, 'publishedYear')
+
+    if (year !== '') {
+        body.publishedYear = Number(year)
+    }
+
+
+    const copies = getValue(form, 'copies')
+
+    if (copies !== '') {
+        body.copies = Number(copies)
+    }
+
+
+    const available = getValue(form, 'available')
+
+    if (available) {
+        body.available = available === 'true'
+    }
+
+
+    return body
+
 }
 
-function resetResponse() {
-    elements.statusBadge.textContent = "Idle";
-    elements.statusBadge.className = "status-badge is-idle";
-    elements.responseTime.textContent = "";
-    elements.responseHeaders.innerHTML =
-        '<p class="response-placeholder">Response headers will appear here.</p>';
-    elements.responseBody.textContent =
-        "Send a request to see the JSON response.";
+
+function setMessage(message, kind = '') {
+
+    element.consoleMessage.textContent = message
+
+    element.consoleMessage.className = kind
+        ? `form-message is-${kind}`
+        : 'form-message'
+
 }
 
-function statusClass(status) {
-    if (status >= 200 && status < 300) {
-        return "is-success";
-    }
 
-    if (status >= 300 && status < 400) {
-        return "is-warning";
-    }
+function clearResponse() {
 
-    return "is-error";
+    element.statusBadge.hidden = true
+
+    element.timing.textContent = ''
+
+    element.responseRequest.textContent = 'No request sent yet.'
+
+    element.responseEmpty.hidden = false
+
+    element.responseCode.hidden = true
+
+    element.responseBody.textContent = ''
+
+    element.errorDetails.hidden = true
+
+    element.errorList.replaceChildren()
+
+    setMessage('')
+
 }
 
-function renderResponseHeaders(headers) {
-    const entries = [...headers.entries()].sort((left, right) => {
-        return left[0].localeCompare(right[0]);
-    });
 
-    elements.responseHeaders.replaceChildren();
+function setBusy(isBusy) {
 
-    if (entries.length === 0) {
-        const placeholder = document.createElement("p");
+    document.querySelectorAll(
+        '.submit-button, #refresh-books, #prev-page, #next-page'
+    ).forEach((button) => {
+        button.disabled = isBusy
+    })
 
-        placeholder.className = "response-placeholder";
-        placeholder.textContent = "No response headers were exposed.";
+    element.main.setAttribute('aria-busy', String(isBusy))
 
-        elements.responseHeaders.append(placeholder);
-
-        return;
-    }
-
-    for (const [key, value] of entries) {
-        const pair = document.createElement("div");
-
-        pair.className = "header-pair";
-
-        const keyElement = document.createElement("span");
-
-        keyElement.className = "header-key";
-        keyElement.textContent = key;
-
-        const valueElement = document.createElement("span");
-
-        valueElement.className = "header-value";
-        valueElement.textContent = value;
-        valueElement.title = value;
-
-        pair.append(keyElement, valueElement);
-        elements.responseHeaders.append(pair);
-    }
 }
 
-function readResponseBody(text) {
-    if (!text) {
-        return null;
+
+function showToast(message, kind = 'success') {
+
+    element.toast.textContent = message
+
+    element.toast.className = `toast is-${kind}`
+
+    element.toast.hidden = false
+
+    window.clearTimeout(toastTimer)
+
+    toastTimer = window.setTimeout(() => {
+        element.toast.hidden = true
+    }, 4200)
+
+}
+
+
+function renderSuccess(result, label, status, elapsed) {
+
+    const statusName = STATUS_TEXT[status] ?? ''
+
+    element.statusBadge.textContent = `${status} ${statusName}`.trim()
+
+    element.statusBadge.className = 'status-badge is-success'
+
+    element.statusBadge.hidden = false
+
+    element.timing.textContent = `${elapsed} ms`
+
+    element.responseRequest.textContent = label
+
+    element.responseEmpty.hidden = true
+
+    element.responseCode.hidden = false
+
+    element.responseBody.textContent = result === null
+        ? 'No response body (204 No Content).'
+        : JSON.stringify(result, null, 2)
+
+    element.errorDetails.hidden = true
+
+    element.errorList.replaceChildren()
+
+    setMessage(`${label} succeeded.`, 'success')
+
+}
+
+
+function renderFailure(error, label, elapsed) {
+
+    const status = error.status
+
+    element.statusBadge.textContent = status
+        ? `${status} ${STATUS_TEXT[status] ?? 'Error'}`
+        : 'Network error'
+
+    element.statusBadge.className = 'status-badge is-error'
+
+    element.statusBadge.hidden = false
+
+    element.timing.textContent = `${elapsed} ms`
+
+    element.responseRequest.textContent = label
+
+    element.responseEmpty.hidden = true
+
+    element.responseCode.hidden = false
+
+
+    const details = Array.isArray(error.details)
+        ? error.details
+        : []
+
+    const safePayload = {
+
+        message: error.message,
+
+        ...(details.length > 0 ? { errors: details } : {})
+
     }
+
+    element.responseBody.textContent =
+        JSON.stringify(safePayload, null, 2)
+
+
+    element.errorList.replaceChildren()
+
+    if (details.length > 0) {
+
+        details.forEach((issue) => {
+
+            const item = document.createElement('li')
+
+            const field = document.createElement('code')
+
+            field.textContent = issue.field ?? 'request'
+
+            const message = document.createElement('span')
+
+            message.textContent = issue.message ?? 'Invalid value.'
+
+            item.append(field, message)
+
+            element.errorList.append(item)
+
+        })
+
+        element.errorDetails.hidden = false
+
+    } else {
+
+        element.errorDetails.hidden = true
+
+    }
+
+
+    setMessage(error.message, 'error')
+
+}
+
+
+/**
+ * Sends one request, paints the response panel, and rethrows expected errors
+ * so form handlers can stop without duplicating error-rendering logic.
+ */
+
+async function performRequest(url, options, expectedStatus) {
+
+    clearResponse()
+
+    setBusy(true)
+
+    const label = `${options.method ?? 'GET'} ${url}`
+
+    const startedAt = performance.now()
+
 
     try {
-        return JSON.parse(text);
-    } catch {
-        return text;
-    }
-}
 
-async function sendRequest() {
-    const endpoint = getActiveEndpoint();
-    const values = readFormValues();
-    const path = elements.requestPath.textContent;
-    const hasBody = endpoint.bodyFields !== undefined;
+        const result = await apiRequest(url, options)
 
-    elements.sendButton.disabled = true;
-    elements.sendButton.textContent = "Sending…";
+        const elapsed = Math.round(performance.now() - startedAt)
 
-    const startedAt = performance.now();
+        renderSuccess(result, label, expectedStatus, elapsed)
 
-    try {
-        const response = await fetch(path, {
-            method: endpoint.method,
-            headers: hasBody
-                ? {
-                      "Content-Type": "application/json",
-                      Accept: "application/json"
-                  }
-                : {
-                      Accept: "application/json"
-                  },
-            body: hasBody
-                ? JSON.stringify(buildRequestBody(endpoint, values))
-                : undefined
-        });
+        showToast(`${label} → ${expectedStatus}`, 'success')
 
-        const duration = Math.round(performance.now() - startedAt);
-        const text = await response.text();
-        const parsedBody = readResponseBody(text);
+        return result
 
-        elements.statusBadge.textContent =
-            `${response.status} ${response.statusText}`.trim();
-        elements.statusBadge.className =
-            `status-badge ${statusClass(response.status)}`;
-        elements.responseTime.textContent = `${duration} ms`;
-
-        renderResponseHeaders(response.headers);
-
-        if (response.status === 204) {
-            elements.responseBody.textContent =
-                "204 No Content\n\nThe request succeeded. DELETE responses intentionally have no body.";
-        } else if (parsedBody === null) {
-            elements.responseBody.textContent =
-                "The server returned an empty response body.";
-        } else if (typeof parsedBody === "string") {
-            elements.responseBody.textContent = parsedBody;
-        } else {
-            elements.responseBody.textContent = JSON.stringify(parsedBody, null, 4);
-        }
-
-        if (response.ok && endpoint.method !== "GET") {
-            await refreshCollection();
-        }
     } catch (error) {
-        const duration = Math.round(performance.now() - startedAt);
 
-        elements.statusBadge.textContent = "Network error";
-        elements.statusBadge.className = "status-badge is-error";
-        elements.responseTime.textContent = `${duration} ms`;
-        elements.responseHeaders.innerHTML =
-            '<p class="response-placeholder">The request did not reach the server.</p>';
-        elements.responseBody.textContent =
-            `Could not reach the API.\n\n${error.message}\n\n` +
-            "Check that the Fastify server is running and that the URL is correct.";
+        const elapsed = Math.round(performance.now() - startedAt)
+
+        renderFailure(error, label, elapsed)
+
+        showToast(error.message, 'error')
+
+        throw error
+
     } finally {
-        elements.sendButton.disabled = false;
-        elements.sendButton.textContent = "Send request";
-    }
-}
 
-function fillSampleData() {
-    const endpoint = getActiveEndpoint();
+        setBusy(false)
 
-    setFormValues(endpoint.sample);
-}
-
-async function requestJson(path) {
-    const response = await fetch(path, {
-        headers: {
-            Accept: "application/json"
-        }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data?.error?.message ?? "Request failed.");
     }
 
-    return data;
 }
 
-function renderShelf(books) {
-    elements.shelf.replaceChildren();
+
+function renderBooks(books, pagination) {
+
+    element.bookGrid.replaceChildren()
+
+    state.visibleBooks = books
+
 
     if (books.length === 0) {
-        const empty = document.createElement("p");
 
-        empty.className = "shelf-empty";
+        const empty = document.createElement('div')
+
+        empty.className = 'empty-state'
+
         empty.textContent =
-            "The shelf is empty. Create a book with the POST endpoint above.";
+            'No books match these filters. Try clearing the search or choosing another genre.'
 
-        elements.shelf.append(empty);
+        element.bookGrid.append(empty)
 
-        return;
+        return
+
     }
 
-    for (const book of books) {
-        const card = document.createElement("button");
 
-        card.type = "button";
-        card.className = "shelf-card";
-        card.title = `Load GET /api/books/${book.id}`;
+    books.forEach((book) => {
 
-        const spine = document.createElement("span");
+        const card = document.createElement('article')
 
-        spine.className = "shelf-spine";
-        spine.dataset.category = book.category;
-        spine.setAttribute("aria-hidden", "true");
-        spine.textContent = book.category[0];
+        card.className = 'book-card'
 
-        const copy = document.createElement("span");
 
-        copy.className = "shelf-copy";
+        const top = document.createElement('div')
 
-        const category = document.createElement("span");
+        top.className = 'book-card-top'
 
-        category.className = "shelf-category";
-        category.textContent = book.category.replaceAll("_", " ");
 
-        const title = document.createElement("span");
+        const genre = document.createElement('span')
 
-        title.className = "shelf-title";
-        title.textContent = book.title;
+        genre.className = 'genre-pill'
 
-        const author = document.createElement("span");
+        genre.textContent = book.genre
 
-        author.className = "shelf-author";
-        author.textContent = book.author;
 
-        copy.append(category, title, author);
+        const availability = document.createElement('span')
 
-        const count = document.createElement("span");
+        availability.className = book.available
+            ? 'availability-pill is-available'
+            : 'availability-pill is-unavailable'
 
-        count.className = "shelf-count";
-        count.textContent = `${book.availableCopies}/${book.totalCopies}`;
+        availability.textContent = book.available
+            ? 'Available'
+            : 'On loan'
 
-        card.append(spine, copy, count);
 
-        card.addEventListener("click", () => {
-            selectEndpoint("detail");
-            setFormValues({ id: String(book.id) });
-            void sendRequest();
-        });
+        top.append(genre, availability)
 
-        elements.shelf.append(card);
+
+        const title = document.createElement('h3')
+
+        title.className = 'book-title'
+
+        title.textContent = book.title
+
+
+        const author = document.createElement('p')
+
+        author.className = 'book-author'
+
+        author.textContent = `by ${book.author}`
+
+
+        const description = document.createElement('p')
+
+        description.className = 'book-description'
+
+        description.textContent = book.description ||
+            'No description has been added yet.'
+
+
+        const meta = document.createElement('dl')
+
+        meta.className = 'book-meta'
+
+
+        const metaItems = [
+            ['ISBN', book.isbn],
+            ['Published', String(book.publishedYear)],
+            ['Copies', String(book.copies)]
+        ]
+
+
+        metaItems.forEach(([name, value]) => {
+
+            const term = document.createElement('dt')
+
+            term.textContent = name
+
+            const detail = document.createElement('dd')
+
+            detail.textContent = value
+
+            meta.append(term, detail)
+
+        })
+
+
+        const actions = document.createElement('div')
+
+        actions.className = 'book-actions'
+
+
+        const detailsButton = document.createElement('button')
+
+        detailsButton.type = 'button'
+
+        detailsButton.className = 'button button-quiet button-small'
+
+        detailsButton.dataset.action = 'view'
+
+        detailsButton.dataset.id = String(book.id)
+
+        detailsButton.textContent = 'Details'
+
+
+        const editButton = document.createElement('button')
+
+        editButton.type = 'button'
+
+        editButton.className = 'button button-quiet button-small'
+
+        editButton.dataset.action = 'edit'
+
+        editButton.dataset.id = String(book.id)
+
+        editButton.textContent = 'Edit'
+
+
+        actions.append(detailsButton, editButton)
+
+        card.append(
+            top,
+            title,
+            author,
+            description,
+            meta,
+            actions
+        )
+
+        element.bookGrid.append(card)
+
+    })
+
+}
+
+
+function renderPagination(pagination) {
+
+    if (!pagination || pagination.totalPages <= 1) {
+
+        element.pagination.hidden = true
+
+        return
+
     }
+
+
+    element.pagination.hidden = false
+
+    element.pageLabel.textContent =
+        `Page ${pagination.page} of ${pagination.totalPages}`
+
+    element.prevPage.disabled = pagination.page <= 1
+
+    element.nextPage.disabled =
+        pagination.page >= pagination.totalPages
+
 }
 
-async function loadShelf() {
-    elements.shelf.innerHTML =
-        '<p class="shelf-placeholder">Loading the shelf…</p>';
 
-    try {
-        const result = await requestJson("/api/books?limit=6&sort=newest");
+function applyBooks(result) {
 
-        state.lastBooks = result.data;
+    const books = Array.isArray(result.data) ? result.data : []
 
-        renderShelf(result.data);
-    } catch (error) {
-        elements.shelf.innerHTML =
-            `<p class="shelf-empty">Could not load the shelf: ${error.message}</p>`;
+    const pagination = result.pagination ?? {
+        page: 1,
+        limit: books.length,
+        total: books.length,
+        totalPages: 1
     }
+
+
+    state.lastBookResult = result
+
+    renderBooks(books, pagination)
+
+    renderPagination(pagination)
+
+
+    element.statTotal.textContent = String(pagination.total)
+
+    element.statTotalFoot.textContent =
+        `Page ${pagination.page} of ${Math.max(1, pagination.totalPages)}`
+
+    element.statAvailable.textContent = String(
+        books.filter((book) => book.available).length
+    )
+
+    element.librarySummary.textContent =
+        `Showing ${books.length} of ${pagination.total} matching titles`
+
 }
 
-async function loadCollectionStats() {
-    try {
-        const result = await requestJson("/api/books?limit=50&sort=newest");
-        const books = result.data;
 
-        const availableTitles = books.filter((book) => {
-            return book.availableCopies > 0;
-        }).length;
+/** GET /books, either shown in the response panel or used as a quiet refresh. */
 
-        const totalCopies = books.reduce((sum, book) => {
-            return sum + book.totalCopies;
-        }, 0);
+async function loadBooks(query, showResponse) {
 
-        elements.statTotal.textContent = result.meta.pagination.total;
-        elements.statAvailable.textContent = availableTitles;
-        elements.statCopies.textContent = totalCopies;
-    } catch {
-        elements.statTotal.textContent = "—";
-        elements.statAvailable.textContent = "—";
-        elements.statCopies.textContent = "—";
-    }
-}
+    const searchParams = new URLSearchParams()
 
-async function refreshCollection() {
-    await Promise.all([loadShelf(), loadCollectionStats()]);
-}
 
-function initializeEvents() {
-    elements.form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        void sendRequest();
-    });
+    Object.entries(query).forEach(([name, value]) => {
 
-    elements.sampleButton.addEventListener("click", fillSampleData);
-
-    elements.resetButton.addEventListener("click", () => {
-        window.setTimeout(() => {
-            fillFormDefaults();
-        }, 0);
-    });
-
-    elements.form.addEventListener("keydown", (event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            elements.form.requestSubmit();
+        if (value !== '' && value !== null && value !== undefined) {
+            searchParams.set(name, String(value))
         }
-    });
 
-    elements.refreshShelf.addEventListener("click", () => {
-        void refreshCollection();
-    });
-}
+    })
 
-function fillFormDefaults() {
-    const endpoint = getActiveEndpoint();
-    const defaults = {};
 
-    for (const field of endpoint.fields) {
-        defaults[field.name] = field.value ?? "";
+    const queryString = searchParams.toString()
+
+    const url = `/api/books${queryString ? `?${queryString}` : ''}`
+
+    const options = { method: 'GET' }
+
+
+    if (showResponse) {
+
+        const result = await performRequest(url, options, 200)
+
+        applyBooks(result)
+
+        return
+
     }
 
-    setFormValues(defaults);
+
+    setBusy(true)
+
+
+    try {
+
+        const result = await apiRequest(url, options)
+
+        applyBooks(result)
+
+    } catch (error) {
+
+        showToast(`Shelf refresh failed: ${error.message}`, 'error')
+
+    } finally {
+
+        setBusy(false)
+
+    }
+
 }
 
-async function start() {
-    renderEndpointList();
-    renderRequestPanel();
-    initializeEvents();
-    resetResponse();
 
-    await refreshCollection();
-    await sendRequest();
+async function loadGenres() {
+
+    try {
+
+        const result = await apiRequest('/api/meta/genres')
+
+        element.statGenres.textContent = String(
+            result.data.genres.length
+        )
+
+    } catch (error) {
+
+        element.statGenres.textContent = '—'
+
+        showToast(`Could not load genres: ${error.message}`, 'error')
+
+    }
+
 }
 
-void start();
+
+function fillUpdateForm(book) {
+
+    byId('update-id').value = String(book.id)
+
+    byId('update-title').value = book.title
+
+    byId('update-author').value = book.author
+
+    byId('update-isbn').value = book.isbn
+
+    byId('update-genre').value = book.genre
+
+    byId('update-year').value = String(book.publishedYear)
+
+    byId('update-copies').value = String(book.copies)
+
+    byId('update-available').value = String(book.available)
+
+    byId('update-description').value = book.description ?? ''
+
+}
+
+
+function goToPage(page) {
+
+    state.bookQuery = { ...state.bookQuery, page }
+
+    byId('list-page').value = String(page)
+
+    loadBooks(state.bookQuery, true).catch(() => {
+        // The response panel already explains the failure.
+    })
+
+}
+
+
+function wireEvents() {
+
+    element.endpointList.addEventListener('click', (event) => {
+
+        const target = event.target instanceof Element
+            ? event.target.closest('button[data-operation]')
+            : null
+
+        if (target) {
+            setOperation(target.dataset.operation)
+        }
+
+    })
+
+
+    const handlers = {
+
+        list: async () => {
+
+            state.bookQuery = buildListQuery()
+
+            await loadBooks(state.bookQuery, true)
+
+        },
+
+        get: async () => {
+
+            const id = Number(getValue(byId('form-get'), 'id'))
+
+            await performRequest(
+                `/api/books/${id}`,
+                { method: 'GET' },
+                200
+            )
+
+        },
+
+        create: async () => {
+
+            const body = buildCreateBody()
+
+            await performRequest(
+                '/api/books',
+                {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                },
+                201
+            )
+
+            await loadBooks(state.bookQuery, false)
+
+        },
+
+        update: async () => {
+
+            const form = byId('form-update')
+
+            const id = getValue(form, 'id')
+
+            const body = buildUpdateBody()
+
+            if (Object.keys(body).length === 0) {
+
+                setMessage(
+                    'Fill in at least one field before sending a PATCH request.',
+                    'error'
+                )
+
+                return
+
+            }
+
+
+            await performRequest(
+                `/api/books/${id}`,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify(body)
+                },
+                200
+            )
+
+            await loadBooks(state.bookQuery, false)
+
+        },
+
+        delete: async () => {
+
+            const id = getValue(byId('form-delete'), 'id')
+
+            await performRequest(
+                `/api/books/${id}`,
+                { method: 'DELETE' },
+                204
+            )
+
+            await loadBooks(state.bookQuery, false)
+
+        },
+
+        genres: async () => {
+
+            await performRequest(
+                '/api/meta/genres',
+                { method: 'GET' },
+                200
+            )
+
+        }
+
+    }
+
+
+    forms.forEach((form) => {
+
+        form.addEventListener('submit', async (event) => {
+
+            event.preventDefault()
+
+            const handler = handlers[form.dataset.operation]
+
+            if (!handler) {
+                return
+            }
+
+            try {
+                await handler()
+            } catch (error) {
+                // performRequest has already rendered the failure.
+            }
+
+        })
+
+    })
+
+
+    element.bookGrid.addEventListener('click', (event) => {
+
+        const target = event.target instanceof Element
+            ? event.target.closest('button[data-action]')
+            : null
+
+        if (!target) {
+            return
+        }
+
+
+        const book = state.visibleBooks.find(
+            (candidate) =>
+                String(candidate.id) === target.dataset.id
+        )
+
+        if (!book) {
+            return
+        }
+
+
+        if (target.dataset.action === 'view') {
+
+            setOperation('get')
+
+            byId('get-id').value = String(book.id)
+
+        } else if (target.dataset.action === 'edit') {
+
+            setOperation('update')
+
+            fillUpdateForm(book)
+
+        }
+
+    })
+
+
+    byId('refresh-books').addEventListener('click', () => {
+
+        loadBooks(state.bookQuery, false).catch(() => {
+            // Refresh failures surface as a toast.
+        })
+
+    })
+
+
+    element.prevPage.addEventListener('click', () => {
+
+        const page = Math.max(
+            1,
+            Number(state.bookQuery.page ?? 1) - 1
+        )
+
+        goToPage(page)
+
+    })
+
+
+    element.nextPage.addEventListener('click', () => {
+
+        const page = Number(state.bookQuery.page ?? 1) + 1
+
+        goToPage(page)
+
+    })
+
+}
+
+
+async function initialise() {
+
+    wireEvents()
+
+    buildEndpointList()
+
+    setOperation('list', { focus: false })
+
+    state.bookQuery = buildListQuery()
+
+    try {
+
+        await Promise.all([
+            loadGenres(),
+            loadBooks(state.bookQuery, true)
+        ])
+
+    } catch (error) {
+        // performRequest has already rendered the failure in the panel.
+    }
+
+}
+
+
+initialise()

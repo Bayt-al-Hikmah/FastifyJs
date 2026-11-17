@@ -1,0 +1,32 @@
+{
+    "name": "w6-fetch-client",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Workshop 6 example: a Fetch API focused Field Notes dashboard backed by a tiny in-memory Fastify API",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@fastify/cors": "^11.1.0",
+        "@fastify/multipart": "^10.1.8",
+        "@fastify/static": "^10.1.11",
+        "dotenv": "^18.0.10",
+        "fastify": "^5.12.8",
+        "file-type": "^22.3.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "tsx": "^4.23.15",
+        "typescript": "^5.9.3"
+    },
+    "allowScripts": {
+        "esbuild@0.28.2": true
+    }
+}

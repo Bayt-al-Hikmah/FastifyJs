@@ -1,302 +1,320 @@
-import { seedBooks } from "../data/seed-books.js";
-import { ApiError } from "../lib/api-error.js";
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from '../config.js'
+import { createSeedBooks } from '../data/seed-books.js'
+import { ApiError } from '../lib/api-error.js'
 import type {
     Book,
-    BookListQuery,
     BookListResult,
-    BookSort,
     CreateBookInput,
+    ListBooksQuery,
     UpdateBookInput
-} from "../types/book.js";
+} from '../types/book.js'
 
-const books = new Map<number, Book>();
 
-let nextBookId = 1;
+type SortableField = 'id' | 'title' | 'author' | 'publishedYear'
 
-function resetStore(): void {
-    books.clear();
 
-    nextBookId = 1;
+/**
+ * Compares ISBNs without relying on hyphen placement or capitalisation, so
+ * `978-0-201-61622-4` and `9780201616224` are correctly seen as duplicates.
+ */
 
-    for (const seedBook of seedBooks) {
-        books.set(seedBook.id, { ...seedBook });
-    }
+function normaliseIsbn(isbn: string): string {
 
-    nextBookId = Math.max(...seedBooks.map((book) => book.id)) + 1;
+    return isbn.replace(/-/g, '').trim().toLowerCase()
+
 }
 
-resetStore();
 
-function normalizeOptionalText(value: string | null | undefined): string | null {
-    if (typeof value !== "string") {
-        return null;
+/**
+ * All business logic lives here. The service knows nothing about HTTP: it does
+ * not read request headers, choose status codes, or build response envelopes.
+ * That job belongs to the controller layer.
+ *
+ * The collection is held in memory and rebuilt from the seed module whenever a
+ * new service instance is created at application startup.
+ */
+
+export class BookService {
+
+    private books: Book[]
+
+    private nextId: number
+
+
+    constructor() {
+
+        this.books = createSeedBooks()
+
+        this.nextId = this.books.reduce(
+            (highest, book) => Math.max(highest, book.id),
+            0
+        ) + 1
+
     }
 
-    const trimmed = value.trim();
 
-    return trimmed.length > 0 ? trimmed : null;
-}
+    /**
+     * Applies search, filters, sorting, and pagination, then returns the page
+     * of books together with metadata the client can use to build controls.
+     */
 
-function assertCopyCounts(
-    totalCopies: number,
-    availableCopies: number
-): void {
-    if (availableCopies > totalCopies) {
-        throw ApiError.unprocessable(
-            "Available copies cannot exceed total copies.",
-            [
-                {
-                    field: "availableCopies",
-                    message: "Available copies must be less than or equal to total copies."
-                }
-            ]
-        );
-    }
+    list(query: ListBooksQuery = {}): BookListResult {
 
-    if (availableCopies < 0) {
-        throw ApiError.unprocessable(
-            "Available copies cannot be negative.",
-            [
-                {
-                    field: "availableCopies",
-                    message: "Available copies must be zero or greater."
-                }
-            ]
-        );
-    }
-}
+        let filtered = [...this.books]
 
-function assertUniqueIsbn(
-    isbn: string | null,
-    ignoredBookId?: number
-): void {
-    if (!isbn) {
-        return;
-    }
 
-    const normalized = isbn.replaceAll("-", "").toLowerCase();
+        const search = query.search?.trim().toLowerCase()
 
-    for (const book of books.values()) {
-        if (book.id === ignoredBookId || !book.isbn) {
-            continue;
-        }
+        if (search) {
 
-        if (book.isbn.replaceAll("-", "").toLowerCase() === normalized) {
-            throw ApiError.conflict(
-                "A book with this ISBN already exists.",
-                [
-                    {
-                        field: "isbn",
-                        message: "Use a unique ISBN or leave the field empty."
-                    }
+            filtered = filtered.filter((book) => {
+
+                const searchableFields = [
+                    book.title,
+                    book.author,
+                    book.isbn,
+                    book.description
                 ]
-            );
-        }
-    }
-}
 
-function sortBooks(bookList: Book[], sort: BookSort): Book[] {
-    const sorted = [...bookList];
+                return searchableFields.some((value) =>
+                    value.toLowerCase().includes(search)
+                )
 
-    switch (sort) {
-        case "oldest":
-            sorted.sort((left, right) => {
-                return left.addedAt.localeCompare(right.addedAt);
-            });
-            break;
+            })
 
-        case "title":
-            sorted.sort((left, right) => {
-                return left.title.localeCompare(right.title);
-            });
-            break;
-
-        case "author":
-            sorted.sort((left, right) => {
-                const authorOrder = left.author.localeCompare(right.author);
-
-                return authorOrder !== 0
-                    ? authorOrder
-                    : left.title.localeCompare(right.title);
-            });
-            break;
-
-        case "year":
-            sorted.sort((left, right) => {
-                return right.publishedYear - left.publishedYear;
-            });
-            break;
-
-        case "newest":
-        default:
-            sorted.sort((left, right) => {
-                return right.addedAt.localeCompare(left.addedAt);
-            });
-            break;
-    }
-
-    return sorted;
-}
-
-export function listBooks(query: BookListQuery): BookListResult {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const sort = query.sort ?? "newest";
-    const search = normalizeOptionalText(query.search);
-    const category = query.category ?? null;
-
-    const normalizedSearch = search?.toLowerCase() ?? null;
-
-    const filtered = [...books.values()].filter((book) => {
-        if (category && book.category !== category) {
-            return false;
         }
 
-        if (!normalizedSearch) {
-            return true;
+
+        if (query.genre) {
+
+            filtered = filtered.filter(
+                (book) => book.genre === query.genre
+            )
+
         }
 
-        return (
-            book.title.toLowerCase().includes(normalizedSearch) ||
-            book.author.toLowerCase().includes(normalizedSearch) ||
-            book.description.toLowerCase().includes(normalizedSearch)
-        );
-    });
 
-    const sorted = sortBooks(filtered, sort);
-    const total = sorted.length;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-    const offset = (page - 1) * limit;
-    const paginatedBooks = sorted.slice(offset, offset + limit);
+        if (typeof query.available === 'boolean') {
 
-    return {
-        books: paginatedBooks,
-        pagination: {
-            page,
-            limit,
-            total,
-            totalPages,
-            hasNextPage: page < totalPages,
-            hasPreviousPage: page > 1 && total > 0
-        },
-        filters: {
-            search,
-            category
-        },
-        sort
-    };
-}
+            filtered = filtered.filter(
+                (book) => book.available === query.available
+            )
 
-export function getBookById(bookId: number): Book {
-    const book = books.get(bookId);
+        }
 
-    if (!book) {
-        throw ApiError.notFound(`No book exists with id ${bookId}.`);
+
+        const sorted = this.sortBooks(filtered, query.sort)
+
+
+        const page = query.page ?? DEFAULT_PAGE
+
+        const limit = query.limit ?? DEFAULT_LIMIT
+
+        const start = (page - 1) * limit
+
+
+        return {
+
+            books: sorted.slice(start, start + limit),
+
+            pagination: {
+
+                page,
+                limit,
+                total: sorted.length,
+                totalPages: Math.ceil(sorted.length / limit)
+
+            }
+
+        }
+
     }
 
-    return book;
-}
 
-export function createBook(input: CreateBookInput): Book {
-    const totalCopies = input.totalCopies;
-    const availableCopies = input.availableCopies ?? totalCopies;
+    private sortBooks(
+        books: Book[],
+        sort: ListBooksQuery['sort']
+    ): Book[] {
 
-    assertCopyCounts(totalCopies, availableCopies);
+        const token = sort ?? 'id'
 
-    const isbn = normalizeOptionalText(input.isbn);
+        const descending = token.startsWith('-')
 
-    assertUniqueIsbn(isbn);
+        const field = (
+            descending ? token.slice(1) : token
+        ) as SortableField
 
-    const now = new Date().toISOString();
+        const direction = descending ? -1 : 1
 
-    const book: Book = {
-        id: nextBookId,
-        title: input.title.trim(),
-        author: input.author.trim(),
-        category: input.category,
-        description: input.description.trim(),
-        publishedYear: input.publishedYear,
-        isbn,
-        totalCopies,
-        availableCopies,
-        addedAt: now,
-        updatedAt: now
-    };
 
-    nextBookId += 1;
+        return [...books].sort((left, right) => {
 
-    books.set(book.id, book);
+            const leftValue = left[field]
 
-    return book;
-}
+            const rightValue = right[field]
 
-export function updateBook(bookId: number, input: UpdateBookInput): Book {
-    const existing = getBookById(bookId);
 
-    const totalCopies = input.totalCopies ?? existing.totalCopies;
-    const availableCopies = input.availableCopies ?? existing.availableCopies;
+            if (
+                typeof leftValue === 'string' &&
+                typeof rightValue === 'string'
+            ) {
 
-    assertCopyCounts(totalCopies, availableCopies);
+                return leftValue.localeCompare(rightValue) * direction
 
-    if (
-        input.totalCopies !== undefined &&
-        input.availableCopies === undefined &&
-        totalCopies < existing.availableCopies
-    ) {
-        throw ApiError.unprocessable(
-            "Total copies cannot be lower than the number of available copies.",
-            [
-                {
-                    field: "totalCopies",
-                    message: "Reduce available copies first or lower both values together."
-                }
-            ]
-        );
+            }
+
+
+            return (
+                Number(leftValue) - Number(rightValue)
+            ) * direction
+
+        })
+
     }
 
-    const isbn =
-        input.isbn === undefined
-            ? existing.isbn
-            : normalizeOptionalText(input.isbn);
 
-    assertUniqueIsbn(isbn, existing.id);
+    findById(id: number): Book {
 
-    const updated: Book = {
-        ...existing,
-        title: input.title?.trim() ?? existing.title,
-        author: input.author?.trim() ?? existing.author,
-        category: input.category ?? existing.category,
-        description: input.description?.trim() ?? existing.description,
-        publishedYear: input.publishedYear ?? existing.publishedYear,
-        isbn,
-        totalCopies,
-        availableCopies,
-        updatedAt: new Date().toISOString()
-    };
+        const book = this.books.find(
+            (candidate) => candidate.id === id
+        )
 
-    books.set(updated.id, updated);
+        if (!book) {
 
-    return updated;
-}
+            throw ApiError.notFound()
 
-export function deleteBook(bookId: number): void {
-    const deleted = books.delete(bookId);
+        }
 
-    if (!deleted) {
-        throw ApiError.notFound(`No book exists with id ${bookId}.`);
+        return book
+
     }
-}
 
-export function getCollectionStats(): {
-    totalBooks: number;
-    availableTitles: number;
-    totalCopies: number;
-} {
-    const allBooks = [...books.values()];
 
-    return {
-        totalBooks: allBooks.length,
-        availableTitles: allBooks.filter((book) => book.availableCopies > 0).length,
-        totalCopies: allBooks.reduce((sum, book) => sum + book.totalCopies, 0)
-    };
+    create(input: CreateBookInput): Book {
+
+        const requestedIsbn = normaliseIsbn(input.isbn)
+
+        const duplicate = this.books.some(
+            (book) => normaliseIsbn(book.isbn) === requestedIsbn
+        )
+
+        if (duplicate) {
+
+            throw ApiError.conflict()
+
+        }
+
+
+        const book: Book = {
+
+            id: this.nextId++,
+
+            title: input.title,
+
+            author: input.author,
+
+            isbn: input.isbn,
+
+            genre: input.genre,
+
+            publishedYear: input.publishedYear,
+
+            copies: input.copies,
+
+            // If the client did not state availability, infer it from copies.
+            available: input.available ?? input.copies > 0,
+
+            description: input.description ?? ''
+
+        }
+
+
+        this.books.push(book)
+
+        return book
+
+    }
+
+
+    update(id: number, input: UpdateBookInput): Book {
+
+        const index = this.books.findIndex(
+            (book) => book.id === id
+        )
+
+        if (index === -1) {
+
+            throw ApiError.notFound()
+
+        }
+
+
+        const existing = this.books[index]
+
+
+        if (input.isbn !== undefined) {
+
+            const requestedIsbn = normaliseIsbn(input.isbn)
+
+            const duplicate = this.books.some(
+                (book) =>
+                    book.id !== id &&
+                    normaliseIsbn(book.isbn) === requestedIsbn
+            )
+
+            if (duplicate) {
+
+                throw ApiError.conflict()
+
+            }
+
+        }
+
+
+        const updated: Book = {
+
+            id: existing.id,
+
+            title: input.title ?? existing.title,
+
+            author: input.author ?? existing.author,
+
+            isbn: input.isbn ?? existing.isbn,
+
+            genre: input.genre ?? existing.genre,
+
+            publishedYear: input.publishedYear ?? existing.publishedYear,
+
+            copies: input.copies ?? existing.copies,
+
+            available: input.available ?? existing.available,
+
+            description: input.description ?? existing.description
+
+        }
+
+
+        this.books[index] = updated
+
+        return updated
+
+    }
+
+
+    remove(id: number): void {
+
+        const index = this.books.findIndex(
+            (book) => book.id === id
+        )
+
+        if (index === -1) {
+
+            throw ApiError.notFound()
+
+        }
+
+        this.books.splice(index, 1)
+
+    }
+
 }

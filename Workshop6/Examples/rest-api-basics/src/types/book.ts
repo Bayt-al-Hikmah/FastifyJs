@@ -1,75 +1,114 @@
-export const BOOK_CATEGORIES = [
-    "FICTION",
-    "NON_FICTION",
-    "SCIENCE",
-    "HISTORY",
-    "POETRY",
-    "CHILDREN",
-    "TECHNOLOGY"
-] as const;
+/**
+ * Domain types for the Community Library API.
+ *
+ * These types describe the shape of a book inside the application. They do not
+ * validate HTTP requests; the JSON Schemas in `schemas/book-schemas.ts` do
+ * that at runtime.
+ */
 
-export type BookCategory = (typeof BOOK_CATEGORIES)[number];
+export const GENRES = [
+    'Fiction',
+    'Science',
+    'History',
+    'Technology',
+    'Biography',
+    'Poetry'
+] as const
 
-export const BOOK_SORT_OPTIONS = [
-    "newest",
-    "oldest",
-    "title",
-    "author",
-    "year"
-] as const;
+export type Genre = (typeof GENRES)[number]
 
-export type BookSort = (typeof BOOK_SORT_OPTIONS)[number];
 
-export type Book = {
-    id: number;
-    title: string;
-    author: string;
-    category: BookCategory;
-    description: string;
-    publishedYear: number;
-    isbn: string | null;
-    totalCopies: number;
-    availableCopies: number;
-    addedAt: string;
-    updatedAt: string;
-};
+/**
+ * The fields clients may sort by. A leading `-` means descending order, a
+ * convention that is easy to express in a query string and easy to explain.
+ */
 
-export type CreateBookInput = {
-    title: string;
-    author: string;
-    category: BookCategory;
-    description: string;
-    publishedYear: number;
-    isbn?: string | null;
-    totalCopies: number;
-    availableCopies?: number;
-};
+export const SORT_FIELDS = [
+    'id',
+    'title',
+    'author',
+    'publishedYear'
+] as const
 
-export type UpdateBookInput = Partial<CreateBookInput>;
+export type SortField = (typeof SORT_FIELDS)[number]
 
-export type BookListQuery = {
-    page?: number;
-    limit?: number;
-    search?: string;
-    category?: BookCategory;
-    sort?: BookSort;
-};
+export type BookSort = SortField | `-${SortField}`
 
-export type Pagination = {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-};
 
-export type BookListResult = {
-    books: Book[];
-    pagination: Pagination;
-    filters: {
-        search: string | null;
-        category: BookCategory | null;
-    };
-    sort: BookSort;
-};
+export interface Book {
+
+    id: number
+
+    title: string
+
+    author: string
+
+    isbn: string
+
+    genre: Genre
+
+    publishedYear: number
+
+    copies: number
+
+    available: boolean
+
+    description: string
+
+}
+
+
+/** Everything needed to add a new book except the server-generated id. */
+
+export type CreateBookInput = Omit<Book, 'id'>
+
+
+/** PATCH requests may change any subset of the editable fields. */
+
+export type UpdateBookInput = Partial<CreateBookInput>
+
+
+export interface ListBooksQuery {
+
+    search?: string
+
+    genre?: Genre
+
+    available?: boolean
+
+    sort?: BookSort
+
+    page?: number
+
+    limit?: number
+
+}
+
+
+export interface Pagination {
+
+    page: number
+
+    limit: number
+
+    total: number
+
+    totalPages: number
+
+}
+
+
+export interface BookListResult {
+
+    books: Book[]
+
+    pagination: Pagination
+
+}
+
+
+export interface BookIdParams {
+
+    id: number
+
+}

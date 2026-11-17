@@ -8,8 +8,8 @@ datasource db {
 }
 
 enum Role {
-    USER
-    ADMIN
+    ORGANIZER
+    MEMBER
 }
 
 enum EventCategory {
@@ -27,11 +27,11 @@ enum EventStatus {
 }
 
 model User {
-    id           Int      @id @default(autoincrement())
-    username     String   @unique @db.VarChar(40)
-    email        String   @unique @db.VarChar(254)
-    passwordHash String   @map("password_hash") @db.VarChar(255)
-    role         Role     @default(USER)
+    id           Int    @id @default(autoincrement())
+    username     String @unique @db.VarChar(80)
+    email        String @unique @db.VarChar(254)
+    passwordHash String @map("password_hash")
+    role         Role   @default(MEMBER)
 
     events        Event[]             @relation("EventOrganizer")
     registrations EventRegistration[]
@@ -52,12 +52,11 @@ model Event {
     registeredCount Int           @default(0) @map("registered_count")
     category        EventCategory @default(OTHER)
     status          EventStatus   @default(DRAFT)
+    createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-    organizerId Int   @map("organizer_id")
-    organizer   User  @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+    organizerId Int  @map("organizer_id")
+    organizer   User @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
 
     registrations EventRegistration[]
     cover         EventCover?
@@ -68,9 +67,8 @@ model Event {
 }
 
 model EventRegistration {
-    userId Int @map("user_id")
-    eventId Int @map("event_id")
-
+    userId       Int      @map("user_id")
+    eventId      Int      @map("event_id")
     registeredAt DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
 
     user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -87,8 +85,7 @@ model EventCover {
     originalName String   @map("original_name") @db.VarChar(180)
     mimeType     String   @map("mime_type") @db.VarChar(100)
     sizeBytes    Int      @map("size_bytes")
-
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
     eventId Int   @unique @map("event_id")
     event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)

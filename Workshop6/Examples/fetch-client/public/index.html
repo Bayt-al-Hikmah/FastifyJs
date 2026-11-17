@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Field Notes — a Workshop 6 example of fetching, rendering, validating, and uploading with the browser Fetch API.">
+    <title>Field Notes · Fetch API Workshop</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/main.js"></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 5.5h13l5 5V26a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z"/>
+                    <path d="M20 5.5V11h5"/>
+                    <path d="M11 16h9M11 20h9M11 24h6"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Field Notes</span>
+                <span class="brand-tagline">Workshop 6 · Fetch API</span>
+            </span>
+        </a>
+
+        <div class="connection-chip" title="The dashboard talks to the API on the same origin">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span>API connected</span>
+        </div>
+    </header>
+
+    <main class="shell" id="main">
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">A field journal for small observations</p>
+                <h1 id="hero-title">Notes from the <em>field.</em></h1>
+                <p class="lead">
+                    Every card below is rendered from a <code>fetch()</code> response. Create, edit,
+                    search, and delete a note, then attach a small image — all through one reusable
+                    API helper that checks <code>response.ok</code> and handles <code>204</code>.
+                </p>
+            </div>
+
+            <ul class="hero-facts" aria-label="Fetch concepts used here">
+                <li><strong>GET</strong><span>list, filter, detail</span></li>
+                <li><strong>POST · PATCH · DELETE</strong><span>write operations</span></li>
+                <li><strong>FormData</strong><span>image upload, no manual header</span></li>
+                <li><strong>textContent</strong><span>safe DOM rendering</span></li>
+            </ul>
+        </section>
+
+        <section class="stat-grid" aria-label="Overview">
+            <article class="stat-card">
+                <span class="stat-label">Notes in view</span>
+                <strong class="stat-value" id="stat-visible">0</strong>
+                <span class="stat-foot">Matches the current search and topic</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">Illustrations</span>
+                <strong class="stat-value" id="stat-images">0</strong>
+                <span class="stat-foot">Notes with an uploaded image</span>
+            </article>
+            <article class="stat-card stat-card-accent">
+                <span class="stat-label">Practice area</span>
+                <strong class="stat-value">Fetch</strong>
+                <span class="stat-foot">One helper, every HTTP method</span>
+            </article>
+        </section>
+
+        <div class="workspace-grid">
+            <section class="panel notes-panel" aria-labelledby="notes-heading">
+                <header class="panel-heading">
+                    <div>
+                        <p class="panel-kicker">Journal</p>
+                        <h2 id="notes-heading">Your notes</h2>
+                    </div>
+                    <span class="count-badge" id="note-count">0</span>
+                </header>
+
+                <form class="filter-form" id="filter-form">
+                    <div class="field">
+                        <label for="search-input">Search</label>
+                        <input id="search-input" name="search" type="search" maxlength="100" placeholder="Try “garden” or “light”" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="topic-filter">Topic</label>
+                        <select id="topic-filter" name="topic">
+                            <option value="">All topics</option>
+                        </select>
+                    </div>
+                </form>
+
+                <p class="list-status" id="list-status" role="status" aria-live="polite"></p>
+
+                <ul class="note-list" id="note-list"></ul>
+            </section>
+
+            <section class="panel editor-panel" aria-labelledby="editor-heading">
+                <header class="panel-heading">
+                    <div>
+                        <p class="panel-kicker">Compose</p>
+                        <h2 id="editor-heading">Write a note</h2>
+                    </div>
+                    <button class="button button-quiet button-small" id="new-note-button" type="button">New note</button>
+                </header>
+
+                <form class="note-form" id="note-form" novalidate>
+                    <div class="field">
+                        <label for="title-input">Title</label>
+                        <input id="title-input" name="title" type="text" maxlength="120" placeholder="A short, memorable title">
+                    </div>
+
+                    <div class="field">
+                        <label for="topic-input">Topic</label>
+                        <input id="topic-input" name="topic" type="text" maxlength="60" list="topic-suggestions" placeholder="e.g. Gardening">
+                        <datalist id="topic-suggestions"></datalist>
+                    </div>
+
+                    <div class="field">
+                        <label for="body-input">Body</label>
+                        <textarea id="body-input" name="body" rows="5" maxlength="2000" placeholder="What did you notice?"></textarea>
+                    </div>
+
+                    <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+
+                    <div class="form-actions">
+                        <button class="button button-primary" id="save-button" type="submit">Save note</button>
+                        <button class="button button-quiet" id="reset-button" type="button">Clear</button>
+                    </div>
+                </form>
+
+                <div class="image-section">
+                    <div class="image-heading">
+                        <div>
+                            <p class="panel-kicker">Optional</p>
+                            <h3>Illustration</h3>
+                        </div>
+                        <span class="limit-note">JPEG, PNG or WebP · max 5 MB</span>
+                    </div>
+
+                    <img class="image-preview" id="image-preview" alt="" hidden>
+
+                    <form class="upload-form" id="upload-form">
+                        <div class="field">
+                            <label for="image-input">Choose an image</label>
+                            <input id="image-input" name="image" type="file" accept="image/jpeg,image/png,image/webp">
+                        </div>
+                        <button class="button button-secondary" id="upload-button" type="submit" disabled>Upload image</button>
+                        <p class="form-message" id="upload-message" role="status" aria-live="polite"></p>
+                    </form>
+
+                    <p class="image-hint" id="image-hint">Save or select a note before uploading an image.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span>Workshop 6 · Browser-side Fetch patterns</span>
+        <span>API and UI: <code>http://127.0.0.1:3020</code></span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

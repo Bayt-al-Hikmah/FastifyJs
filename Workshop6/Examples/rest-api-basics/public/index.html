@@ -1,175 +1,390 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="An interactive explorer for the Community Library REST API built in Workshop 6.">
-    <title>Community Library API · Workshop 6 Explorer</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Workshop 6 API explorer for the Community Library REST API.">
+    <title>Shelf · Community Library API Explorer</title>
+    <link rel="stylesheet" href="/app/css/style.css">
+    <script type="module" src="/app/js/app.js"></script>
 </head>
-
 <body>
-    <a class="skip-link" href="#workspace">Skip to the API explorer</a>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="site-header">
-        <div class="header-inner">
-            <a class="brand" href="/">
-                <span class="brand-mark" aria-hidden="true">CL</span>
-                <span class="brand-copy">
-                    <span class="brand-name">Community Library</span>
-                    <span class="brand-subtitle">REST API Explorer</span>
-                </span>
-            </a>
+    <header class="topbar">
+        <a class="brand" href="/app/">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 7.5c3.2-1.3 6.5-1.3 10 0 3.5-1.3 6.8-1.3 10 0v17c-3.2-1.3-6.5-1.3-10 0-3.5-1.3-6.8-1.3-10 0v-17Z"/>
+                    <path d="M16 7.5v17"/>
+                </svg>
+            </span>
+            <span class="brand-copy">
+                <span class="brand-name">Shelf</span>
+                <span class="brand-tagline">Workshop 6 · REST basics</span>
+            </span>
+        </a>
 
-            <div class="header-tags" aria-label="API characteristics">
-                <span class="tag tag-live">v1</span>
-                <span class="tag">In-memory</span>
-                <span class="tag">Rate limited</span>
-            </div>
+        <div class="topbar-meta">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span class="session-name">In-memory API</span>
+            <a class="button button-quiet button-small" href="/api/meta/genres" target="_blank" rel="noreferrer">Raw API</a>
         </div>
     </header>
 
-    <main class="page">
+    <main class="shell" id="main">
         <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
-                <p class="eyebrow">Workshop 6 · Example 01</p>
-                <h1 id="hero-title">A small library with a <em>well-behaved</em> API.</h1>
+                <p class="eyebrow">Community Library API</p>
+                <h1 id="hero-title">Learn REST by<br><em>using it.</em></h1>
                 <p class="lead">
-                    Send real requests to six REST endpoints. Every call is validated,
-                    rate limited, and answered with the same predictable JSON envelope.
+                    Nine books live in memory behind a small, consistent JSON API. Send a
+                    request, watch the status code, and read the exact response envelope your
+                    future frontend would receive.
                 </p>
 
                 <div class="hero-actions">
-                    <a class="btn btn-primary" href="#request-panel">Try a request</a>
-                    <a class="btn btn-secondary" href="#endpoints">Browse endpoints</a>
+                    <a class="button button-primary" href="#console">Open the console</a>
+                    <button class="button button-quiet" id="refresh-books" type="button">Refresh shelf</button>
                 </div>
             </div>
 
-            <aside class="hero-card" aria-labelledby="snapshot-title">
-                <p class="card-kicker" id="snapshot-title">Collection snapshot</p>
-                <p class="stat-number" id="stat-total">—</p>
-                <p class="stat-label">titles in the library</p>
-
-                <dl class="stat-grid">
-                    <div>
-                        <dt>Available</dt>
-                        <dd id="stat-available">—</dd>
-                    </div>
-                    <div>
-                        <dt>Copies</dt>
-                        <dd id="stat-copies">—</dd>
-                    </div>
-                </dl>
-
-                <p class="stat-note">In-memory store · resets when the server restarts</p>
-            </aside>
+            <div class="hero-note">
+                <span class="hero-note-label">No database</span>
+                <p>Every create, update, and delete lives only in this server process. Restart it and the starter collection returns.</p>
+                <code>http://127.0.0.1:3010/api</code>
+            </div>
         </section>
 
-        <div class="workspace" id="workspace">
-            <aside class="panel endpoints-panel" id="endpoints" aria-labelledby="endpoints-title">
+        <section class="stat-grid" aria-label="Library statistics">
+            <article class="stat-card stat-card-accent">
+                <span class="stat-label">Titles matched</span>
+                <strong class="stat-value" id="stat-total">—</strong>
+                <span class="stat-foot" id="stat-total-foot">Waiting for the API</span>
+            </article>
+
+            <article class="stat-card">
+                <span class="stat-label">Available here</span>
+                <strong class="stat-value" id="stat-available">—</strong>
+                <span class="stat-foot">Books on this page with copies on the shelf</span>
+            </article>
+
+            <article class="stat-card">
+                <span class="stat-label">Genres</span>
+                <strong class="stat-value" id="stat-genres">—</strong>
+                <span class="stat-foot">Vocabulary exposed by /api/meta/genres</span>
+            </article>
+        </section>
+
+        <div class="console-grid">
+            <aside class="panel endpoints-panel" aria-labelledby="endpoints-title">
                 <div class="panel-heading">
-                    <p class="eyebrow">Reference</p>
-                    <h2 id="endpoints-title">Endpoints</h2>
-                    <p class="panel-copy">
-                        Resource URLs identify books. HTTP methods describe the operation.
-                    </p>
+                    <div>
+                        <p class="panel-kicker">Reference</p>
+                        <h2 id="endpoints-title">Endpoints</h2>
+                    </div>
+                    <span class="count-badge">6</span>
                 </div>
 
-                <nav class="endpoint-list" id="endpoint-list" aria-label="API endpoints"></nav>
+                <p class="panel-hint">Choose an operation to load its request form.</p>
 
-                <div class="aside-note">
-                    <p class="aside-note-title">Rate limit</p>
-                    <p>
-                        Reads allow 120 requests per minute; writes allow 30.
-                        Exceeding a limit returns <code>429</code>.
-                    </p>
+                <ul class="endpoint-list" id="endpoint-list">
+                    <li class="endpoint-fallback">Loading endpoints…</li>
+                </ul>
+
+                <div class="note-card">
+                    <strong>Response envelope</strong>
+                    <code>{ "message": "...", "data": ... }</code>
+                    <span>Lists also include a <code>pagination</code> object. Deletes return an empty 204.</span>
+                </div>
+
+                <div class="note-card note-card-quiet">
+                    <strong>Try the status codes</strong>
+                    <span>Validate a blank body for 400, request id 999 for 404, or reuse an ISBN for 409.</span>
                 </div>
             </aside>
 
-            <div class="workspace-main">
-                <article class="panel request-panel" id="request-panel" aria-labelledby="request-title">
-                    <header class="panel-heading panel-heading-row">
-                        <div>
-                            <p class="eyebrow">Request</p>
-                            <h2 id="request-title">List books</h2>
-                            <p class="panel-copy" id="request-description">
-                                Retrieve the collection with pagination, search, filtering, and sorting.
-                            </p>
-                        </div>
-                        <span class="method-badge method-get" id="request-method">GET</span>
-                    </header>
+            <section class="panel console-panel" id="console" aria-labelledby="console-title">
+                <div class="panel-heading console-heading">
+                    <div>
+                        <p class="panel-kicker">Try it</p>
+                        <h2 id="console-title">Request console</h2>
+                    </div>
+                    <span class="request-url" id="request-url">GET /api/books</span>
+                </div>
 
-                    <div class="path-preview" aria-live="polite">
-                        <span class="path-preview-label">URL</span>
-                        <code id="request-path">/api/books</code>
+                <form class="operation-form" id="form-list" data-operation="list" aria-label="List and filter books">
+                    <p class="form-intro">Search, filter, sort, and page through the collection. Empty controls are left out of the query string.</p>
+
+                    <div class="field-grid">
+                        <div class="field field-wide">
+                            <label for="list-search">Search</label>
+                            <input id="list-search" name="search" type="search" maxlength="120" placeholder="Title, author, ISBN, or description">
+                        </div>
+
+                        <div class="field">
+                            <label for="list-genre">Genre</label>
+                            <select id="list-genre" name="genre">
+                                <option value="">Any genre</option>
+                                <option value="Fiction">Fiction</option>
+                                <option value="Science">Science</option>
+                                <option value="History">History</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Biography">Biography</option>
+                                <option value="Poetry">Poetry</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="list-available">Availability</label>
+                            <select id="list-available" name="available">
+                                <option value="">Any availability</option>
+                                <option value="true">Available</option>
+                                <option value="false">Not available</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="list-sort">Sort</label>
+                            <select id="list-sort" name="sort">
+                                <option value="-id">Newest id first</option>
+                                <option value="id">Oldest id first</option>
+                                <option value="title">Title A → Z</option>
+                                <option value="-title">Title Z → A</option>
+                                <option value="author">Author A → Z</option>
+                                <option value="-author">Author Z → A</option>
+                                <option value="publishedYear">Oldest publication</option>
+                                <option value="-publishedYear">Newest publication</option>
+                            </select>
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="list-page">Page</label>
+                            <input id="list-page" name="page" type="number" min="1" step="1" value="1">
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="list-limit">Limit</label>
+                            <input id="list-limit" name="limit" type="number" min="1" max="50" step="1" value="10">
+                        </div>
                     </div>
 
-                    <form class="request-form" id="request-form" novalidate>
-                        <div class="field-grid" id="form-fields"></div>
+                    <button class="button button-primary submit-button" type="submit">Send GET request</button>
+                </form>
 
-                        <div class="request-actions">
-                            <button class="btn btn-primary" type="submit" id="send-button">
-                                Send request
-                            </button>
-                            <button class="btn btn-secondary" type="button" id="sample-button">
-                                Fill sample data
-                            </button>
-                            <button class="btn btn-ghost" type="reset" id="reset-button">
-                                Reset
-                            </button>
+                <form class="operation-form" id="form-get" data-operation="get" aria-label="Get one book" hidden>
+                    <p class="form-intro">Fetch a single resource by its path parameter. Missing ids return 404.</p>
+
+                    <div class="field-grid">
+                        <div class="field field-narrow">
+                            <label for="get-id">Book id</label>
+                            <input id="get-id" name="id" type="number" min="1" step="1" required placeholder="3">
                         </div>
-                    </form>
-                </article>
-
-                <article class="panel response-panel" aria-labelledby="response-title">
-                    <header class="panel-heading panel-heading-row">
-                        <div>
-                            <p class="eyebrow">Response</p>
-                            <h2 id="response-title">Server response</h2>
-                        </div>
-
-                        <div class="response-meta">
-                            <span class="status-badge is-idle" id="status-badge">Idle</span>
-                            <span class="response-time" id="response-time"></span>
-                        </div>
-                    </header>
-
-                    <div class="response-headers" id="response-headers" aria-live="polite">
-                        <p class="response-placeholder">Response headers will appear here.</p>
                     </div>
 
-                    <pre class="response-body" id="response-body" tabindex="0">Send a request to see the JSON response.</pre>
-                </article>
+                    <button class="button button-primary submit-button" type="submit">Send GET request</button>
+                </form>
 
-                <article class="panel shelf-panel" aria-labelledby="shelf-title">
-                    <header class="panel-heading panel-heading-row">
-                        <div>
-                            <p class="eyebrow">Live data</p>
-                            <h2 id="shelf-title">On the shelf</h2>
-                            <p class="panel-copy">
-                                The six newest arrivals. Select a book to load its detail request.
-                            </p>
+                <form class="operation-form" id="form-create" data-operation="create" aria-label="Create a book" hidden>
+                    <p class="form-intro">The server assigns the id. A duplicate ISBN returns 409, not a new row.</p>
+
+                    <div class="field-grid">
+                        <div class="field field-wide">
+                            <label for="create-title">Title</label>
+                            <input id="create-title" name="title" type="text" maxlength="160" required placeholder="The Left Hand of Darkness">
                         </div>
-                        <button class="btn btn-secondary btn-small" type="button" id="refresh-shelf">
-                            Refresh
-                        </button>
-                    </header>
 
-                    <div class="shelf" id="shelf" aria-live="polite">
-                        <p class="shelf-placeholder">Loading the shelf…</p>
+                        <div class="field">
+                            <label for="create-author">Author</label>
+                            <input id="create-author" name="author" type="text" maxlength="120" required placeholder="Ursula K. Le Guin">
+                        </div>
+
+                        <div class="field">
+                            <label for="create-isbn">ISBN</label>
+                            <input id="create-isbn" name="isbn" type="text" minlength="10" maxlength="24" pattern="[0-9Xx-]+" required placeholder="978-0-441-47812-5">
+                            <span class="field-hint">Digits, X, and hyphens only.</span>
+                        </div>
+
+                        <div class="field">
+                            <label for="create-genre">Genre</label>
+                            <select id="create-genre" name="genre" required>
+                                <option value="Fiction">Fiction</option>
+                                <option value="Science">Science</option>
+                                <option value="History">History</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Biography">Biography</option>
+                                <option value="Poetry">Poetry</option>
+                            </select>
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="create-year">Published year</label>
+                            <input id="create-year" name="publishedYear" type="number" min="0" max="2100" step="1" required value="2024">
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="create-copies">Copies</label>
+                            <input id="create-copies" name="copies" type="number" min="0" max="10000" step="1" required value="1">
+                        </div>
+
+                        <div class="field field-wide">
+                            <label for="create-description">Description</label>
+                            <textarea id="create-description" name="description" rows="3" maxlength="2000" placeholder="A short shelf note for library visitors."></textarea>
+                        </div>
                     </div>
-                </article>
-            </div>
+
+                    <label class="checkbox">
+                        <input name="available" type="checkbox" checked>
+                        <span>Available to borrow</span>
+                    </label>
+
+                    <button class="button button-primary submit-button" type="submit">Send POST request</button>
+                </form>
+
+                <form class="operation-form" id="form-update" data-operation="update" aria-label="Update a book" hidden>
+                    <p class="form-intro">PATCH is a partial update. Leave a field blank to keep its current value; at least one field must change.</p>
+
+                    <div class="field-grid">
+                        <div class="field field-narrow">
+                            <label for="update-id">Book id</label>
+                            <input id="update-id" name="id" type="number" min="1" step="1" required placeholder="1">
+                        </div>
+
+                        <div class="field">
+                            <label for="update-title">Title</label>
+                            <input id="update-title" name="title" type="text" maxlength="160" placeholder="Leave blank to keep">
+                        </div>
+
+                        <div class="field">
+                            <label for="update-author">Author</label>
+                            <input id="update-author" name="author" type="text" maxlength="120" placeholder="Leave blank to keep">
+                        </div>
+
+                        <div class="field">
+                            <label for="update-isbn">ISBN</label>
+                            <input id="update-isbn" name="isbn" type="text" minlength="10" maxlength="24" pattern="[0-9Xx-]+" placeholder="Leave blank to keep">
+                        </div>
+
+                        <div class="field">
+                            <label for="update-genre">Genre</label>
+                            <select id="update-genre" name="genre">
+                                <option value="">Keep current genre</option>
+                                <option value="Fiction">Fiction</option>
+                                <option value="Science">Science</option>
+                                <option value="History">History</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Biography">Biography</option>
+                                <option value="Poetry">Poetry</option>
+                            </select>
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="update-year">Published year</label>
+                            <input id="update-year" name="publishedYear" type="number" min="0" max="2100" step="1" placeholder="Keep">
+                        </div>
+
+                        <div class="field field-narrow">
+                            <label for="update-copies">Copies</label>
+                            <input id="update-copies" name="copies" type="number" min="0" max="10000" step="1" placeholder="Keep">
+                        </div>
+
+                        <div class="field">
+                            <label for="update-available">Availability</label>
+                            <select id="update-available" name="available">
+                                <option value="">Keep current state</option>
+                                <option value="true">Available</option>
+                                <option value="false">Not available</option>
+                            </select>
+                        </div>
+
+                        <div class="field field-wide">
+                            <label for="update-description">Description</label>
+                            <textarea id="update-description" name="description" rows="3" maxlength="2000" placeholder="Leave blank to keep the current description."></textarea>
+                        </div>
+                    </div>
+
+                    <button class="button button-primary submit-button" type="submit">Send PATCH request</button>
+                </form>
+
+                <form class="operation-form" id="form-delete" data-operation="delete" aria-label="Delete a book" hidden>
+                    <p class="form-intro">A successful delete returns <code>204 No Content</code> with no body. This cannot be undone without a restart.</p>
+
+                    <div class="field-grid">
+                        <div class="field field-narrow">
+                            <label for="delete-id">Book id</label>
+                            <input id="delete-id" name="id" type="number" min="1" step="1" required placeholder="9">
+                        </div>
+                    </div>
+
+                    <button class="button button-danger submit-button" type="submit">Send DELETE request</button>
+                </form>
+
+                <form class="operation-form" id="form-genres" data-operation="genres" aria-label="Get genre vocabulary" hidden>
+                    <p class="form-intro">Metadata endpoints describe the vocabulary a client can use for filters. No request body is needed.</p>
+
+                    <button class="button button-primary submit-button" type="submit">Send GET request</button>
+                </form>
+
+                <p class="form-message" id="console-message" role="status" aria-live="polite"></p>
+            </section>
         </div>
+
+        <section class="response-panel panel" aria-labelledby="response-title">
+            <div class="response-head">
+                <div>
+                    <p class="panel-kicker">Last response</p>
+                    <h2 id="response-title">Result</h2>
+                </div>
+                <div class="response-meta">
+                    <span class="status-badge" id="status-badge" hidden>200 OK</span>
+                    <span class="timing" id="timing"></span>
+                </div>
+            </div>
+
+            <p class="response-request" id="response-request">No request sent yet.</p>
+
+            <div class="response-empty" id="response-empty">
+                Send a request from the console and the exact JSON response will appear here.
+            </div>
+
+            <pre class="response-code" id="response-code" hidden><code id="response-body"></code></pre>
+
+            <div class="error-details" id="error-details" hidden>
+                <h3>Validation details</h3>
+                <ul id="error-list"></ul>
+            </div>
+        </section>
+
+        <section class="library-section" aria-labelledby="library-title">
+            <div class="section-heading">
+                <div>
+                    <p class="panel-kicker">Live collection</p>
+                    <h2 id="library-title">Library shelf</h2>
+                </div>
+                <p class="limit-note" id="library-summary">Loading the collection…</p>
+            </div>
+
+            <div class="book-grid" id="book-grid">
+                <p class="loading-row" id="library-loading">Loading books…</p>
+            </div>
+
+            <div class="pagination" id="pagination" hidden>
+                <button class="button button-quiet button-small" id="prev-page" type="button">Previous page</button>
+                <span id="page-label">Page 1 of 1</span>
+                <button class="button button-quiet button-small" id="next-page" type="button">Next page</button>
+            </div>
+        </section>
     </main>
 
     <footer class="site-footer">
-        <p>Workshop 6 · REST API Basics · Fastify + TypeScript</p>
-        <p>Validation · consistent envelopes · status codes · rate limiting · CORS</p>
+        <span>Workshop 6 · Building REST APIs with Fastify and TypeScript</span>
+        <span>In-memory data · resets when the server restarts</span>
     </footer>
 
-    <script type="module" src="/js/app.js"></script>
-</body>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+    <noscript>
+        <p class="noscript-note">The interactive console needs JavaScript. The API itself works without it — try <code>curl http://127.0.0.1:3010/api/books</code>.</p>
+    </noscript>
+</body>
 </html>

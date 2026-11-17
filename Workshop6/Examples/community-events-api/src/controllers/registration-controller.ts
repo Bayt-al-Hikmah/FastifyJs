@@ -1,72 +1,80 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
-import type { RegistrationListQuery } from "../schemas/registration-schemas.js";
+import type {
+    FastifyReply,
+    FastifyRequest
+} from 'fastify'
+
 import {
     cancelRegistration,
-    listEventRegistrations,
     listMyRegistrations,
     registerForEvent
-} from "../services/registration-service.js";
+} from '../services/registration-service.js'
 
-type IdParam = {
-    id: number;
-};
 
-export async function handleRegisterForEvent(
-    request: FastifyRequest<{ Params: IdParam }>,
+type EventIdParams = {
+
+    eventId: number
+
+}
+
+
+export async function registerForEventHandler(
+    request: FastifyRequest<{ Params: EventIdParams }>,
     reply: FastifyReply
-) {
-    const user = request.currentUser!;
+): Promise<FastifyReply> {
+
     const registration = await registerForEvent(
         request.server.prisma,
-        Number(request.params.id),
-        user.id
-    );
+        request.currentUser!.id,
+        request.params.eventId
+    )
 
     return reply.code(201).send({
-        data: registration
-    });
+
+        message: 'Registration successful.',
+
+        data: {
+            registration
+        }
+
+    })
+
 }
 
-export async function handleCancelRegistration(
-    request: FastifyRequest<{ Params: IdParam }>,
+
+export async function cancelRegistrationHandler(
+    request: FastifyRequest<{ Params: EventIdParams }>,
     reply: FastifyReply
-) {
-    const user = request.currentUser!;
+): Promise<FastifyReply> {
+
     await cancelRegistration(
         request.server.prisma,
-        Number(request.params.id),
-        user.id
-    );
+        request.currentUser!.id,
+        request.params.eventId
+    )
 
-    return reply.code(204).send();
+    return reply.code(204).send()
+
 }
 
-export async function handleListEventRegistrations(
-    request: FastifyRequest<{ Params: IdParam; Querystring: RegistrationListQuery }>,
+
+export async function listMyRegistrationsHandler(
+    request: FastifyRequest,
     reply: FastifyReply
-) {
-    const user = request.currentUser!;
-    const result = await listEventRegistrations(
+): Promise<FastifyReply> {
+
+    const registrations = await listMyRegistrations(
         request.server.prisma,
-        Number(request.params.id),
-        user.id,
-        user.role,
-        request.query
-    );
+        request.currentUser!.id
+    )
 
-    return reply.code(200).send(result);
-}
+    return reply.code(200).send({
 
-export async function handleListMyRegistrations(
-    request: FastifyRequest<{ Querystring: RegistrationListQuery }>,
-    reply: FastifyReply
-) {
-    const user = request.currentUser!;
-    const result = await listMyRegistrations(
-        request.server.prisma,
-        user.id,
-        request.query
-    );
+        message: 'Your registrations retrieved successfully.',
 
-    return reply.code(200).send(result);
+        data: {
+            registrations
+        }
+
+    })
+
 }

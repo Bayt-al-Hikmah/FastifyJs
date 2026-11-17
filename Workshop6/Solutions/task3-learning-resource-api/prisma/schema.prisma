@@ -1,0 +1,76 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Role {
+    INSTRUCTOR
+    STUDENT
+}
+
+enum ResourceType {
+    VIDEO
+    ARTICLE
+    BOOK
+    EXERCISE
+}
+
+enum PublicationStatus {
+    DRAFT
+    PUBLISHED
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    name         String   @db.VarChar(80)
+    email        String   @unique @db.VarChar(254)
+    passwordHash String
+    role         Role     @default(STUDENT)
+
+    resources Resource[] @relation("ResourceInstructor")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Resource {
+    id          Int               @id @default(autoincrement())
+    title       String            @db.VarChar(160)
+    description String            @db.VarChar(2000)
+    subject     String            @db.VarChar(80)
+    type        ResourceType
+    status      PublicationStatus @default(DRAFT)
+
+    instructorId Int
+    instructor   User @relation("ResourceInstructor", fields: [instructorId], references: [id], onDelete: Cascade)
+
+    attachment Attachment?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([instructorId, createdAt])
+    @@index([status, subject])
+    @@index([status, type])
+}
+
+model Attachment {
+    id Int @id @default(autoincrement())
+
+    resourceId Int      @unique
+    resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+    originalName String @db.VarChar(255)
+    storageKey   String @unique @db.VarChar(36)
+    mimeType     String @db.VarChar(100)
+    extension    String @db.VarChar(10)
+    size         Int
+
+    createdAt DateTime @default(now())
+
+    @@index([resourceId, createdAt])
+}

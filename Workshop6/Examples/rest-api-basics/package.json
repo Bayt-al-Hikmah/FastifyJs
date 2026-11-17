@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "private": true,
     "type": "module",
-    "description": "Workshop 6 example: a REST-style in-memory community library API with validation, rate limiting, and an API explorer",
+    "description": "Workshop 6 example: a database-free Community Library REST API built with Fastify and TypeScript",
     "engines": {
         "node": ">=20"
     },
@@ -14,7 +14,7 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@fastify/cors": "^11.4.3",
+        "@fastify/cors": "^11.1.0",
         "@fastify/rate-limit": "^11.2.2",
         "@fastify/static": "^10.1.11",
         "dotenv": "^18.0.10",
@@ -24,5 +24,8 @@
         "@types/node": "^22.20.5",
         "tsx": "^4.23.15",
         "typescript": "^5.9.3"
+    },
+    "allowScripts": {
+        "esbuild@0.28.2": true
     }
 }

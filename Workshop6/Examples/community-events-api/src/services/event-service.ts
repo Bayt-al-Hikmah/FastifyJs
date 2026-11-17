@@ -1,382 +1,657 @@
-import type { Readable } from "node:stream";
-
-import type { Prisma, PrismaClient } from "../generated/prisma/client.js";
-import { ApiError } from "../lib/api-error.js";
-import {
-    removeStoredCover,
-    resolveCoverPath,
-    saveUploadedCover
-} from "../lib/media-storage.js";
-import { buildPagination } from "../lib/pagination.js";
-import {
-    eventSelect,
-    serializeEvent,
-    type SerializedEvent
-} from "../lib/serializers.js";
 import type {
-    CreateEventBody,
+    Prisma,
+    PrismaClient
+} from '../generated/prisma/client.js'
+
+import { ApiError } from '../lib/api-error.js'
+import { buildPageWindow } from '../lib/pagination.js'
+import { buildPaginationMeta } from '../lib/pagination.js'
+import {
+    eventDetailSelect,
+    eventListSelect,
+    serializeEventDetail,
+    serializeEventSummary
+} from '../lib/serializers.js'
+
+import type {
     EventCategoryValue,
-    EventListQuery,
-    MyEventListQuery,
-    UpdateEventBody
-} from "../schemas/event-schemas.js";
-import type { AuthenticatedUser } from "../types/auth.js";
+    EventDetail,
+    EventDetailRow,
+    EventListRow,
+    EventSummary
+} from '../lib/serializers.js'
+
+
+export type CreateEventInput = {
+
+    title: string
+
+    description: string
+
+    location: string
+
+    startsAt: string
+
+    capacity: number
+
+    category?: EventCategoryValue
+
+}
+
+
+export type UpdateEventInput = {
+
+    title?: string
+
+    description?: string
+
+    location?: string
+
+    startsAt?: string
+
+    capacity?: number
+
+    category?: EventCategoryValue
+
+    status?: 'DRAFT' | 'PUBLISHED'
+
+}
+
+
+export type ListEventsQuery = {
+
+    search?: string
+
+    category?: EventCategoryValue
+
+    page?: number
+
+    limit?: number
+
+}
+
+
+export type ListMyEventsQuery = {
+
+    status?: 'DRAFT' | 'PUBLISHED'
+
+    page?: number
+
+    limit?: number
+
+}
+
+
+export type CoverInput = {
+
+    storageName: string
+
+    mimeType: string
+
+    sizeBytes: number
+
+    originalName: string
+
+}
+
+
+export type CoverResult = {
+
+    id: number
+
+    mimeType: string
+
+    sizeBytes: number
+
+}
+
+
+export type EventPage = {
+
+    events: EventSummary[]
+
+    pagination: ReturnType<typeof buildPaginationMeta>
+
+}
+
+
+function parseStartsAt(value: string): Date {
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+
+        throw ApiError.badRequest(
+            'startsAt must be a valid date-time value.'
+        )
+
+    }
+
+    return date
+
+}
+
 
 export async function listPublishedEvents(
     prisma: PrismaClient,
-    query: EventListQuery
-) {
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(50, Math.max(1, query.limit ?? 10));
-    const skip = (page - 1) * limit;
+    query: ListEventsQuery
+): Promise<EventPage> {
+
+    const { page, limit, skip } = buildPageWindow(query)
 
     const where: Prisma.EventWhereInput = {
-        status: "PUBLISHED"
-    };
 
-    if (query.category) {
-        where.category = query.category as Prisma.EnumEventCategoryFilter;
-    }
+        status: 'PUBLISHED',
 
-    if (query.search) {
-        where.OR = [
-            {
+        ...(query.search
+            ? {
                 title: {
                     contains: query.search,
-                    mode: "insensitive"
-                }
-            },
-            {
-                description: {
-                    contains: query.search,
-                    mode: "insensitive"
-                }
-            },
-            {
-                location: {
-                    contains: query.search,
-                    mode: "insensitive"
+                    mode: 'insensitive' as const
                 }
             }
-        ];
+            : {}),
+
+        ...(query.category
+            ? { category: query.category }
+            : {})
+
     }
 
-    let orderBy: Prisma.EventOrderByWithRelationInput = { startsAt: "asc" };
 
-    if (query.sort === "newest") {
-        orderBy = { createdAt: "desc" };
-    } else if (query.sort === "title") {
-        orderBy = { title: "asc" };
-    }
+    const [rows, total] = await prisma.$transaction([
 
-    const [total, events] = await Promise.all([
-        prisma.event.count({ where }),
         prisma.event.findMany({
+
             where,
-            orderBy,
+
+            select: eventListSelect,
+
+            orderBy: {
+                startsAt: 'asc'
+            },
+
             skip,
-            take: limit,
-            select: eventSelect
+
+            take: limit
+
+        }),
+
+        prisma.event.count({
+            where
         })
-    ]);
+
+    ])
+
 
     return {
-        data: events.map(serializeEvent),
-        meta: buildPagination(page, limit, total)
-    };
+
+        events: (rows as EventListRow[]).map(
+            serializeEventSummary
+        ),
+
+        pagination: buildPaginationMeta(
+            page,
+            limit,
+            total
+        )
+
+    }
+
 }
+
+
+export async function getPublishedEventById(
+    prisma: PrismaClient,
+    eventId: number
+): Promise<EventDetail> {
+
+    const row = await prisma.event.findFirst({
+
+        where: {
+            id: eventId,
+            status: 'PUBLISHED'
+        },
+
+        select: eventDetailSelect
+
+    })
+
+
+    if (!row) {
+
+        throw ApiError.notFound(
+            'Event not found.'
+        )
+
+    }
+
+
+    return serializeEventDetail(
+        row as EventDetailRow
+    )
+
+}
+
 
 export async function listMyEvents(
     prisma: PrismaClient,
     userId: number,
-    query: MyEventListQuery
-) {
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(50, Math.max(1, query.limit ?? 10));
-    const skip = (page - 1) * limit;
+    query: ListMyEventsQuery
+): Promise<EventPage> {
+
+    const { page, limit, skip } = buildPageWindow(query)
 
     const where: Prisma.EventWhereInput = {
-        organizerId: userId
-    };
 
-    if (query.status) {
-        where.status = query.status as Prisma.EnumEventStatusFilter;
+        organizerId: userId,
+
+        ...(query.status
+            ? { status: query.status }
+            : {})
+
     }
 
-    if (query.category) {
-        where.category = query.category as Prisma.EnumEventCategoryFilter;
-    }
 
-    if (query.search) {
-        where.OR = [
-            { title: { contains: query.search, mode: "insensitive" } },
-            { description: { contains: query.search, mode: "insensitive" } },
-            { location: { contains: query.search, mode: "insensitive" } }
-        ];
-    }
+    const [rows, total] = await prisma.$transaction([
 
-    const [total, events] = await Promise.all([
-        prisma.event.count({ where }),
         prisma.event.findMany({
+
             where,
-            orderBy: { createdAt: "desc" },
+
+            select: eventListSelect,
+
+            orderBy: {
+                startsAt: 'asc'
+            },
+
             skip,
-            take: limit,
-            select: eventSelect
+
+            take: limit
+
+        }),
+
+        prisma.event.count({
+            where
         })
-    ]);
+
+    ])
+
 
     return {
-        data: events.map(serializeEvent),
-        meta: buildPagination(page, limit, total)
-    };
-}
 
-export async function getEventById(
-    prisma: PrismaClient,
-    eventId: number,
-    currentUser?: AuthenticatedUser
-): Promise<SerializedEvent> {
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        select: eventSelect
-    });
+        events: (rows as EventListRow[]).map(
+            serializeEventSummary
+        ),
 
-    if (!event) {
-        throw ApiError.notFound("Event not found.");
+        pagination: buildPaginationMeta(
+            page,
+            limit,
+            total
+        )
+
     }
 
-    if (event.status === "DRAFT") {
-        const isOwner = currentUser && currentUser.id === event.organizerId;
-        const isAdmin = currentUser && currentUser.role === "ADMIN";
-
-        if (!isOwner && !isAdmin) {
-            throw ApiError.notFound("Event not found.");
-        }
-    }
-
-    return serializeEvent(event);
 }
+
 
 export async function createEvent(
     prisma: PrismaClient,
     userId: number,
-    input: CreateEventBody
-): Promise<SerializedEvent> {
-    const startsAt = new Date(input.startsAt);
+    input: CreateEventInput
+): Promise<EventDetail> {
 
-    if (Number.isNaN(startsAt.getTime())) {
-        throw ApiError.badRequest("Invalid event starting date and time.");
-    }
+    const row = await prisma.event.create({
 
-    const event = await prisma.event.create({
         data: {
             title: input.title,
             description: input.description,
             location: input.location,
-            startsAt,
+            startsAt: parseStartsAt(input.startsAt),
             capacity: input.capacity,
-            category: (input.category ?? "OTHER") as Prisma.EventCreateInput["category"],
-            status: (input.status ?? "DRAFT") as Prisma.EventCreateInput["status"],
+            category: input.category ?? 'OTHER',
+            status: 'DRAFT',
+
+            // Ownership always comes from the verified token.
             organizerId: userId
         },
-        select: eventSelect
-    });
 
-    return serializeEvent(event);
+        select: eventDetailSelect
+
+    })
+
+
+    return serializeEventDetail(
+        row as EventDetailRow
+    )
+
 }
 
-export async function updateEvent(
+
+export async function updateOwnedEvent(
     prisma: PrismaClient,
-    eventId: number,
     userId: number,
-    userRole: string,
-    input: UpdateEventBody
-): Promise<SerializedEvent> {
-    const existing = await prisma.event.findUnique({
-        where: { id: eventId },
-        select: { id: true, organizerId: true, registeredCount: true }
-    });
+    eventId: number,
+    input: UpdateEventInput
+): Promise<EventDetail> {
 
-    if (!existing) {
-        throw ApiError.notFound("Event not found.");
+    const data: Prisma.EventUpdateManyMutationInput = {}
+
+
+    if (input.title !== undefined) {
+        data.title = input.title
     }
 
-    if (existing.organizerId !== userId && userRole !== "ADMIN") {
-        throw ApiError.forbidden("You do not have permission to modify this event.");
+    if (input.description !== undefined) {
+        data.description = input.description
     }
 
-    const data: Prisma.EventUpdateInput = {};
-
-    if (input.title !== undefined) data.title = input.title;
-    if (input.description !== undefined) data.description = input.description;
-    if (input.location !== undefined) data.location = input.location;
-    if (input.category !== undefined) data.category = input.category;
-    if (input.status !== undefined) data.status = input.status;
+    if (input.location !== undefined) {
+        data.location = input.location
+    }
 
     if (input.startsAt !== undefined) {
-        const parsed = new Date(input.startsAt);
-        if (Number.isNaN(parsed.getTime())) {
-            throw ApiError.badRequest("Invalid event start date.");
-        }
-        data.startsAt = parsed;
+        data.startsAt = parseStartsAt(input.startsAt)
     }
 
     if (input.capacity !== undefined) {
-        if (input.capacity < existing.registeredCount) {
-            throw ApiError.conflict(
-                `Capacity cannot be reduced below the current registration count (${existing.registeredCount}).`
-            );
-        }
-        data.capacity = input.capacity;
+        data.capacity = input.capacity
     }
 
-    const updated = await prisma.event.update({
-        where: { id: eventId },
+    if (input.category !== undefined) {
+        data.category = input.category
+    }
+
+    if (input.status !== undefined) {
+        data.status = input.status
+    }
+
+
+    const [row] = await prisma.event.updateManyAndReturn({
+
+        where: {
+            id: eventId,
+            organizerId: userId
+        },
+
         data,
-        select: eventSelect
-    });
 
-    return serializeEvent(updated);
+        select: eventDetailSelect
+
+    })
+
+
+    if (!row) {
+
+        throw ApiError.notFound(
+            'Event not found.'
+        )
+
+    }
+
+
+    return serializeEventDetail(
+        row as EventDetailRow
+    )
+
 }
 
-export async function deleteEvent(
+
+/**
+ * Return the old storage name so the controller can remove the file after a
+ * successful database delete. Prisma Cascades the metadata row for us.
+ */
+export async function deleteOwnedEvent(
     prisma: PrismaClient,
-    eventId: number,
     userId: number,
-    userRole: string
-): Promise<void> {
-    const existing = await prisma.event.findUnique({
-        where: { id: eventId },
+    eventId: number
+): Promise<string | null> {
+
+    const ownedEvent = await prisma.event.findFirst({
+
+        where: {
+            id: eventId,
+            organizerId: userId
+        },
+
         select: {
-            id: true,
-            organizerId: true,
             cover: {
-                select: { storageName: true }
+                select: {
+                    storageName: true
+                }
             }
         }
-    });
 
-    if (!existing) {
-        throw ApiError.notFound("Event not found.");
+    })
+
+
+    if (!ownedEvent) {
+
+        throw ApiError.notFound(
+            'Event not found.'
+        )
+
     }
 
-    if (existing.organizerId !== userId && userRole !== "ADMIN") {
-        throw ApiError.forbidden("You do not have permission to delete this event.");
+
+    const result = await prisma.event.deleteMany({
+
+        where: {
+            id: eventId,
+            organizerId: userId
+        }
+
+    })
+
+
+    if (result.count === 0) {
+
+        throw ApiError.notFound(
+            'Event not found.'
+        )
+
     }
 
-    if (existing.cover?.storageName) {
-        await removeStoredCover(existing.cover.storageName);
-    }
 
-    await prisma.event.delete({
-        where: { id: eventId }
-    });
+    return ownedEvent.cover?.storageName ?? null
+
 }
 
-export async function uploadEventCover(
+
+export async function upsertEventCover(
     prisma: PrismaClient,
-    eventId: number,
     userId: number,
-    userRole: string,
-    fileStream: Readable,
-    originalName: string
-) {
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
+    eventId: number,
+    input: CoverInput
+): Promise<{
+    cover: CoverResult
+    previousStorageName: string | null
+}> {
+
+    const ownedEvent = await prisma.event.findFirst({
+
+        where: {
+            id: eventId,
+            organizerId: userId
+        },
+
         select: {
-            id: true,
-            organizerId: true,
             cover: {
-                select: { storageName: true }
+                select: {
+                    storageName: true
+                }
             }
         }
-    });
 
-    if (!event) {
-        throw ApiError.notFound("Event not found.");
+    })
+
+
+    if (!ownedEvent) {
+
+        throw ApiError.notFound(
+            'Event not found.'
+        )
+
     }
 
-    if (event.organizerId !== userId && userRole !== "ADMIN") {
-        throw ApiError.forbidden("You do not have permission to upload a cover for this event.");
-    }
 
-    const stored = await saveUploadedCover(fileStream);
+    const cover = await prisma.eventCover.upsert({
 
-    if (event.cover?.storageName) {
-        await removeStoredCover(event.cover.storageName);
-    }
+        where: {
+            eventId
+        },
 
-    await prisma.eventCover.upsert({
-        where: { eventId },
         create: {
             eventId,
-            storageName: stored.storageName,
-            originalName: originalName.slice(0, 180),
-            mimeType: stored.mimeType,
-            sizeBytes: stored.sizeBytes
+            storageName: input.storageName,
+            originalName: input.originalName,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes
         },
+
         update: {
-            storageName: stored.storageName,
-            originalName: originalName.slice(0, 180),
-            mimeType: stored.mimeType,
-            sizeBytes: stored.sizeBytes
-        }
-    });
+            storageName: input.storageName,
+            originalName: input.originalName,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes
+        },
 
-    return {
-        coverUrl: `/api/events/${eventId}/cover`,
-        mimeType: stored.mimeType,
-        sizeBytes: stored.sizeBytes
-    };
-}
-
-export async function getEventCoverPath(
-    prisma: PrismaClient,
-    eventId: number
-): Promise<{ filePath: string; mimeType: string }> {
-    const cover = await prisma.eventCover.findUnique({
-        where: { eventId },
-        select: { storageName: true, mimeType: true }
-    });
-
-    if (!cover) {
-        throw ApiError.notFound("Event cover not found.");
-    }
-
-    return {
-        filePath: resolveCoverPath(cover.storageName),
-        mimeType: cover.mimeType
-    };
-}
-
-export async function deleteEventCover(
-    prisma: PrismaClient,
-    eventId: number,
-    userId: number,
-    userRole: string
-): Promise<void> {
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
         select: {
             id: true,
-            organizerId: true,
+            mimeType: true,
+            sizeBytes: true
+        }
+
+    })
+
+
+    return {
+
+        cover,
+
+        previousStorageName:
+            ownedEvent.cover?.storageName ?? null
+
+    }
+
+}
+
+
+export async function removeEventCover(
+    prisma: PrismaClient,
+    userId: number,
+    eventId: number
+): Promise<string> {
+
+    const ownedEvent = await prisma.event.findFirst({
+
+        where: {
+            id: eventId,
+            organizerId: userId
+        },
+
+        select: {
             cover: {
-                select: { storageName: true }
+                select: {
+                    storageName: true
+                }
             }
         }
-    });
 
-    if (!event) {
-        throw ApiError.notFound("Event not found.");
+    })
+
+
+    if (!ownedEvent?.cover) {
+
+        throw ApiError.notFound(
+            'This event does not have a cover image.'
+        )
+
     }
 
-    if (event.organizerId !== userId && userRole !== "ADMIN") {
-        throw ApiError.forbidden("You do not have permission to delete this cover.");
+
+    await prisma.eventCover.delete({
+
+        where: {
+            eventId
+        }
+
+    })
+
+
+    return ownedEvent.cover.storageName
+
+}
+
+
+export type CoverMetadata = {
+
+    storageName: string
+
+    mimeType: string
+
+    originalName: string
+
+    isPrivate: boolean
+
+}
+
+
+export async function getCoverMetadata(
+    prisma: PrismaClient,
+    eventId: number,
+    viewerId: number | null
+): Promise<CoverMetadata> {
+
+    const event = await prisma.event.findUnique({
+
+        where: {
+            id: eventId
+        },
+
+        select: {
+            status: true,
+            organizerId: true,
+            cover: {
+                select: {
+                    storageName: true,
+                    mimeType: true,
+                    originalName: true
+                }
+            }
+        }
+
+    })
+
+
+    const canView =
+        event?.cover !== null &&
+        event?.cover !== undefined &&
+        (
+            event.status === 'PUBLISHED' ||
+            event.organizerId === viewerId
+        )
+
+
+    if (!event?.cover || !canView) {
+
+        throw ApiError.notFound(
+            'Cover image not found.'
+        )
+
     }
 
-    if (event.cover?.storageName) {
-        await removeStoredCover(event.cover.storageName);
-        await prisma.eventCover.delete({ where: { eventId } });
+
+    return {
+
+        storageName: event.cover.storageName,
+
+        mimeType: event.cover.mimeType,
+
+        originalName: event.cover.originalName,
+
+        isPrivate: event.status !== 'PUBLISHED'
+
     }
+
 }

@@ -1,154 +1,175 @@
-import jwt from "@fastify/jwt";
-import fp from "fastify-plugin";
+import fp from 'fastify-plugin'
+import jwt from '@fastify/jwt'
 
-import type {
-    FastifyInstance,
-    FastifyPluginAsync,
-    FastifyReply,
-    FastifyRequest
-} from "fastify";
+import { env } from '../config/env.js'
 
-import { env } from "../config/env.js";
-import type { AuthenticatedUser } from "../types/auth.js";
-import { publicUserSelect } from "../lib/serializers.js";
+import type { FastifyPluginAsync } from 'fastify'
 
-const issuer = "community-events-api";
+import type { UserRole } from '../types/auth.js'
 
-function sendAuthError(
-    reply: FastifyReply,
-    code: string,
-    message: string
-): void {
-    void reply
-        .header("WWW-Authenticate", "Bearer")
-        .code(401)
-        .send({
-            error: {
-                code,
-                message,
-                details: null
-            }
-        });
-}
 
-function parseUserId(subject: string): number | null {
-    if (!/^[1-9]\d*$/.test(subject)) {
-        return null;
-    }
+const numericIdPattern = /^[1-9]\d*$/
 
-    const userId = Number(subject);
-
-    if (
-        !Number.isSafeInteger(userId) ||
-        userId <= 0 ||
-        userId > 2_147_483_647
-    ) {
-        return null;
-    }
-
-    return userId;
-}
-
-async function loadUser(
-    fastify: FastifyInstance,
-    request: FastifyRequest
-): Promise<AuthenticatedUser | null> {
-    const userId = parseUserId(request.user.sub);
-
-    if (userId === null) {
-        return null;
-    }
-
-    return fastify.prisma.user.findUnique({
-        where: {
-            id: userId
-        },
-        select: publicUserSelect
-    });
-}
 
 const authPlugin: FastifyPluginAsync = async (fastify) => {
-    await fastify.register(jwt, {
+
+    fastify.register(jwt, {
+
         secret: env.jwtSecret,
+
         sign: {
-            algorithm: "HS256",
-            expiresIn: env.accessTokenExpiresIn,
-            iss: issuer
+            algorithm: 'HS256',
+            iss: env.jwtIssuer,
+            expiresIn: '15m'
         },
+
         verify: {
-            algorithms: ["HS256"],
-            allowedIss: issuer
-        }
-    });
-
-    fastify.decorateRequest("currentUser", null);
-
-    fastify.decorate("authenticate", async (request, reply) => {
-        try {
-            await request.jwtVerify();
-        } catch {
-            sendAuthError(
-                reply,
-                "INVALID_TOKEN",
-                "A valid Bearer access token is required."
-            );
-
-            return;
+            algorithms: ['HS256'],
+            allowedIss: env.jwtIssuer
         }
 
-        const user = await loadUser(fastify, request);
+    })
 
-        if (!user) {
-            sendAuthError(
-                reply,
-                "INVALID_TOKEN",
-                "The access token does not identify an active account."
-            );
 
-            return;
-        }
+    fastify.decorateRequest('currentUser', null)
 
-        request.currentUser = user;
-    });
 
-    fastify.decorate("optionalAuthenticate", async (request) => {
-        try {
-            await request.jwtVerify();
-        } catch {
-            request.currentUser = null;
+    fastify.decorate(
+        'authenticate',
+        async (request, reply): Promise<void> => {
 
-            return;
-        }
+            try {
 
-        request.currentUser = await loadUser(fastify, request);
-    });
+                await request.jwtVerify()
 
-    fastify.decorate("authorize", (...roles) => {
-        return async (request, reply) => {
-            if (!request.currentUser) {
-                sendAuthError(
-                    reply,
-                    "AUTHENTICATION_REQUIRED",
-                    "Authentication is required for this operation."
-                );
+            } catch {
 
-                return;
+                reply
+                    .header('WWW-Authenticate', 'Bearer')
+                    .code(401)
+                    .send({
+                        message: 'Invalid or missing access token.'
+                    })
+
+                return
+
             }
 
-            if (!roles.includes(request.currentUser.role)) {
-                void reply.code(403).send({
-                    error: {
-                        code: "FORBIDDEN",
-                        message:
-                            "You do not have permission to perform this operation.",
-                        details: null
-                    }
-                });
+
+            const subject = request.user.sub
+
+
+            if (!numericIdPattern.test(subject)) {
+
+                reply
+                    .header('WWW-Authenticate', 'Bearer')
+                    .code(401)
+                    .send({
+                        message: 'Invalid access token.'
+                    })
+
+                return
+
             }
-        };
-    });
-};
+
+
+            const userId = Number(subject)
+
+
+            if (
+                !Number.isSafeInteger(userId) ||
+                userId <= 0 ||
+                userId > 2_147_483_647
+            ) {
+
+                reply
+                    .header('WWW-Authenticate', 'Bearer')
+                    .code(401)
+                    .send({
+                        message: 'Invalid access token.'
+                    })
+
+                return
+
+            }
+
+
+            const user = await fastify.prisma.user.findUnique({
+
+                where: {
+                    id: userId
+                },
+
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    role: true
+                }
+
+            })
+
+
+            if (!user) {
+
+                reply
+                    .header('WWW-Authenticate', 'Bearer')
+                    .code(401)
+                    .send({
+                        message: 'Invalid authentication credentials.'
+                    })
+
+                return
+
+            }
+
+
+            request.currentUser = user
+
+        }
+    )
+
+
+    fastify.decorate('authorize', (...allowedRoles: UserRole[]) => {
+
+        return async (request, reply): Promise<void> => {
+
+            const user = request.currentUser
+
+
+            if (!user) {
+
+                reply
+                    .header('WWW-Authenticate', 'Bearer')
+                    .code(401)
+                    .send({
+                        message: 'Authentication required.'
+                    })
+
+                return
+
+            }
+
+
+            if (!allowedRoles.includes(user.role)) {
+
+                reply.code(403).send({
+                    message: 'You do not have permission to perform this action.'
+                })
+
+                return
+
+            }
+
+        }
+
+    })
+
+}
+
 
 export default fp(authPlugin, {
-    name: "auth"
-});
+
+    name: 'auth'
+
+})

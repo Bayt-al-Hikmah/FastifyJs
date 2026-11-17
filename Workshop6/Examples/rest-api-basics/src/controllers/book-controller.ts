@@ -1,82 +1,133 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
-import {
-    createBook,
-    deleteBook,
-    getBookById,
-    listBooks,
-    updateBook
-} from "../services/book-service.js";
+import type { BookService } from '../services/book-service.js'
 import type {
-    BookListQuery,
+    BookIdParams,
     CreateBookInput,
+    ListBooksQuery,
     UpdateBookInput
-} from "../types/book.js";
+} from '../types/book.js'
 
-type BookParams = {
-    id: number;
-};
 
-export async function listBookCollection(
-    request: FastifyRequest<{ Querystring: BookListQuery }>,
-    reply: FastifyReply
-): Promise<void> {
-    const result = listBooks(request.query);
+type ListBooksRequest = FastifyRequest<{
+    Querystring: ListBooksQuery
+}>
 
-    return reply.send({
-        data: result.books,
-        meta: {
-            pagination: result.pagination,
-            filters: result.filters,
-            sort: result.sort
-        }
-    });
-}
+type BookIdRequest = FastifyRequest<{
+    Params: BookIdParams
+}>
 
-export async function getBook(
-    request: FastifyRequest<{ Params: BookParams }>,
-    reply: FastifyReply
-): Promise<void> {
-    const book = getBookById(request.params.id);
+type CreateBookRequest = FastifyRequest<{
+    Body: CreateBookInput
+}>
 
-    return reply.send({
-        data: book
-    });
-}
+type UpdateBookRequest = FastifyRequest<{
+    Params: BookIdParams
+    Body: UpdateBookInput
+}>
 
-export async function createBookHandler(
-    request: FastifyRequest<{ Body: CreateBookInput }>,
-    reply: FastifyReply
-): Promise<void> {
-    const book = createBook(request.body);
 
-    return reply
-        .header("Location", `/api/books/${book.id}`)
-        .code(201)
-        .send({
+/**
+ * Controllers translate between HTTP and the service layer.
+ *
+ * They choose status codes, build the consistent `message` / `data` envelope,
+ * and let expected failures (ApiError) bubble up to the central error handler.
+ * Arrow properties keep `this` bound when the methods are passed directly to
+ * Fastify as route handlers.
+ */
+
+export class BookController {
+
+    constructor(private readonly books: BookService) {}
+
+
+    list = async (
+        request: ListBooksRequest,
+        reply: FastifyReply
+    ): Promise<FastifyReply> => {
+
+        const result = this.books.list(request.query)
+
+        return reply.code(200).send({
+
+            message: 'Books retrieved successfully.',
+
+            data: result.books,
+
+            pagination: result.pagination
+
+        })
+
+    }
+
+
+    getById = async (
+        request: BookIdRequest,
+        reply: FastifyReply
+    ): Promise<FastifyReply> => {
+
+        const book = this.books.findById(request.params.id)
+
+        return reply.code(200).send({
+
+            message: 'Book retrieved successfully.',
+
             data: book
-        });
-}
 
-export async function updateBookHandler(
-    request: FastifyRequest<{
-        Params: BookParams;
-        Body: UpdateBookInput;
-    }>,
-    reply: FastifyReply
-): Promise<void> {
-    const book = updateBook(request.params.id, request.body);
+        })
 
-    return reply.send({
-        data: book
-    });
-}
+    }
 
-export async function deleteBookHandler(
-    request: FastifyRequest<{ Params: BookParams }>,
-    reply: FastifyReply
-): Promise<void> {
-    deleteBook(request.params.id);
 
-    return reply.code(204).send();
+    create = async (
+        request: CreateBookRequest,
+        reply: FastifyReply
+    ): Promise<FastifyReply> => {
+
+        const book = this.books.create(request.body)
+
+        return reply.code(201).send({
+
+            message: 'Book created successfully.',
+
+            data: book
+
+        })
+
+    }
+
+
+    update = async (
+        request: UpdateBookRequest,
+        reply: FastifyReply
+    ): Promise<FastifyReply> => {
+
+        const book = this.books.update(
+            request.params.id,
+            request.body
+        )
+
+        return reply.code(200).send({
+
+            message: 'Book updated successfully.',
+
+            data: book
+
+        })
+
+    }
+
+
+    remove = async (
+        request: BookIdRequest,
+        reply: FastifyReply
+    ): Promise<FastifyReply> => {
+
+        this.books.remove(request.params.id)
+
+        // 204 responses must not carry a body.
+        return reply.code(204).send()
+
+    }
+
 }
